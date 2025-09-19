@@ -36,14 +36,14 @@ _C.MODEL.MAMBA_BI = False # whether use the bidirectional mamba
 _C.MODEL.ADAPTER = True # whether use the adapter
 _C.MODEL.FROZEN = True # whether freeze the backbone
 
-# ========== 新增配置：多尺度MoE设置 ==========
-# 作者修改：添加多尺度Mixture-of-Experts模块的配置选项
-# 功能：控制是否启用多尺度MoE功能以及滑动窗口尺度设置
-# 基于：idea-01.png的创新设计
+# ========== 新增配置：CLIP多尺度滑动窗口设置 ==========
+# 用户修改：在保持CLIP分支的基础上，添加多尺度滑动窗口配置
+# 功能：控制是否启用CLIP多尺度滑动窗口特征提取
+# 基于：多尺度滑动窗口创新设计
 # 撤销方法：删除以下两行配置代码
-# Multi-Scale MoE settings
-_C.MODEL.USE_MULTI_SCALE_MOE = False # whether use multi-scale MoE (默认关闭，保持向后兼容)
-_C.MODEL.MOE_SCALES = [4, 8, 16] # sliding window scales for MoE (4x4, 8x8, 16x16窗口)
+# CLIP Multi-Scale Sliding Window settings
+_C.MODEL.USE_CLIP_MULTI_SCALE = False # whether use CLIP multi-scale sliding window (默认关闭，保持向后兼容)
+_C.MODEL.CLIP_MULTI_SCALE_SCALES = [4, 8, 16] # sliding window scales for CLIP (4x4, 8x8, 16x16窗口)
 # If train with label smooth, options: 'on', 'off'
 _C.MODEL.IF_LABELSMOOTH = 'on'
 # If train with the contact feature
