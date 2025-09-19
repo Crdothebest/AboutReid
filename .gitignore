@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+venv/
+*.pyc
+
+# Node
+node_modules/
+npm-debug.log
+
+# 数据/模型
+*.zip
+*.tar
+*.pth
+*.pt
+*.whl
+dataset/
+output/
+mamba包安装文件/
+data/market1501_to_RGBNT201_dark
+data/RGBNT100
+data/RGBNT201
+data/RGBNT201-C
+

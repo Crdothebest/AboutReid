@@ -1,0 +1,98 @@
+# encoding: utf-8
+"""
+@author:  liaoxingyu
+@contact: sherlockliao01@gmail.com
+"""
+
+import torch.nn.functional as F
+from .softmax_loss import CrossEntropyLabelSmooth, LabelSmoothingCrossEntropy
+from .triplet_loss import TripletLoss
+from .center_loss import CenterLoss
+
+
+def make_loss(cfg, num_classes):  # modified by gu
+    # 获取数据加载器采样策略
+    sampler = cfg.DATALOADER.SAMPLER
+    feat_dim = 2048  # 特征维度（根据模型输出的特征大小设定）
+
+    # 创建 CenterLoss 对象，计算样本类中心的损失
+    center_criterion = CenterLoss(num_classes=num_classes, feat_dim=feat_dim, use_gpu=False)  # center loss
+
+    # 如果配置中包含 'triplet'，则选择三元组损失函数
+    if 'triplet' in cfg.MODEL.METRIC_LOSS_TYPE:
+        if cfg.MODEL.NO_MARGIN:  # 如果没有设置边界，使用软三元组损失
+            triplet = TripletLoss()
+            print("using soft triplet loss for training")
+        else:  # 否则使用带有边界的三元组损失
+            triplet = TripletLoss(cfg.SOLVER.MARGIN)  # triplet loss
+            print("using triplet loss with margin:{}".format(cfg.SOLVER.MARGIN))
+    else:
+        print('expected METRIC_LOSS_TYPE should be triplet'
+              'but got {}'.format(cfg.MODEL.METRIC_LOSS_TYPE))
+
+    # 如果启用了标签平滑，创建带标签平滑的交叉熵损失函数
+    if cfg.MODEL.IF_LABELSMOOTH == 'on':
+        xent = CrossEntropyLabelSmooth(num_classes=num_classes)  # 标签平滑的交叉熵损失
+        print("label smooth on, numclasses:", num_classes)
+
+    # 根据采样策略，选择对应的损失计算方式
+    if sampler == 'softmax':  # 采用 softmax 损失
+        def loss_func(score, feat, target, target_cam):
+            return F.cross_entropy(score, target)  # 计算交叉熵损失
+
+    elif cfg.DATALOADER.SAMPLER == 'softmax_triplet':  # 采用 softmax 和 triplet 损失
+        def loss_func(score, feat, target, target_cam):
+            # 如果使用三元组损失
+            if cfg.MODEL.METRIC_LOSS_TYPE == 'triplet':
+                # 如果启用了标签平滑
+                if cfg.MODEL.IF_LABELSMOOTH == 'on':
+                    # 对于 score 为列表的情况，分别计算每个元素的损失并加权
+                    if isinstance(score, list):
+                        # 计算每个 score 的交叉熵损失并求平均
+                        ID_LOSS = [xent(scor, target) for scor in score[1:]]
+                        ID_LOSS = sum(ID_LOSS) / len(ID_LOSS)
+                        # 对第一个 score 特别处理，平均后再加权
+                        ID_LOSS = 0.5 * ID_LOSS + 0.5 * xent(score[0], target)
+                    else:
+                        ID_LOSS = xent(score, target)
+
+                    # 对于 feat 为列表的情况，分别计算每个特征的三元组损失并加权
+                    if isinstance(feat, list):
+                        TRI_LOSS = [triplet(feats, target)[0] for feats in feat[1:]]
+                        TRI_LOSS = sum(TRI_LOSS) / len(TRI_LOSS)
+                        TRI_LOSS = 0.5 * TRI_LOSS + 0.5 * triplet(feat[0], target)[0]
+                    else:
+                        TRI_LOSS = triplet(feat, target)[0]
+
+                    # 返回加权后的损失，包含 ID 损失和三元组损失
+                    return cfg.MODEL.ID_LOSS_WEIGHT * ID_LOSS + \
+                        cfg.MODEL.TRIPLET_LOSS_WEIGHT * TRI_LOSS
+                else:
+                    # 如果没有启用标签平滑，直接计算交叉熵损失和三元组损失
+                    if isinstance(score, list):
+                        ID_LOSS = [F.cross_entropy(scor, target) for scor in score[1:]]
+                        ID_LOSS = sum(ID_LOSS) / len(ID_LOSS)
+                        ID_LOSS = 0.5 * ID_LOSS + 0.5 * F.cross_entropy(score[0], target)
+                    else:
+                        ID_LOSS = F.cross_entropy(score, target)
+
+                    if isinstance(feat, list):
+                        TRI_LOSS = [triplet(feats, target)[0] for feats in feat[1:]]
+                        TRI_LOSS = sum(TRI_LOSS) / len(TRI_LOSS)
+                        TRI_LOSS = 0.5 * TRI_LOSS + 0.5 * triplet(feat[0], target)[0]
+                    else:
+                        TRI_LOSS = triplet(feat, target)[0]
+
+                    # 返回加权后的损失，包含 ID 损失和三元组损失
+                    return cfg.MODEL.ID_LOSS_WEIGHT * ID_LOSS + \
+                        cfg.MODEL.TRIPLET_LOSS_WEIGHT * TRI_LOSS
+            else:
+                print('expected METRIC_LOSS_TYPE should be triplet'
+                      'but got {}'.format(cfg.MODEL.METRIC_LOSS_TYPE))
+
+    else:
+        print('expected sampler should be softmax, triplet, softmax_triplet or softmax_triplet_center'
+              'but got {}'.format(cfg.DATALOADER.SAMPLER))
+
+    # 返回损失函数和中心损失（CenterLoss）
+    return loss_func, center_criterion

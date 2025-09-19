@@ -1,0 +1,72 @@
+# MambaPro Ablation Study Configuration
+# 消融实验配置文件 - 基于baseline配置
+
+MODEL:
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
+  TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
+  STRIDE_SIZE: [ 16, 16 ] # 步长
+  SIE_CAMERA: True # 是否使用相机嵌入
+  DIRECT: 1 # 直接
+  SIE_COE: 1.0 # 相机嵌入系数
+  ID_LOSS_WEIGHT: 0.25 # 分类损失权重
+  TRIPLET_LOSS_WEIGHT: 1.0 # 三元组损失权重
+  PROMPT: True # 是否使用提示
+  ADAPTER: True # 是否使用适配器
+  MAMBA: True # 是否使用Mamba
+  FROZEN: True # 是否冻结
+
+INPUT:
+  SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
+  SIZE_TEST: [ 256, 128 ] # 测试尺寸
+  PROB: 0.5 # random horizontal flip # 随机水平翻转
+  RE_PROB: 0.5 # random erasing # 随机擦除
+  PADDING: 10 # 填充
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet' # 采样器
+  NUM_INSTANCE: 8 # 每个批次实例数
+  NUM_WORKERS: 8 # 工作线程数
+
+DATASETS:
+  NAMES: ('RGBNT201') # 数据集名称
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
+
+SOLVER:
+  # 优化器设置
+  OPTIMIZER_NAME: 'Adam' # 优化器名称
+  BASE_LR: 0.0005 # 基础学习率
+  WEIGHT_DECAY: 0.0005 # 权重衰减
+  WEIGHT_DECAY_BIAS: 0.0005 # 偏置权重衰减
+  MOMENTUM: 0.9 # 动量
+  
+  # 训练设置
+  MAX_EPOCHS: 60 # 最大迭代数
+  IMS_PER_BATCH: 32 # 每个批次图像数
+  WARMUP_ITERS: 20 # 预热迭代数
+  WARMUP_METHOD: 'linear' # 预热方法
+  WARMUP_FACTOR: 0.01 # 预热因子
+  
+  # 损失函数设置
+  MARGIN: 0.3 # 三元组损失边界
+  CENTER_LOSS_WEIGHT: 0.0005 # 中心损失权重
+  CENTER_LR: 0.5 # 中心学习率
+  
+  # 学习率调度
+  GAMMA: 0.1 # 衰减率
+  STEPS: (30, 50) # 学习率衰减步数
+  
+  # 其他设置
+  SEED: 42 # 随机种子
+  CHECKPOINT_PERIOD: 10 # 检查点保存周期
+  LOG_PERIOD: 10 # 日志打印周期
+  EVAL_PERIOD: 5 # 验证周期
+
+TEST:
+  IMS_PER_BATCH: 64 # 每个批次图像数
+  RE_RANKING: 'no' # 是否重新排序
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  NECK_FEAT: 'after' # 颈部特征
+  FEAT_NORM: 'yes' # 特征归一化
+  MISS: "nothing" # 缺失
+
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation_thesis' # 输出目录

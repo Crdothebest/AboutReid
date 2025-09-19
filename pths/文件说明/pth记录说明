@@ -1,0 +1,6 @@
+MambaProbest.pth      # 你训练好的模型权重
+train_log.txt         # 训练日志
+ViT-B-16.pt           # CLIP 的预训练权重
+
+
+

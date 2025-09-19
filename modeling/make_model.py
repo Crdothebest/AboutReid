@@ -1,0 +1,281 @@
+"""
+MambaPro 模型构建（中文说明）
+
+职责：
+- 定义视觉骨干包装类 build_transformer（支持 ViT/CLIP/T2T 等）
+- 定义整体模型 MambaPro（多模态 RGB/NI/TI 特征提取与融合，支持 AAM/Mamba 分支）
+- 提供 make_model 工厂函数按配置实例化模型
+
+要点：
+- 通过 cfg 切换是否使用 CLIP、相机/视角嵌入（SIE）、LoRA 冻结等
+- 训练返回多头 logits/特征以支持多损失；测试返回拼接或融合特征
+"""
+import torch
+import torch.nn as nn
+from modeling.backbones.vit_pytorch import vit_base_patch16_224, vit_small_patch16_224, \
+    deit_small_patch16_224
+from modeling.backbones.t2t import t2t_vit_t_14, t2t_vit_t_24
+from timm.models.layers import trunc_normal_
+from modeling.make_model_clipreid import load_clip_to_cpu
+from modeling.clip.LoRA import mark_only_lora_as_trainable as lora_train
+from modeling.fusion_part.AAM import AAM
+# ========== 新增导入：多尺度MoE模块 ==========
+# 作者修改：添加多尺度Mixture-of-Experts模块的导入
+# 功能：实现基于idea-01.png的创新设计
+# 撤销方法：删除此行导入语句
+from modeling.fusion_part.multi_scale_moe import MultiScaleMoEAAM
+
+
+def weights_init_kaiming(m):  # 定义一个函数，用 Kaiming 初始化方法对模型层进行初始化
+    classname = m.__class__.__name__  # 获取当前层的类名（如 'Linear'、'Conv2d'、'BatchNorm2d' 等）
+    
+    if classname.find('Linear') != -1:  # 如果是全连接层（Linear）
+        nn.init.kaiming_normal_(m.weight, a=0, mode='fan_out')  # 使用 Kaiming 正态分布初始化权重，适合 ReLU 激活
+        nn.init.constant_(m.bias, 0.0)  # 将偏置初始化为 0
+
+    elif classname.find('Conv') != -1:  # 如果是卷积层（Conv）
+        nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in')  # 使用 Kaiming 正态分布初始化卷积核权重
+        if m.bias is not None:  # 如果卷积层有偏置项
+            nn.init.constant_(m.bias, 0.0)  # 将偏置初始化为 0
+
+    elif classname.find('BatchNorm') != -1:  # 如果是批归一化层（BatchNorm）
+        if m.affine:  # 如果 BatchNorm 层有可学习参数（weight 和 bias）
+            nn.init.constant_(m.weight, 1.0)  # 将缩放因子 gamma 初始化为 1
+            nn.init.constant_(m.bias, 0.0)   # 将平移因子 beta 初始化为 0
+
+
+def weights_init_classifier(m):  # 定义一个函数，用于初始化分类器层（通常是最后一层 Linear）
+    classname = m.__class__.__name__  # 获取层的类名
+    
+    if classname.find('Linear') != -1:  # 如果是全连接层
+        nn.init.normal_(m.weight, std=0.001)  # 使用均值为 0，标准差为 0.001 的正态分布初始化权重
+        if m.bias:  # 如果存在偏置
+            nn.init.constant_(m.bias, 0.0)  # 将偏置初始化为 0
+
+
+
+class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 等）
+    def __init__(self, num_classes, cfg, camera_num, view_num, factory,feat_dim):
+        super(build_transformer, self).__init__()
+        model_path = cfg.MODEL.PRETRAIN_PATH_T  # 预训练权重路径（ImageNet/自定义）
+        self.in_planes = feat_dim  # 特征维度（线性分类器/BNNeck输入）
+        self.cv_embed_sign = cfg.MODEL.SIE_CAMERA  # 是否启用相机/视角嵌入
+        self.neck = cfg.MODEL.NECK  # 颈部结构类型（如 bnneck）
+        self.neck_feat = cfg.TEST.NECK_FEAT  # 测试阶段返回 neck 前/后特征
+        self.model_name = cfg.MODEL.TRANSFORMER_TYPE  # 骨干类型名
+        self.trans_type = cfg.MODEL.TRANSFORMER_TYPE  # 同上
+        self.flops_test = cfg.MODEL.FLOPS_TEST  # FLOPs 测试标志
+        print('using Transformer_type: {} as a backbone'.format(cfg.MODEL.TRANSFORMER_TYPE))  # 打印骨干类型
+
+        if cfg.MODEL.SIE_CAMERA:
+            self.camera_num = camera_num  # 相机数量（用于 SIE）
+        else:
+            self.camera_num = 0
+        # No view
+        self.view_num = 0  # 视角数此处固定为0（如需可扩展）
+        if cfg.MODEL.TRANSFORMER_TYPE == 'vit_base_patch16_224':
+            self.base = factory[cfg.MODEL.TRANSFORMER_TYPE](img_size=cfg.INPUT.SIZE_TRAIN, sie_xishu=cfg.MODEL.SIE_COE,
+                                                            num_classes=num_classes,
+                                                            camera=self.camera_num, view=self.view_num,
+                                                            stride_size=cfg.MODEL.STRIDE_SIZE,
+                                                            drop_path_rate=cfg.MODEL.DROP_PATH,
+                                                            drop_rate=cfg.MODEL.DROP_OUT,
+                                                            attn_drop_rate=cfg.MODEL.ATT_DROP_RATE,
+                                                            cfg = cfg)  # 从工厂构建 ViT
+            self.clip = 0  # 标记非 CLIP 分支
+            self.base.load_param(model_path)  # 加载 ImageNet 预训练
+            print('Loading pretrained model from ImageNet')  # 提示信息
+            if cfg.MODEL.FROZEN:
+                lora_train(self.base)  # 仅训练 LoRA 参数（其余冻结）
+        elif cfg.MODEL.TRANSFORMER_TYPE == 'ViT-B-16':
+            self.clip = 1  # 标记走 CLIP 分支
+            self.sie_xishu = cfg.MODEL.SIE_COE  # SIE 系数
+            clip_model = load_clip_to_cpu(cfg, self.model_name, cfg.INPUT.SIZE_TRAIN[0] // cfg.MODEL.STRIDE_SIZE[0],
+                                          cfg.INPUT.SIZE_TRAIN[1] // cfg.MODEL.STRIDE_SIZE[1],
+                                          cfg.MODEL.STRIDE_SIZE)  # 加载 CLIP 模型
+            print('Loading pretrained model from CLIP')  # 提示信息
+            clip_model.to("cuda")  # 将 CLIP 模型移至 GPU
+            self.base = clip_model.visual  # 使用视觉编码器作为骨干
+            if cfg.MODEL.FROZEN:
+                lora_train(self.base)  # 仅训练 LoRA
+
+            if cfg.MODEL.SIE_CAMERA and cfg.MODEL.SIE_VIEW:
+                self.cv_embed = nn.Parameter(torch.zeros(camera_num * view_num, 768))  # 相机×视角嵌入
+                trunc_normal_(self.cv_embed, std=.02)  # 截断正态初始化
+                print('camera number is : {}'.format(camera_num))  # 打印相机数
+            elif cfg.MODEL.SIE_CAMERA:
+                self.cv_embed = nn.Parameter(torch.zeros(camera_num, 768))  # 仅相机嵌入
+                trunc_normal_(self.cv_embed, std=.02)
+                print('camera number is : {}'.format(camera_num))
+            elif cfg.MODEL.SIE_VIEW:
+                self.cv_embed = nn.Parameter(torch.zeros(view_num, 768))  # 仅视角嵌入
+                trunc_normal_(self.cv_embed, std=.02)
+                print('camera number is : {}'.format(view_num))
+
+        self.num_classes = num_classes
+        self.ID_LOSS_TYPE = cfg.MODEL.ID_LOSS_TYPE
+
+        self.classifier = nn.Linear(self.in_planes, self.num_classes, bias=False)  # 线性分类头
+        self.classifier.apply(weights_init_classifier)  # 分类头初始化
+
+        self.bottleneck = nn.BatchNorm1d(self.in_planes)  # BNNeck
+        self.bottleneck.bias.requires_grad_(False)  # 冻结偏置
+        self.bottleneck.apply(weights_init_kaiming)  # BN 初始化
+
+    def forward(self, x, label=None, cam_label=None, view_label=None, modality=None):
+        if self.clip == 0:
+            x = self.base(x, cam_label=cam_label, view_label=view_label, modality=modality)  # ViT/T2T 前向
+        else:
+            if self.cv_embed_sign:
+                if self.flops_test:
+                    cam_label = 0  # FLOPs 测试时统一相机索引
+                cv_embed = self.sie_xishu * self.cv_embed[cam_label]  # 取相机/视角嵌入
+            else:
+                cv_embed = None  # 不使用嵌入
+            x = self.base(x, cv_embed, modality)  # CLIP 前向
+
+        global_feat = x[:, 0]  # 取CLS token 作为全局特征
+        feat = self.bottleneck(global_feat)  # 过 BNNeck（训练常用）
+
+        if self.training:
+            if self.ID_LOSS_TYPE in ('arcface', 'cosface', 'amsoftmax', 'circle'):
+                cls_score = self.classifier(feat, label)  # 特殊 margin 类头（需要 label）
+            else:
+                cls_score = self.classifier(feat)  # 普通线性分类
+            return x, cls_score, global_feat  # 返回缓存、分类分数、全局特征
+        else:
+            if self.neck_feat == 'after':
+                return x, feat  # 测试返回 BN 后特征
+            else:
+                return x, global_feat  # 测试返回 BN 前特征
+
+    def load_param(self, trained_path):  # 从权重文件加载参数（兼容DP/DDP前缀）
+        param_dict = torch.load(trained_path)
+        for i in param_dict:
+            self.state_dict()[i.replace('module.', '')].copy_(param_dict[i])
+        print('Loading pretrained model from {}'.format(trained_path))  # 打印来源
+
+    def load_param_finetune(self, model_path):  # 精调：严格按键拷贝
+        param_dict = torch.load(model_path)
+        for i in param_dict:
+            self.state_dict()[i].copy_(param_dict[i])
+        print('Loading pretrained model for finetuning from {}'.format(model_path))
+
+
+class MambaPro(nn.Module):  # 三模态组装与融合 head
+    def __init__(self, num_classes, cfg, camera_num, view_num, factory):
+        super(MambaPro, self).__init__()
+        if 'vit_base_patch16_224' in cfg.MODEL.TRANSFORMER_TYPE:
+            self.feat_dim = 768  # ViT 基本维度
+        elif 'ViT-B-16' in cfg.MODEL.TRANSFORMER_TYPE:
+            self.feat_dim = 512  # CLIP ViT-B/16 维度
+        self.BACKBONE = build_transformer(num_classes, cfg, camera_num, view_num, factory,feat_dim=self.feat_dim)  # 共享骨干
+        self.num_classes = num_classes
+        self.cfg = cfg
+        self.num_instance = cfg.DATALOADER.NUM_INSTANCE  # 每ID样本数（采样策略用）
+        self.camera = camera_num  # 相机数
+        self.view = view_num  # 视角数
+        self.direct = cfg.MODEL.DIRECT  # 是否直接拼接分类
+        self.neck = cfg.MODEL.NECK  # 颈部类型
+        self.neck_feat = cfg.TEST.NECK_FEAT  # 测试特征选择
+        self.ID_LOSS_TYPE = cfg.MODEL.ID_LOSS_TYPE  # 分类头类型
+        self.mamba = cfg.MODEL.MAMBA  # 是否启用 Mamba 融合
+        
+        # ========== 新增配置：多尺度MoE开关 ==========
+        # 作者修改：添加多尺度MoE模块的配置选项
+        # 功能：从配置文件中读取是否启用多尺度MoE功能
+        # 默认值：False（保持向后兼容性）
+        # 撤销方法：删除此行代码
+        self.use_multi_scale_moe = getattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE', False)  # 是否启用多尺度MoE
+
+        # ========== 修改融合模块选择逻辑 ==========
+        # 作者修改：根据配置动态选择融合模块类型
+        # 原逻辑：直接使用AAM模块
+        # 新逻辑：支持多尺度MoE和原始AAM两种模式
+        # 撤销方法：将整个if-else块替换为原始代码：self.AAM = AAM(self.feat_dim, n_layers=2, cfg=cfg)
+        if self.use_multi_scale_moe:
+            # 使用多尺度MoE融合模块（基于idea-01.png的创新设计）
+            self.AAM = MultiScaleMoEAAM(self.feat_dim, n_layers=2, cfg=cfg)  # 多尺度MoE融合模块
+        else:
+            # 使用原始AAM融合模块（保持原有功能）
+            self.AAM = AAM(self.feat_dim, n_layers=2, cfg=cfg)  # 原始融合模块（AAM/Mamba内部）
+        self.miss_type = cfg.TEST.MISS  # 测试缺失模态策略
+        self.classifier = nn.Linear(3 * self.feat_dim, self.num_classes, bias=False)  # 原始三模态拼接分类头
+        self.classifier.apply(weights_init_classifier)
+        self.bottleneck = nn.BatchNorm1d(3 * self.feat_dim)  # 原始拼接 BNNeck
+        self.bottleneck.bias.requires_grad_(False)
+        self.bottleneck.apply(weights_init_kaiming)
+
+        self.classifier_fuse = nn.Linear(3 * self.feat_dim, self.num_classes, bias=False)  # 融合特征分类头
+        self.classifier_fuse.apply(weights_init_classifier)
+        self.bottleneck_fuse = nn.BatchNorm1d(3 * self.feat_dim)  # 融合 BNNeck
+        self.bottleneck_fuse.bias.requires_grad_(False)
+        self.bottleneck_fuse.apply(weights_init_kaiming)
+
+    def load_param(self, trained_path):  # 精确加载（不去掉 module 前缀）
+        param_dict = torch.load(trained_path)
+        for i in param_dict:
+            self.state_dict()[i].copy_(param_dict[i])
+        print('Loading pretrained model from {}'.format(trained_path))
+
+    def forward(self, x, label=None, cam_label=None, view_label=None):  # 训练/测试两条路径
+        if self.training:
+            RGB = x['RGB']  # 可见光
+            NI = x['NI']  # 近红外
+            TI = x['TI']  # 热红外
+
+            RGB_cash, RGB_score, RGB_global = self.BACKBONE(RGB, cam_label=cam_label, view_label=view_label,
+                                                            modality='rgb')
+            NI_cash, NI_score, NI_global = self.BACKBONE(NI, cam_label=cam_label, view_label=view_label, modality='nir')
+            TI_cash, TI_score, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
+
+            ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 三模态拼接
+            ori_global = self.bottleneck(ori)  # BNNeck
+            ori_score = self.classifier(ori_global)  # 原始拼接分类
+
+            if self.mamba:
+                fuse = self.AAM(RGB_cash, NI_cash, TI_cash)  # 融合序列（如 Mamba）
+                fuse_global = self.bottleneck_fuse(fuse)  # BNNeck 融合
+                fuse_score = self.classifier_fuse(fuse_global)  # 融合分类
+
+            if self.direct:  # 直接输出拼接/融合用于分类（简化 heads）
+                if self.mamba:
+                    return ori_score, ori, fuse_score, fuse  # 原始与融合并行输出
+                else:
+                    return ori_score, ori 
+            else:
+                if self.mamba: 
+                    return RGB_score, RGB_global, NI_score, NI_global, TI_score, TI_global, fuse_score, fuse  # 多头多尺度损失
+                else:
+                    return RGB_score, RGB_global, NI_score, NI_global, TI_score, TI_global
+
+        else:
+            RGB = x['RGB']  # 测试路径
+            NI = x['NI']    
+            TI = x['TI']
+            RGB_cash, RGB_global = self.BACKBONE(RGB, cam_label=cam_label, view_label=view_label, modality='rgb')
+            NI_cash, NI_global = self.BACKBONE(NI, cam_label=cam_label, view_label=view_label, modality='nir')
+            TI_cash, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
+
+            if self.mamba:
+                fuse = self.AAM(RGB_cash, NI_cash, TI_cash)  # 输出融合特征
+                return fuse
+            else:
+                ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 输出拼接特征
+                return ori
+
+
+__factory_T_type = {  # 骨干工厂映射
+    'vit_base_patch16_224': vit_base_patch16_224, 
+    'deit_base_patch16_224': vit_base_patch16_224,
+    'vit_small_patch16_224': vit_small_patch16_224,
+    'deit_small_patch16_224': deit_small_patch16_224,
+    't2t_vit_t_14': t2t_vit_t_14,
+    't2t_vit_t_24': t2t_vit_t_24,
+}
+
+
+def make_model(cfg, num_class, camera_num, view_num=0):  # 模型工厂
+    model = MambaPro(num_class, cfg, camera_num, view_num, __factory_T_type)  # 实例化 MambaPro
+    print('===========Building MambaPro===========')  # 构建提示
+    return model  # 返回模型

@@ -1,0 +1,96 @@
+# Ablation Studies Configuration Template
+# 消融实验配置文件模板
+
+# ============================================================================
+# Baseline (完整模型)
+# ============================================================================
+baseline:
+  MODEL:
+    PROMPT: True
+    ADAPTER: True
+    MAMBA: True
+    FROZEN: True
+  OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation/baseline'
+
+# ============================================================================
+# 消融实验1: 不使用Prompt
+# ============================================================================
+no_prompt:
+  MODEL:
+    PROMPT: False
+    ADAPTER: True
+    MAMBA: True
+    FROZEN: True
+  OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation/no_prompt'
+
+# ============================================================================
+# 消融实验2: 不使用Adapter
+# ============================================================================
+no_adapter:
+  MODEL:
+    PROMPT: True
+    ADAPTER: False
+    MAMBA: True
+    FROZEN: True
+  OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation/no_adapter'
+
+# ============================================================================
+# 消融实验3: 不使用Mamba
+# ============================================================================
+no_mamba:
+  MODEL:
+    PROMPT: True
+    ADAPTER: True
+    MAMBA: False
+    FROZEN: True
+  OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation/no_mamba'
+
+# ============================================================================
+# 消融实验4: 不冻结backbone
+# ============================================================================
+no_frozen:
+  MODEL:
+    PROMPT: True
+    ADAPTER: True
+    MAMBA: True
+    FROZEN: False
+  OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation/no_frozen'
+
+# ============================================================================
+# 消融实验5: 仅使用RGB模态
+# ============================================================================
+rgb_only:
+  MODEL:
+    PROMPT: True
+    ADAPTER: True
+    MAMBA: True
+    FROZEN: True
+  TEST:
+    MISS: 'nir_tir'  # 缺失NI和TI模态
+  OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation/rgb_only'
+
+# ============================================================================
+# 消融实验6: 仅使用NI模态
+# ============================================================================
+nir_only:
+  MODEL:
+    PROMPT: True
+    ADAPTER: True
+    MAMBA: True
+    FROZEN: True
+  TEST:
+    MISS: 'rgb_tir'  # 缺失RGB和TI模态
+  OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation/nir_only'
+
+# ============================================================================
+# 消融实验7: 仅使用TI模态
+# ============================================================================
+tir_only:
+  MODEL:
+    PROMPT: True
+    ADAPTER: True
+    MAMBA: True
+    FROZEN: True
+  TEST:
+    MISS: 'rgb_nir'  # 缺失RGB和NI模态
+  OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation/tir_only'

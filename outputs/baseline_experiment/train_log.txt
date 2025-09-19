@@ -1,0 +1,204 @@
+2025-09-04 15:17:38,266 MambaPro INFO: Saving model in the path :/home/zubuntu/workspace/yzy/MambaPro/outputs/baseline_experiment
+2025-09-04 15:17:38,266 MambaPro INFO: Namespace(config_file='configs/RGBNT201/MambaPro_baseline.yml', fea_cft=0, opts=['SOLVER.MAX_EPOCHS', '10'], local_rank=0)
+2025-09-04 15:17:38,267 MambaPro INFO: Loaded configuration file configs/RGBNT201/MambaPro_baseline.yml
+2025-09-04 15:17:38,267 MambaPro INFO: 
+MODEL:
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
+  TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
+  STRIDE_SIZE: [ 16, 16 ] # 步长
+  SIE_CAMERA: True # 是否使用相机嵌入
+  DIRECT: 1 # 直接
+  SIE_COE: 1.0 # 相机嵌入系数
+  ID_LOSS_WEIGHT: 0.25 # 分类损失权重
+  TRIPLET_LOSS_WEIGHT: 1.0 # 三元组损失权重
+  PROMPT: True # 是否使用提示
+  ADAPTER: True # 是否使用适配器
+  MAMBA: True # 是否使用Mamba
+  FROZEN: True # 是否冻结
+  
+  # ========== 基线配置：使用原始AAM模块 ==========
+  # 作者修改：创建基线实验配置，使用原始AAM模块作为对比基准
+  # 功能：验证原始MambaPro模型的性能，用于与创新点对比
+  # 撤销方法：删除此配置文件
+  USE_MULTI_SCALE_MOE: False  # 关闭多尺度MoE，使用原始AAM
+  MOE_SCALES: [4, 8, 16]      # 滑动窗口尺度（此配置下不使用）
+
+INPUT:
+  SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
+  SIZE_TEST: [ 256, 128 ] # 测试尺寸
+  PROB: 0.5 # random horizontal flip # 随机水平翻转
+  RE_PROB: 0.5 # random erasing # 随机擦除
+  PADDING: 10 # 填充
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet' # 采样器
+  NUM_INSTANCE: 8 # 每个批次实例数 (提高采样多样性)
+  NUM_WORKERS: 8 # 工作线程数
+
+DATASETS:
+  NAMES: ('RGBNT201') # 数据集名称
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
+
+SOLVER:
+  # 优化器设置
+  OPTIMIZER_NAME: 'Adam' # 优化器名称
+  BASE_LR: 0.0005 # 基础学习率 (论文baseline推荐值)
+  WEIGHT_DECAY: 0.0005 # 权重衰减
+  WEIGHT_DECAY_BIAS: 0.0005 # 偏置权重衰减
+  MOMENTUM: 0.9 # 动量
+  
+  # 训练设置
+  MAX_EPOCHS: 60 # 最大迭代数 (论文标准设置)
+  IMS_PER_BATCH: 32 # 每个批次图像数 (提高训练稳定性)
+  WARMUP_ITERS: 20 # 预热迭代数 (充分预热)
+  WARMUP_METHOD: 'linear' # 预热方法
+  WARMUP_FACTOR: 0.01 # 预热因子
+  
+  # 损失函数设置
+  MARGIN: 0.3 # 三元组损失边界
+  CENTER_LOSS_WEIGHT: 0.0005 # 中心损失权重
+  CENTER_LR: 0.5 # 中心学习率
+  
+  # 学习率调度
+  GAMMA: 0.1 # 衰减率
+  STEPS: (30, 50) # 学习率衰减步数
+  
+  # 其他设置
+  SEED: 42 # 随机种子 (确保可复现性)
+  CHECKPOINT_PERIOD: 10 # 检查点保存周期
+  LOG_PERIOD: 10 # 日志打印周期
+  EVAL_PERIOD: 5 # 验证周期
+
+TEST:
+  IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
+  RE_RANKING: 'no' # 是否重新排序
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
+  FEAT_NORM: 'yes' # 特征归一化
+  MISS: "nothing" # 缺失
+
+# ========== 基线实验输出目录 ==========
+# 作者修改：为基线实验设置专门的输出目录
+# 功能：便于对比不同实验的结果
+# 撤销方法：修改为原始输出目录
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/baseline_experiment'
+2025-09-04 15:17:38,267 MambaPro INFO: Running with config:
+DATALOADER:
+  NUM_INSTANCE: 8
+  NUM_WORKERS: 8
+  SAMPLER: softmax_triplet
+DATASETS:
+  NAMES: RGBNT201
+  ROOT_DIR: /home/zubuntu/workspace/yzy/MambaPro/data/
+INPUT:
+  PADDING: 10
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  PROB: 0.5
+  RE_PROB: 0.5
+  SIZE_TEST: [256, 128]
+  SIZE_TRAIN: [256, 128]
+MODEL:
+  ADAPTER: True
+  ATT_DROP_RATE: 0.0
+  DEVICE: cuda
+  DEVICE_ID: 0
+  DIRECT: 1
+  DIST_TRAIN: False
+  DROP_OUT: 0.0
+  DROP_PATH: 0.1
+  FLOPS_TEST: False
+  FROZEN: True
+  ID_LOSS_TYPE: softmax
+  ID_LOSS_WEIGHT: 0.25
+  IF_LABELSMOOTH: on
+  IF_WITH_CENTER: no
+  LAYER: -1
+  MAMBA: True
+  MAMBA_BI: False
+  METRIC_LOSS_TYPE: triplet
+  MOE_SCALES: [4, 8, 16]
+  NAME: MambaPro
+  NECK: bnneck
+  NO_MARGIN: True
+  PREFIX_NUM: 1
+  PRETRAIN_PATH_T: /home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt
+  PROMPT: True
+  SIE_CAMERA: True
+  SIE_COE: 1.0
+  SIE_VIEW: False
+  STRIDE_SIZE: [16, 16]
+  TRANSFORMER_TYPE: ViT-B-16
+  TRIPLET_LOSS_WEIGHT: 1.0
+  USE_MULTI_SCALE_MOE: False
+OUTPUT_DIR: /home/zubuntu/workspace/yzy/MambaPro/outputs/baseline_experiment
+SOLVER:
+  BASE_LR: 0.0005
+  BIAS_LR_FACTOR: 2
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  CHECKPOINT_PERIOD: 10
+  CLUSTER_MARGIN: 0.3
+  COSINE_MARGIN: 0.5
+  COSINE_SCALE: 30
+  EVAL_PERIOD: 5
+  GAMMA: 0.1
+  IMS_PER_BATCH: 32
+  LARGE_FC_LR: False
+  LOG_PERIOD: 10
+  MARGIN: 0.3
+  MAX_EPOCHS: 10
+  MOMENTUM: 0.9
+  OPTIMIZER_NAME: Adam
+  RANGE_ALPHA: 0
+  RANGE_BETA: 1
+  RANGE_K: 2
+  RANGE_LOSS_WEIGHT: 1
+  RANGE_MARGIN: 0.3
+  SEED: 42
+  STEPS: (30, 50)
+  WARMUP_FACTOR: 0.01
+  WARMUP_ITERS: 20
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.0005
+  WEIGHT_DECAY_BIAS: 0.0005
+TEST:
+  FEAT: 0
+  FEAT_NORM: yes
+  IMS_PER_BATCH: 64
+  MISS: nothing
+  NECK_FEAT: after
+  RE_RANKING: no
+  WEIGHT: /home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth
+2025-09-04 15:17:40,140 MambaPro.train INFO: start training
+2025-09-04 15:17:42,538 MambaPro.train INFO: Epoch[1] Iteration[10/108] Loss: 5.710, Acc: 0.000, Base Lr: 2.97e-05
+2025-09-04 15:17:44,359 MambaPro.train INFO: Epoch[1] Iteration[20/108] Loss: 4.910, Acc: 0.011, Base Lr: 2.97e-05
+2025-09-04 15:17:46,194 MambaPro.train INFO: Epoch[1] Iteration[30/108] Loss: 4.597, Acc: 0.019, Base Lr: 2.97e-05
+2025-09-04 15:17:48,027 MambaPro.train INFO: Epoch[1] Iteration[40/108] Loss: 4.426, Acc: 0.020, Base Lr: 2.97e-05
+2025-09-04 15:17:49,864 MambaPro.train INFO: Epoch[1] Iteration[50/108] Loss: 4.292, Acc: 0.028, Base Lr: 2.97e-05
+2025-09-04 15:17:51,708 MambaPro.train INFO: Epoch[1] Iteration[60/108] Loss: 4.196, Acc: 0.036, Base Lr: 2.97e-05
+2025-09-04 15:17:53,544 MambaPro.train INFO: Epoch[1] Iteration[70/108] Loss: 4.155, Acc: 0.041, Base Lr: 2.97e-05
+2025-09-04 15:17:55,373 MambaPro.train INFO: Epoch[1] Iteration[80/108] Loss: 4.102, Acc: 0.044, Base Lr: 2.97e-05
+2025-09-04 15:17:57,213 MambaPro.train INFO: Epoch[1] Iteration[90/108] Loss: 4.052, Acc: 0.048, Base Lr: 2.97e-05
+2025-09-04 15:17:59,052 MambaPro.train INFO: Epoch[1] Iteration[100/108] Loss: 3.999, Acc: 0.049, Base Lr: 2.97e-05
+2025-09-04 15:18:00,369 MambaPro.train INFO: Epoch 1 done. Time per batch: 0.189[s] Speed: 169.4[samples/s]
+2025-09-04 15:18:02,448 MambaPro.train INFO: Epoch[2] Iteration[10/108] Loss: 3.364, Acc: 0.169, Base Lr: 5.45e-05
+2025-09-04 15:18:04,275 MambaPro.train INFO: Epoch[2] Iteration[20/108] Loss: 3.476, Acc: 0.170, Base Lr: 5.45e-05
+2025-09-04 15:18:06,107 MambaPro.train INFO: Epoch[2] Iteration[30/108] Loss: 3.367, Acc: 0.164, Base Lr: 5.45e-05
+2025-09-04 15:18:07,947 MambaPro.train INFO: Epoch[2] Iteration[40/108] Loss: 3.270, Acc: 0.167, Base Lr: 5.45e-05
+2025-09-04 15:18:09,781 MambaPro.train INFO: Epoch[2] Iteration[50/108] Loss: 3.175, Acc: 0.183, Base Lr: 5.45e-05
+2025-09-04 15:18:11,623 MambaPro.train INFO: Epoch[2] Iteration[60/108] Loss: 3.112, Acc: 0.180, Base Lr: 5.45e-05
+2025-09-04 15:18:13,479 MambaPro.train INFO: Epoch[2] Iteration[70/108] Loss: 3.161, Acc: 0.167, Base Lr: 5.45e-05
+2025-09-04 15:18:15,307 MambaPro.train INFO: Epoch[2] Iteration[80/108] Loss: 3.173, Acc: 0.161, Base Lr: 5.45e-05
+2025-09-04 15:18:17,163 MambaPro.train INFO: Epoch[2] Iteration[90/108] Loss: 3.143, Acc: 0.161, Base Lr: 5.45e-05
+2025-09-04 15:18:18,992 MambaPro.train INFO: Epoch[2] Iteration[100/108] Loss: 3.109, Acc: 0.166, Base Lr: 5.45e-05
+2025-09-04 15:18:20,295 MambaPro.train INFO: Epoch 2 done. Time per batch: 0.186[s] Speed: 171.8[samples/s]
+2025-09-04 15:18:22,362 MambaPro.train INFO: Epoch[3] Iteration[10/108] Loss: 2.504, Acc: 0.438, Base Lr: 7.92e-05
+2025-09-04 15:18:24,182 MambaPro.train INFO: Epoch[3] Iteration[20/108] Loss: 2.613, Acc: 0.389, Base Lr: 7.92e-05
+2025-09-04 15:18:26,010 MambaPro.train INFO: Epoch[3] Iteration[30/108] Loss: 2.576, Acc: 0.350, Base Lr: 7.92e-05
+2025-09-04 15:18:27,849 MambaPro.train INFO: Epoch[3] Iteration[40/108] Loss: 2.565, Acc: 0.320, Base Lr: 7.92e-05
+2025-09-04 15:18:29,691 MambaPro.train INFO: Epoch[3] Iteration[50/108] Loss: 2.542, Acc: 0.306, Base Lr: 7.92e-05
+2025-09-04 15:18:31,530 MambaPro.train INFO: Epoch[3] Iteration[60/108] Loss: 2.543, Acc: 0.306, Base Lr: 7.92e-05
+2025-09-04 15:18:33,361 MambaPro.train INFO: Epoch[3] Iteration[70/108] Loss: 2.563, Acc: 0.304, Base Lr: 7.92e-05
+2025-09-04 15:18:35,195 MambaPro.train INFO: Epoch[3] Iteration[80/108] Loss: 2.558, Acc: 0.298, Base Lr: 7.92e-05
+2025-09-04 15:18:37,027 MambaPro.train INFO: Epoch[3] Iteration[90/108] Loss: 2.537, Acc: 0.295, Base Lr: 7.92e-05
