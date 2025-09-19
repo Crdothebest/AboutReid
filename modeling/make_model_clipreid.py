@@ -60,7 +60,7 @@ class build_transformer(nn.Module): # 构建Transformer
         self.neck_feat = cfg.TEST.NECK_FEAT  # 测试时使用 neck 前/后特征
         if self.model_name == 'ViT-B-16':  # CLIP ViT-B/16 配置
             self.in_planes = 768  # 主干输出维度
-            self.in_planes_proj = 512  # 投影空间维度
+            self.in_planes_proj = 768  # 投影空间维度
         elif self.model_name == 'RN50':  # CLIP ResNet50 配置
             self.in_planes = 2048  # 主干输出维度
             self.in_planes_proj = 1024  # 投影空间维度

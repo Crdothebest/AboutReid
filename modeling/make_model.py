@@ -124,10 +124,10 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             # 新增：CLIP多尺度滑动窗口初始化
             if self.use_clip_multi_scale:
                 from modeling.fusion_part.clip_multi_scale_sliding_window import CLIPMultiScaleFeatureExtractor
-                self.clip_multi_scale_extractor = CLIPMultiScaleFeatureExtractor(feat_dim=768, scales=[4, 8, 16])
+                self.clip_multi_scale_extractor = CLIPMultiScaleFeatureExtractor(feat_dim=512, scales=[4, 8, 16])
                 print('✅ 为CLIP启用多尺度滑动窗口特征提取模块')
                 print(f'   - 滑动窗口尺度: [4, 8, 16]')
-                print(f'   - 特征维度: 768 (CLIP实际维度)')
+                print(f'   - 特征维度: 512 (CLIP投影维度)')
 
             if cfg.MODEL.SIE_CAMERA and cfg.MODEL.SIE_VIEW:
                 self.cv_embed = nn.Parameter(torch.zeros(camera_num * view_num, 768))  # 相机×视角嵌入（CLIP实际维度）
@@ -170,17 +170,17 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             # 功能：在CLIP特征提取后，添加多尺度滑动窗口处理
             if hasattr(self, 'use_clip_multi_scale') and self.use_clip_multi_scale and hasattr(self, 'clip_multi_scale_extractor'):
                 # 分离CLS token和patch tokens
-                cls_token = x[:, 0:1, :]  # [B, 1, 768] - CLIP的CLS token
-                patch_tokens = x[:, 1:, :]  # [B, N, 768] - CLIP的patch tokens
+                cls_token = x[:, 0:1, :]  # [B, 1, 512] - CLIP的CLS token
+                patch_tokens = x[:, 1:, :]  # [B, N, 512] - CLIP的patch tokens
                 
                 # 对patch tokens进行多尺度滑动窗口处理
-                multi_scale_feature = self.clip_multi_scale_extractor(patch_tokens)  # [B, 768]
+                multi_scale_feature = self.clip_multi_scale_extractor(patch_tokens)  # [B, 512]
                 
                 # 将多尺度特征与CLS token结合
-                enhanced_cls = cls_token + multi_scale_feature.unsqueeze(1)  # [B, 1, 768]
+                enhanced_cls = cls_token + multi_scale_feature.unsqueeze(1)  # [B, 1, 512]
                 
                 # 重新组合tokens：增强的CLS token + 原始patch tokens
-                x = torch.cat([enhanced_cls, patch_tokens], dim=1)  # [B, N+1, 768]
+                x = torch.cat([enhanced_cls, patch_tokens], dim=1)  # [B, N+1, 512]
 
         global_feat = x[:, 0]  # 取CLS token 作为全局特征
         feat = self.bottleneck(global_feat)  # 过 BNNeck（训练常用）

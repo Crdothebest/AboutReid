@@ -3,7 +3,7 @@ CLIP兼容的多尺度滑动窗口模块
 
 功能：
 - 在保持CLIP分支完整性的基础上，添加多尺度滑动窗口特征提取
-- 适配CLIP的512维特征到多尺度处理
+- 适配CLIP的512维投影特征到多尺度处理
 - 实现4x4、8x8、16x16滑动窗口的多尺度特征融合
 
 作者：用户修改
@@ -18,16 +18,16 @@ import torch.nn.functional as F
 class CLIPMultiScaleSlidingWindow(nn.Module):
     """CLIP兼容的多尺度滑动窗口模块"""
     
-    def __init__(self, feat_dim=768, scales=[4, 8, 16]):
+    def __init__(self, feat_dim=512, scales=[4, 8, 16]):
         """
         初始化CLIP多尺度滑动窗口模块
         
         Args:
-            feat_dim (int): 特征维度，CLIP为768
+            feat_dim (int): 特征维度，CLIP投影为512
             scales (list): 滑动窗口尺度列表
         """
         super(CLIPMultiScaleSlidingWindow, self).__init__()
-        self.feat_dim = feat_dim  # CLIP的768维特征
+        self.feat_dim = feat_dim  # CLIP的512维投影特征
         self.scales = scales
         
         # 为每个尺度创建滑动窗口处理层
@@ -41,10 +41,10 @@ class CLIPMultiScaleSlidingWindow(nn.Module):
         # 特征融合层 (MLP)
         # 将所有尺度的特征拼接后，通过MLP融合回原始维度
         self.fusion = nn.Sequential(
-            nn.Linear(feat_dim * len(scales), feat_dim), # 第一层：2304 -> 768
+            nn.Linear(feat_dim * len(scales), feat_dim), # 第一层：1536 -> 512
             nn.ReLU(),                                   # 激活函数
             nn.Dropout(0.1),                             # Dropout正则化
-            nn.Linear(feat_dim, feat_dim)                # 第二层：768 -> 768
+            nn.Linear(feat_dim, feat_dim)                # 第二层：512 -> 512
         )
         
         # 初始化权重
@@ -67,35 +67,35 @@ class CLIPMultiScaleSlidingWindow(nn.Module):
         前向传播
         
         Args:
-            patch_tokens: [B, N, 768] - CLIP的patch tokens
+            patch_tokens: [B, N, 512] - CLIP的patch tokens
         Returns:
-            multi_scale_feature: [B, 768] - 多尺度融合特征
+            multi_scale_feature: [B, 512] - 多尺度融合特征
         """
         B, N, D = patch_tokens.shape
         
         # 转换为卷积输入格式 [B, D, N]
-        x = patch_tokens.transpose(1, 2)  # [B, 768, N]
+        x = patch_tokens.transpose(1, 2)  # [B, 512, N]
         
         multi_scale_features = []
         for i, scale in enumerate(self.scales):
             # 滑动窗口处理
             if N >= scale:
                 # 使用1D卷积进行滑动窗口处理
-                windowed_feat = self.sliding_windows[i](x)  # [B, 768, N//scale]
+                windowed_feat = self.sliding_windows[i](x)  # [B, 512, N//scale]
                 # 全局平均池化
-                pooled_feat = F.adaptive_avg_pool1d(windowed_feat, 1)  # [B, 768, 1]
-                pooled_feat = pooled_feat.squeeze(-1)  # [B, 768]
+                pooled_feat = F.adaptive_avg_pool1d(windowed_feat, 1)  # [B, 512, 1]
+                pooled_feat = pooled_feat.squeeze(-1)  # [B, 512]
             else:
                 # 如果序列长度小于窗口大小，直接使用全局平均池化
-                pooled_feat = F.adaptive_avg_pool1d(x, 1).squeeze(-1)  # [B, 768]
+                pooled_feat = F.adaptive_avg_pool1d(x, 1).squeeze(-1)  # [B, 512]
             
             multi_scale_features.append(pooled_feat)
         
         # 拼接多尺度特征
-        concat_feat = torch.cat(multi_scale_features, dim=1)  # [B, 768*3] = [B, 2304]
+        concat_feat = torch.cat(multi_scale_features, dim=1)  # [B, 512*3] = [B, 1536]
         
         # 特征融合 (MLP)
-        multi_scale_feature = self.fusion(concat_feat)  # [B, 2304] -> [B, 768]
+        multi_scale_feature = self.fusion(concat_feat)  # [B, 1536] -> [B, 512]
         
         return multi_scale_feature
 
@@ -103,12 +103,12 @@ class CLIPMultiScaleSlidingWindow(nn.Module):
 class CLIPMultiScaleFeatureExtractor(nn.Module):
     """CLIP多尺度特征提取器包装类"""
     
-    def __init__(self, feat_dim=768, scales=[4, 8, 16]):
+    def __init__(self, feat_dim=512, scales=[4, 8, 16]):
         """
         初始化CLIP多尺度特征提取器
         
         Args:
-            feat_dim (int): 特征维度，CLIP为768
+            feat_dim (int): 特征维度，CLIP投影为512
             scales (list): 滑动窗口尺度列表
         """
         super(CLIPMultiScaleFeatureExtractor, self).__init__()
@@ -119,9 +119,9 @@ class CLIPMultiScaleFeatureExtractor(nn.Module):
         前向传播
         
         Args:
-            patch_tokens: [B, N, 768] - CLIP的patch tokens
+            patch_tokens: [B, N, 512] - CLIP的patch tokens
         Returns:
-            multi_scale_feature: [B, 768] - 多尺度特征
+            multi_scale_feature: [B, 512] - 多尺度特征
         """
         return self.multi_scale_window(patch_tokens)
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     # 创建测试数据
     batch_size = 2
     seq_len = 196  # 14x14 patches
-    feat_dim = 512
+    feat_dim = 512  # CLIP投影维度
     
     # 创建模型
     model = CLIPMultiScaleFeatureExtractor(feat_dim=feat_dim, scales=[4, 8, 16])
