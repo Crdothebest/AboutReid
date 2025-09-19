@@ -233,7 +233,7 @@ class T2T_ViT(nn.Module):
     def __init__(self, img_size=(256, 128), tokens_type='performer', in_chans=3, num_classes=1000, embed_dim=768,
                  depth=12, num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., 
                  attn_drop_rate=0., drop_path_rate=0., camera=0, view=0, sie_xishu=3.0, 
-                 norm_layer=nn.LayerNorm, token_dim=64):
+                 norm_layer=nn.LayerNorm, token_dim=64, use_multi_scale=False):    # 添加多尺度滑动窗口参数
         super().__init__()
         self.num_classes = num_classes
         self.num_features = self.embed_dim = embed_dim
@@ -289,6 +289,20 @@ class T2T_ViT(nn.Module):
         # 分类头
         self.head = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
+        # ******************** ✨ 创新点01: 多尺度滑动窗口模块初始化 ********************
+        # 新增：多尺度滑动窗口模块初始化
+        # 功能：集成多尺度特征提取，增强模型的多尺度感知能力
+        self.use_multi_scale = use_multi_scale
+        if self.use_multi_scale:
+            # 导入多尺度特征提取器
+            from ..fusion_part.multi_scale_sliding_window import MultiScaleFeatureExtractor
+            # 创建多尺度特征提取器，使用默认的滑动窗口尺度[4, 8, 16]
+            self.multi_scale_extractor = MultiScaleFeatureExtractor(embed_dim, scales=[4, 8, 16])
+            print('✅ 启用多尺度滑动窗口特征提取模块')
+            print(f'   - 滑动窗口尺度: [4, 8, 16]')
+            print(f'   - 特征维度: {embed_dim}')
+        else:
+            print('ℹ️  多尺度滑动窗口特征提取模块已关闭')
 
         # 初始化权重
         trunc_normal_(self.cls_token, std=.02)
@@ -355,13 +369,14 @@ class T2T_ViT(nn.Module):
     # 创新点01: multi_scale 多尺度的特征提取，应该添加在forward_features方法中
     def forward_features(self, x, camera_id, view_id):
         """
-        特征提取前向传播（包含SIE嵌入）
+        特征提取前向传播（包含SIE嵌入和多尺度处理）
         
         功能：
         - 通过T2T模块将图像转换为tokens
         - 添加分类token和位置编码
         - 根据相机和视角信息添加SIE嵌入
         - 通过多层Transformer块进行特征编码
+        - 多尺度滑动窗口处理（新增）
         
         参数：
         - x: 输入图像张量 [B, C, H, W]
@@ -399,6 +414,25 @@ class T2T_ViT(nn.Module):
 
         # 最终层归一化
         x = self.norm(x)
+        
+        # 新增：多尺度滑动窗口处理
+        # 功能：在Transformer编码后，使用多尺度滑动窗口增强特征表示
+        if self.use_multi_scale:
+            # 分离CLS token和patch tokens
+            cls_token = x[:, 0:1, :]  # [B, 1, embed_dim] - 分类token
+            patch_tokens = x[:, 1:, :]  # [B, N, embed_dim] - 图像patch tokens
+            
+            # 对patch tokens进行多尺度滑动窗口处理
+            # 使用4x4、8x8、16x16的滑动窗口提取多尺度特征
+            multi_scale_feature = self.multi_scale_extractor(patch_tokens)  # [B, embed_dim]
+            
+            # 将多尺度特征与CLS token结合
+            # 通过残差连接增强CLS token的表示能力
+            enhanced_cls = cls_token + multi_scale_feature.unsqueeze(1)  # [B, 1, embed_dim]
+            
+            # 重新组合tokens：增强的CLS token + 原始patch tokens
+            x = torch.cat([enhanced_cls, patch_tokens], dim=1)  # [B, N+1, embed_dim]
+        
         return x
 
     def forward(self, x, cam_label=None, view_label=None):
@@ -616,9 +650,10 @@ def t2t_vit_19(pretrained=False, **kwargs):  # adopt performer for tokens to tok
 
 
 @register_model
+# 加入了多尺度滑动窗口参数
 def t2t_vit_24(img_size=(256, 128), stride_size=16, drop_path_rate=0.1, drop_rate=0.0,
                attn_drop_rate=0.0, camera=0, view=0, local_feature=False, sie_xishu=1.5, pretrained=False,
-               **kwargs):
+               use_multi_scale=False, **kwargs):
     """
     T2T-ViT-24模型工厂函数（最大规模版本）
     
@@ -650,9 +685,11 @@ def t2t_vit_24(img_size=(256, 128), stride_size=16, drop_path_rate=0.1, drop_rat
     """
     if pretrained:
         kwargs.setdefault('qk_scale', 512 ** -0.5)
+    # 创建T2T-ViT模型，传递多尺度参数
     model = T2T_ViT(img_size=img_size, drop_path_rate=drop_path_rate, drop_rate=drop_rate,
                     attn_drop_rate=attn_drop_rate, camera=camera, view=view, sie_xishu=sie_xishu,
-                    tokens_type='performer', embed_dim=512, depth=24, num_heads=8, mlp_ratio=3., **kwargs)
+                    tokens_type='performer', embed_dim=512, depth=24, num_heads=8, mlp_ratio=3., 
+                    use_multi_scale=use_multi_scale, **kwargs)
     model.default_cfg = default_cfgs['T2t_vit_24']
     if pretrained:
         load_pretrained(model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3))

@@ -68,7 +68,13 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             self.camera_num = 0
         # No view
         self.view_num = 0  # 视角数此处固定为0（如需可扩展）
+        
+        # 新增：CLIP多尺度滑动窗口配置
+        # 功能：从配置文件读取CLIP多尺度滑动窗口设置
+        self.use_clip_multi_scale = getattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE', False)
+        
         if cfg.MODEL.TRANSFORMER_TYPE == 'vit_base_patch16_224':
+            # 标准ViT分支（保持原有功能）
             self.base = factory[cfg.MODEL.TRANSFORMER_TYPE](img_size=cfg.INPUT.SIZE_TRAIN, sie_xishu=cfg.MODEL.SIE_COE,
                                                             num_classes=num_classes,
                                                             camera=self.camera_num, view=self.view_num,
@@ -82,7 +88,28 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             print('Loading pretrained model from ImageNet')  # 提示信息
             if cfg.MODEL.FROZEN:
                 lora_train(self.base)  # 仅训练 LoRA 参数（其余冻结）
+        elif cfg.MODEL.TRANSFORMER_TYPE == 't2t_vit_t_24':
+            # 新增：T2T-ViT-24模型处理
+            # 功能：创建T2T-ViT-24模型，支持多尺度滑动窗口
+            self.base = factory[cfg.MODEL.TRANSFORMER_TYPE](
+                img_size=cfg.INPUT.SIZE_TRAIN,
+                stride_size=cfg.MODEL.STRIDE_SIZE,
+                drop_path_rate=cfg.MODEL.DROP_PATH,
+                drop_rate=cfg.MODEL.DROP_RATE,
+                attn_drop_rate=cfg.MODEL.ATT_DROP_RATE,
+                camera=self.camera_num,
+                view=self.view_num,
+                sie_xishu=cfg.MODEL.SIE_COE,
+                use_multi_scale=self.use_multi_scale  # 传递多尺度参数
+            )
+            self.clip = 0  # 标记非 CLIP 分支
+            self.base.load_param(model_path)  # 加载预训练权重
+            print('Loading pretrained T2T-ViT-24 model')  # 提示信息
+            if cfg.MODEL.FROZEN:
+                lora_train(self.base)  # 仅训练 LoRA 参数（其余冻结）
         elif cfg.MODEL.TRANSFORMER_TYPE == 'ViT-B-16':
+            # 恢复原作者的设计：ViT-B-16走CLIP分支
+            # 功能：保持原作者的CLIP实现，并添加多尺度滑动窗口支持
             self.clip = 1  # 标记走 CLIP 分支
             self.sie_xishu = cfg.MODEL.SIE_COE  # SIE 系数
             clip_model = load_clip_to_cpu(cfg, self.model_name, cfg.INPUT.SIZE_TRAIN[0] // cfg.MODEL.STRIDE_SIZE[0],
@@ -94,16 +121,24 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             if cfg.MODEL.FROZEN:
                 lora_train(self.base)  # 仅训练 LoRA
 
+            # 新增：CLIP多尺度滑动窗口初始化
+            if self.use_clip_multi_scale:
+                from ..fusion_part.clip_multi_scale_sliding_window import CLIPMultiScaleFeatureExtractor
+                self.clip_multi_scale_extractor = CLIPMultiScaleFeatureExtractor(feat_dim=512, scales=[4, 8, 16])
+                print('✅ 为CLIP启用多尺度滑动窗口特征提取模块')
+                print(f'   - 滑动窗口尺度: [4, 8, 16]')
+                print(f'   - 特征维度: 512 (CLIP)')
+
             if cfg.MODEL.SIE_CAMERA and cfg.MODEL.SIE_VIEW:
-                self.cv_embed = nn.Parameter(torch.zeros(camera_num * view_num, 768))  # 相机×视角嵌入
+                self.cv_embed = nn.Parameter(torch.zeros(camera_num * view_num, 512))  # 相机×视角嵌入（CLIP维度）
                 trunc_normal_(self.cv_embed, std=.02)  # 截断正态初始化
                 print('camera number is : {}'.format(camera_num))  # 打印相机数
             elif cfg.MODEL.SIE_CAMERA:
-                self.cv_embed = nn.Parameter(torch.zeros(camera_num, 768))  # 仅相机嵌入
+                self.cv_embed = nn.Parameter(torch.zeros(camera_num, 512))  # 仅相机嵌入（CLIP维度）
                 trunc_normal_(self.cv_embed, std=.02)
                 print('camera number is : {}'.format(camera_num))
             elif cfg.MODEL.SIE_VIEW:
-                self.cv_embed = nn.Parameter(torch.zeros(view_num, 768))  # 仅视角嵌入
+                self.cv_embed = nn.Parameter(torch.zeros(view_num, 512))  # 仅视角嵌入（CLIP维度）
                 trunc_normal_(self.cv_embed, std=.02)
                 print('camera number is : {}'.format(view_num))
 
@@ -120,7 +155,9 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
     def forward(self, x, label=None, cam_label=None, view_label=None, modality=None):
         if self.clip == 0:
             x = self.base(x, cam_label=cam_label, view_label=view_label, modality=modality)  # ViT/T2T 前向
+                
         else:
+            # CLIP分支 - 保持原有逻辑
             if self.cv_embed_sign:
                 if self.flops_test:
                     cam_label = 0  # FLOPs 测试时统一相机索引
@@ -128,6 +165,22 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             else:
                 cv_embed = None  # 不使用嵌入
             x = self.base(x, cv_embed, modality)  # CLIP 前向
+            
+            # 新增：CLIP多尺度滑动窗口处理
+            # 功能：在CLIP特征提取后，添加多尺度滑动窗口处理
+            if hasattr(self, 'use_clip_multi_scale') and self.use_clip_multi_scale and hasattr(self, 'clip_multi_scale_extractor'):
+                # 分离CLS token和patch tokens
+                cls_token = x[:, 0:1, :]  # [B, 1, 512] - CLIP的CLS token
+                patch_tokens = x[:, 1:, :]  # [B, N, 512] - CLIP的patch tokens
+                
+                # 对patch tokens进行多尺度滑动窗口处理
+                multi_scale_feature = self.clip_multi_scale_extractor(patch_tokens)  # [B, 512]
+                
+                # 将多尺度特征与CLS token结合
+                enhanced_cls = cls_token + multi_scale_feature.unsqueeze(1)  # [B, 1, 512]
+                
+                # 重新组合tokens：增强的CLS token + 原始patch tokens
+                x = torch.cat([enhanced_cls, patch_tokens], dim=1)  # [B, N+1, 512]
 
         global_feat = x[:, 0]  # 取CLS token 作为全局特征
         feat = self.bottleneck(global_feat)  # 过 BNNeck（训练常用）
@@ -243,7 +296,7 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                 ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 输出拼接特征
                 return ori
 
-
+# 作用：把人类好记的字符串名字，翻译成代码里真正可调用的模型构造函数
 __factory_T_type = {  # 骨干工厂映射
     'vit_base_patch16_224': vit_base_patch16_224, 
     'deit_base_patch16_224': vit_base_patch16_224,

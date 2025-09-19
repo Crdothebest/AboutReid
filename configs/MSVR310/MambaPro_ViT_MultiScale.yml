@@ -2,7 +2,7 @@ MODEL:
   PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
   # Transformer backbone 的预训练权重（.pth）的位置
   
-  TRANSFORMER_TYPE: 't2t_vit_t_24'  # 修改为T2T-ViT-24模型
+  TRANSFORMER_TYPE: 'vit_base_patch16_224'  # 使用ViT-B-16作为backbone
   STRIDE_SIZE: [ 16, 16 ]
   SIE_CAMERA: True
   DIRECT: 0
@@ -49,10 +49,9 @@ TEST:
 # 指定测试/推理阶段要加载的模型权重（通常是你训练好的最佳模型）。
   IMS_PER_BATCH: 32
   RE_RANKING: 'no'
-  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth'
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaPro_ViT_MultiScale_best.pth'
   NECK_FEAT: 'before'
   FEAT_NORM: 'yes'
   MISS: "nothing"
 # 作用：训练过程生成的模型权重、日志文件会保存到这个文件夹
-OUTPUT_DIR: '/home/zubuntu/workspace/outputs/'
-
+OUTPUT_DIR: '/home/zubuntu/workspace/outputs/ViT_MultiScale/'
