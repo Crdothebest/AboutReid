@@ -14,13 +14,6 @@ MODEL:
   MAMBA: True
   FROZEN: True
   
-  # ========== 新增配置：多尺度MoE设置 ==========
-  # 作者修改：在MSVR310配置中启用多尺度MoE功能
-  # 功能：基于idea-01.png的创新设计，实现多尺度特征提取和专家网络融合
-  # 撤销方法：删除以下两行配置
-  # 多尺度MoE配置
-  USE_MULTI_SCALE_MOE: True  # 启用多尺度MoE模块（True=启用，False=使用原始AAM）
-  MOE_SCALES: [4, 8, 16]     # 滑动窗口尺度（4x4小窗口，8x8中窗口，16x16大窗口）
 
 INPUT:
   SIZE_TRAIN: [ 128, 256 ]

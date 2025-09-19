@@ -19,11 +19,6 @@ from timm.models.layers import trunc_normal_
 from modeling.make_model_clipreid import load_clip_to_cpu
 from modeling.clip.LoRA import mark_only_lora_as_trainable as lora_train
 from modeling.fusion_part.AAM import AAM
-# ========== 新增导入：多尺度MoE模块 ==========
-# 作者修改：添加多尺度Mixture-of-Experts模块的导入
-# 功能：实现基于idea-01.png的创新设计
-# 撤销方法：删除此行导入语句
-from modeling.fusion_part.multi_scale_moe import MultiScaleMoEAAM
 
 
 def weights_init_kaiming(m):  # 定义一个函数，用 Kaiming 初始化方法对模型层进行初始化
@@ -181,24 +176,8 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
         self.ID_LOSS_TYPE = cfg.MODEL.ID_LOSS_TYPE  # 分类头类型
         self.mamba = cfg.MODEL.MAMBA  # 是否启用 Mamba 融合
         
-        # ========== 新增配置：多尺度MoE开关 ==========
-        # 作者修改：添加多尺度MoE模块的配置选项
-        # 功能：从配置文件中读取是否启用多尺度MoE功能
-        # 默认值：False（保持向后兼容性）
-        # 撤销方法：删除此行代码
-        self.use_multi_scale_moe = getattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE', False)  # 是否启用多尺度MoE
-
-        # ========== 修改融合模块选择逻辑 ==========
-        # 作者修改：根据配置动态选择融合模块类型
-        # 原逻辑：直接使用AAM模块
-        # 新逻辑：支持多尺度MoE和原始AAM两种模式
-        # 撤销方法：将整个if-else块替换为原始代码：self.AAM = AAM(self.feat_dim, n_layers=2, cfg=cfg)
-        if self.use_multi_scale_moe:
-            # 使用多尺度MoE融合模块（基于idea-01.png的创新设计）
-            self.AAM = MultiScaleMoEAAM(self.feat_dim, n_layers=2, cfg=cfg)  # 多尺度MoE融合模块
-        else:
-            # 使用原始AAM融合模块（保持原有功能）
-            self.AAM = AAM(self.feat_dim, n_layers=2, cfg=cfg)  # 原始融合模块（AAM/Mamba内部）
+        # 使用原始AAM融合模块
+        self.AAM = AAM(self.feat_dim, n_layers=2, cfg=cfg)
         self.miss_type = cfg.TEST.MISS  # 测试缺失模态策略
         self.classifier = nn.Linear(3 * self.feat_dim, self.num_classes, bias=False)  # 原始三模态拼接分类头
         self.classifier.apply(weights_init_classifier)
