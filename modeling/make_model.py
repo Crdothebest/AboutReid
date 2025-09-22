@@ -69,8 +69,9 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
         # No view
         self.view_num = 0  # 视角数此处固定为0（如需可扩展）
         
-        # 新增：CLIP多尺度滑动窗口配置
+        # 🔥 新增：CLIP多尺度滑动窗口配置
         # 功能：从配置文件读取CLIP多尺度滑动窗口设置
+        # 默认值：False（不启用多尺度处理）
         self.use_clip_multi_scale = getattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE', False)
         
         if cfg.MODEL.TRANSFORMER_TYPE == 'vit_base_patch16_224':
@@ -121,9 +122,11 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             if cfg.MODEL.FROZEN:
                 lora_train(self.base)  # 仅训练 LoRA
 
-            # 新增：CLIP多尺度滑动窗口初始化
+            # 🔥 新增：CLIP多尺度滑动窗口初始化
+            # 功能：在CLIP分支基础上添加多尺度滑动窗口特征提取
             if self.use_clip_multi_scale:
                 from modeling.fusion_part.clip_multi_scale_sliding_window import CLIPMultiScaleFeatureExtractor
+                # 初始化多尺度特征提取器：512维输入，4x4/8x8/16x16滑动窗口
                 self.clip_multi_scale_extractor = CLIPMultiScaleFeatureExtractor(feat_dim=512, scales=[4, 8, 16])
                 print('✅ 为CLIP启用多尺度滑动窗口特征提取模块')
                 print(f'   - 滑动窗口尺度: [4, 8, 16]')
@@ -166,20 +169,25 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 cv_embed = None  # 不使用嵌入
             x = self.base(x, cv_embed, modality)  # CLIP 前向
             
-            # 新增：CLIP多尺度滑动窗口处理
+            # 🔥 新增：CLIP多尺度滑动窗口处理
             # 功能：在CLIP特征提取后，添加多尺度滑动窗口处理
+            # 处理流程：CLIP输出 → 分离tokens → 多尺度处理 → 特征融合 → 重新组合
             if hasattr(self, 'use_clip_multi_scale') and self.use_clip_multi_scale and hasattr(self, 'clip_multi_scale_extractor'):
-                # 分离CLS token和patch tokens
+                # 🔥 分离CLS token和patch tokens
+                # CLIP输出格式：[CLS_token, patch_token1, patch_token2, ...]
                 cls_token = x[:, 0:1, :]  # [B, 1, 512] - CLIP的CLS token
                 patch_tokens = x[:, 1:, :]  # [B, N, 512] - CLIP的patch tokens
                 
-                # 对patch tokens进行多尺度滑动窗口处理
+                # 🔥 对patch tokens进行多尺度滑动窗口处理
+                # 核心算法：4x4/8x8/16x16滑动窗口 → 多尺度特征融合
                 multi_scale_feature = self.clip_multi_scale_extractor(patch_tokens)  # [B, 512]
                 
-                # 将多尺度特征与CLS token结合
+                # 🔥 将多尺度特征与CLS token结合（残差连接）
+                # 增强CLS token：原始CLS + 多尺度特征
                 enhanced_cls = cls_token + multi_scale_feature.unsqueeze(1)  # [B, 1, 512]
                 
-                # 重新组合tokens：增强的CLS token + 原始patch tokens
+                # 🔥 重新组合tokens：增强的CLS token + 原始patch tokens
+                # 保持原始序列结构，但CLS token被多尺度特征增强
                 x = torch.cat([enhanced_cls, patch_tokens], dim=1)  # [B, N+1, 512]
 
         global_feat = x[:, 0]  # 取CLS token 作为全局特征

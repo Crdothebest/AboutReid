@@ -15,7 +15,8 @@ MODEL:
   # ========== 创新点配置：CLIP多尺度滑动窗口模块 ==========
   # 用户修改：在保持CLIP分支的基础上，添加多尺度滑动窗口配置
   # 功能：启用基于CLIP的多尺度特征提取机制
-  USE_CLIP_MULTI_SCALE: True   # 启用CLIP多尺度滑动窗口特征提取
+  # 🔥 测试控制：设置为False使用原始CLIP，设置为True使用多尺度滑动窗口
+  USE_CLIP_MULTI_SCALE: False   # 启用CLIP多尺度滑动窗口特征提取
   CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度（4x4小窗口，8x8中窗口，16x16大窗口）
 
 INPUT:

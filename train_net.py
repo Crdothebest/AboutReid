@@ -33,12 +33,27 @@ if __name__ == '__main__':
     parser.add_argument("opts", help="Modify config options using the command-line", default=None,
                         nargs=argparse.REMAINDER) # 添加命令行参数
     parser.add_argument("--local_rank", default=0, type=int) # 添加本地排名参数
+    # 🔥 新增：多尺度滑动窗口控制参数
+    parser.add_argument("--use_multi_scale", action="store_true", help="Enable multi-scale sliding window (default: False)")
+    parser.add_argument("--no_multi_scale", action="store_true", help="Disable multi-scale sliding window (default: False)")
     args = parser.parse_args() # 解析参数
 
     if args.config_file != "":
         cfg.merge_from_file(args.config_file) # 从配置文件合并配置
     cfg.merge_from_list(args.opts) # 从命令行合并配置
     cfg.TEST.FEAT = args.fea_cft # 设置特征选择
+    
+    # 🔥 新增：处理多尺度滑动窗口命令行参数
+    if args.use_multi_scale:
+        cfg.MODEL.USE_CLIP_MULTI_SCALE = True
+        print("🔥 启用多尺度滑动窗口 (命令行参数)")
+    elif args.no_multi_scale:
+        cfg.MODEL.USE_CLIP_MULTI_SCALE = False
+        print("🔥 禁用多尺度滑动窗口 (命令行参数)")
+    else:
+        # 使用配置文件中的默认值
+        print(f"🔥 使用配置文件设置: USE_CLIP_MULTI_SCALE = {cfg.MODEL.USE_CLIP_MULTI_SCALE}")
+    
     cfg.freeze() # 冻结配置
 
     set_seed(cfg.SOLVER.SEED) # 设置随机种子

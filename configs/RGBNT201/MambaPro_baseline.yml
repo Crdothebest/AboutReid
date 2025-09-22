@@ -12,12 +12,11 @@ MODEL:
   MAMBA: True # 是否使用Mamba
   FROZEN: True # 是否冻结
   
-  # ========== 基线配置：使用原始AAM模块 ==========
-  # 作者修改：创建基线实验配置，使用原始AAM模块作为对比基准
-  # 功能：验证原始MambaPro模型的性能，用于与创新点对比
-  # 撤销方法：删除此配置文件
-  USE_MULTI_SCALE_MOE: False  # 关闭多尺度MoE，使用原始AAM
-  MOE_SCALES: [4, 8, 16]      # 滑动窗口尺度（此配置下不使用）
+  # ========== 原始CLIP配置（不加多尺度滑动窗口）==========
+  # 功能：使用原始CLIP分支，不添加多尺度滑动窗口处理
+  # 用途：作为baseline对比实验
+  USE_CLIP_MULTI_SCALE: False   # 禁用CLIP多尺度滑动窗口特征提取
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度（不使用）
 
 INPUT:
   SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
@@ -73,8 +72,6 @@ TEST:
   FEAT_NORM: 'yes' # 特征归一化
   MISS: "nothing" # 缺失
 
-# ========== 基线实验输出目录 ==========
-# 作者修改：为基线实验设置专门的输出目录
-# 功能：便于对比不同实验的结果
-# 撤销方法：修改为原始输出目录
-OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/baseline_experiment'
+# ========== 原始CLIP实验输出目录 ==========
+# 功能：将原始CLIP实验结果保存到专门的目录，便于对比分析
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/baseline_experiment' # 原始CLIP实验输出目录

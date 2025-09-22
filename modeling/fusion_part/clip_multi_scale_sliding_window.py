@@ -16,35 +16,43 @@ import torch.nn.functional as F
 
 
 class CLIPMultiScaleSlidingWindow(nn.Module):
-    """CLIP兼容的多尺度滑动窗口模块"""
+    """
+    🔥 CLIP兼容的多尺度滑动窗口模块
+    
+    核心功能：
+    - 实现4x4、8x8、16x16多尺度滑动窗口特征提取
+    - 适配CLIP的512维投影特征
+    - 通过MLP融合多尺度特征
+    """
     
     def __init__(self, feat_dim=512, scales=[4, 8, 16]):
         """
-        初始化CLIP多尺度滑动窗口模块
+        🎯 初始化多尺度滑动窗口模块
         
         Args:
             feat_dim (int): 特征维度，CLIP投影输出512维
-            scales (list): 滑动窗口尺度列表
+            scales (list): 滑动窗口尺度列表 [4, 8, 16]
         """
         super(CLIPMultiScaleSlidingWindow, self).__init__()
         self.feat_dim = feat_dim  # CLIP投影的512维输出
-        self.scales = scales
+        self.scales = scales      # 滑动窗口尺度 [4, 8, 16]
         
-        # 为每个尺度创建滑动窗口处理层
+        # 🔥 为每个尺度创建滑动窗口处理层
+        # 使用1D卷积实现滑动窗口效果：kernel_size=scale, stride=scale
         self.sliding_windows = nn.ModuleList()
         for scale in scales:
-            # 使用1D卷积处理序列特征
+            # 每个尺度独立处理：4x4, 8x8, 16x16
             self.sliding_windows.append(
                 nn.Conv1d(feat_dim, feat_dim, kernel_size=scale, stride=scale, padding=0)
             )
         
-        # 特征融合层 (MLP)
+        # 🔥 特征融合层 (MLP) - 关键创新点
         # 将所有尺度的特征拼接后，通过MLP融合回原始维度
         self.fusion = nn.Sequential(
-            nn.Linear(feat_dim * len(scales), feat_dim), # 第一层：1536 -> 512
+            nn.Linear(feat_dim * len(scales), feat_dim), # 第一层：1536 -> 512 (3个尺度×512维)
             nn.ReLU(),                                   # 激活函数
             nn.Dropout(0.1),                             # Dropout正则化
-            nn.Linear(feat_dim, feat_dim)                # 第二层：512 -> 512
+            nn.Linear(feat_dim, feat_dim)                # 第二层：512 -> 512 (保持维度)
         )
         
         # 初始化权重
@@ -64,7 +72,7 @@ class CLIPMultiScaleSlidingWindow(nn.Module):
         
     def forward(self, patch_tokens):
         """
-        前向传播
+        🎯 多尺度滑动窗口前向传播
         
         Args:
             patch_tokens: [B, N, 512] - CLIP投影的patch tokens
@@ -73,16 +81,18 @@ class CLIPMultiScaleSlidingWindow(nn.Module):
         """
         B, N, D = patch_tokens.shape
         
-        # 转换为卷积输入格式 [B, D, N]
+        # 🔥 转换为卷积输入格式 [B, D, N]
+        # 1D卷积需要 [B, C, L] 格式，所以需要转置
         x = patch_tokens.transpose(1, 2)  # [B, 512, N]
         
         multi_scale_features = []
         for i, scale in enumerate(self.scales):
-            # 滑动窗口处理
+            # 🔥 滑动窗口处理 - 核心算法
             if N >= scale:
                 # 使用1D卷积进行滑动窗口处理
+                # 每个窗口处理scale个tokens，输出N//scale个特征
                 windowed_feat = self.sliding_windows[i](x)  # [B, 512, N//scale]
-                # 全局平均池化
+                # 全局平均池化：将每个尺度的特征聚合为单个向量
                 pooled_feat = F.adaptive_avg_pool1d(windowed_feat, 1)  # [B, 512, 1]
                 pooled_feat = pooled_feat.squeeze(-1)  # [B, 512]
             else:
@@ -91,10 +101,12 @@ class CLIPMultiScaleSlidingWindow(nn.Module):
             
             multi_scale_features.append(pooled_feat)
         
-        # 拼接多尺度特征
+        # 🔥 拼接多尺度特征
+        # 将3个尺度的特征拼接：4x4 + 8x8 + 16x16 = 1536维
         concat_feat = torch.cat(multi_scale_features, dim=1)  # [B, 512*3] = [B, 1536]
         
-        # 特征融合 (MLP)
+        # 🔥 特征融合 (MLP) - 关键创新点
+        # 通过两层MLP将1536维融合回512维
         multi_scale_feature = self.fusion(concat_feat)  # [B, 1536] -> [B, 512]
         
         return multi_scale_feature
