@@ -36,6 +36,9 @@ if __name__ == '__main__':
     # 🔥 新增：多尺度滑动窗口控制参数
     parser.add_argument("--use_multi_scale", action="store_true", help="Enable multi-scale sliding window (default: False)")
     parser.add_argument("--no_multi_scale", action="store_true", help="Disable multi-scale sliding window (default: False)")
+    # 🔥 新增：MoE控制参数
+    parser.add_argument("--use_moe", action="store_true", help="Enable Multi-scale MoE fusion (default: False)")
+    parser.add_argument("--no_moe", action="store_true", help="Disable Multi-scale MoE fusion (default: False)")
     args = parser.parse_args() # 解析参数
 
     if args.config_file != "":
@@ -53,6 +56,17 @@ if __name__ == '__main__':
     else:
         # 使用配置文件中的默认值
         print(f"🔥 使用配置文件设置: USE_CLIP_MULTI_SCALE = {cfg.MODEL.USE_CLIP_MULTI_SCALE}")
+    
+    # 🔥 新增：处理MoE命令行参数
+    if args.use_moe:
+        cfg.MODEL.USE_MULTI_SCALE_MOE = True
+        print("🚀 启用多尺度MoE融合 (命令行参数)")
+    elif args.no_moe:
+        cfg.MODEL.USE_MULTI_SCALE_MOE = False
+        print("🚀 禁用多尺度MoE融合 (命令行参数)")
+    else:
+        # 使用配置文件中的默认值
+        print(f"🚀 使用配置文件设置: USE_MULTI_SCALE_MOE = {cfg.MODEL.USE_MULTI_SCALE_MOE}")
     
     cfg.freeze() # 冻结配置
 
