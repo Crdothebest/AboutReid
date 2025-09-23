@@ -79,6 +79,14 @@ class CLIPMultiScaleSlidingWindow(nn.Module):
         Returns:
             multi_scale_feature: [B, 512] - 多尺度融合特征
         """
+        # 🔥 滑动窗口启动提示（仅在第一次调用时显示）
+        if not hasattr(self, '_sliding_window_forward_called'):
+            print(f"🔍 多尺度滑动窗口启动！")
+            print(f"   - 输入patch tokens形状: {patch_tokens.shape}")
+            print(f"   - 滑动窗口尺度: {self.scales}")
+            print(f"   - 特征维度: {self.feat_dim}")
+            self._sliding_window_forward_called = True
+        
         B, N, D = patch_tokens.shape
         
         # 🔥 转换为卷积输入格式 [B, D, N]

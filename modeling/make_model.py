@@ -206,6 +206,14 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     # 核心算法：4x4/8x8/16x16滑动窗口 → MoE专家网络 → 动态权重融合
                     multi_scale_feature, expert_weights = self.clip_multi_scale_moe(patch_tokens)  # [B, 512], [B, 3]
                     
+                    # 🔥 MoE融合完成提示（仅在第一次调用时显示）
+                    if not hasattr(self, '_moe_fusion_called'):
+                        print(f"✅ MoE多尺度特征融合完成！")
+                        print(f"   - 输出特征形状: {multi_scale_feature.shape}")
+                        print(f"   - 专家权重形状: {expert_weights.shape}")
+                        print(f"   - 专家权重分布: {expert_weights[0].detach().cpu().numpy()}")
+                        self._moe_fusion_called = True
+                    
                     # 保存专家权重用于分析（可选）
                     if hasattr(self, 'expert_weights_history'):
                         self.expert_weights_history.append(expert_weights.detach().cpu())
@@ -213,6 +221,12 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     # 🔥 使用传统MLP融合多尺度特征
                     # 核心算法：4x4/8x8/16x16滑动窗口 → MLP特征融合
                     multi_scale_feature = self.clip_multi_scale_extractor(patch_tokens)  # [B, 512]
+                    
+                    # 🔥 滑动窗口融合完成提示（仅在第一次调用时显示）
+                    if not hasattr(self, '_sliding_window_fusion_called'):
+                        print(f"✅ 多尺度滑动窗口特征融合完成！")
+                        print(f"   - 输出特征形状: {multi_scale_feature.shape}")
+                        self._sliding_window_fusion_called = True
                 
                 # 🔥 将多尺度特征与CLS token结合（残差连接）
                 # 增强CLS token：原始CLS + 多尺度特征

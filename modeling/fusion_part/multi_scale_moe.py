@@ -70,6 +70,11 @@ class ExpertNetwork(nn.Module):
         Returns:
             output: [B, D] - 专家处理后的特征
         """
+        # 🔥 专家网络处理提示（仅在第一次调用时显示）
+        if not hasattr(self, '_expert_forward_called'):
+            print(f"🧠 专家网络开始处理特征: {x.shape}")
+            self._expert_forward_called = True
+        
         # 专家处理
         expert_output = self.expert(x)
         
@@ -129,6 +134,11 @@ class GatingNetwork(nn.Module):
         Returns:
             weights: [B, num_experts] - 专家权重分布
         """
+        # 🔥 门控网络处理提示（仅在第一次调用时显示）
+        if not hasattr(self, '_gate_forward_called'):
+            print(f"🎯 门控网络开始计算专家权重: 输入{x.shape} → 输出[{x.shape[0]}, {self.num_experts}]")
+            self._gate_forward_called = True
+        
         # 计算门控分数
         gate_scores = self.gate(x)  # [B, num_experts]
         
@@ -212,6 +222,15 @@ class MultiScaleMoE(nn.Module):
             final_feature: [B, feat_dim] - MoE融合后的最终特征
             expert_weights: [B, num_experts] - 专家权重分布（用于分析）
         """
+        # 🔥 MoE模块启动提示（仅在第一次调用时显示）
+        if not hasattr(self, '_moe_forward_called'):
+            print(f"🚀 多尺度MoE模块启动！")
+            print(f"   - 输入特征数量: {len(multi_scale_features)}")
+            print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
+            print(f"   - 滑动窗口尺度: {self.scales}")
+            print(f"   - 专家数量: {self.num_experts}")
+            self._moe_forward_called = True
+        
         B = multi_scale_features[0].shape[0]
         
         # 🔥 步骤1：拼接多尺度特征作为门控网络输入
@@ -317,6 +336,14 @@ class CLIPMultiScaleMoE(nn.Module):
             final_feature: [B, feat_dim] - MoE融合后的特征
             expert_weights: [B, num_experts] - 专家权重分布
         """
+        # 🔥 CLIP多尺度MoE启动提示（仅在第一次调用时显示）
+        if not hasattr(self, '_clip_moe_forward_called'):
+            print(f"🎯 CLIP多尺度MoE模块启动！")
+            print(f"   - 输入patch tokens形状: {patch_tokens.shape}")
+            print(f"   - 滑动窗口尺度: {self.scales}")
+            print(f"   - 特征维度: {self.feat_dim}")
+            self._clip_moe_forward_called = True
+        
         # 🔥 步骤1：多尺度滑动窗口特征提取
         # 这里需要修改现有的多尺度提取器，返回各个尺度的特征而不是融合后的特征
         multi_scale_features = self._extract_multi_scale_features(patch_tokens)
