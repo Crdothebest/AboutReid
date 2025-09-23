@@ -54,11 +54,35 @@ if __name__ == '__main__':
     parser.add_argument("opts", help="Modify config options using the command-line", default=None,
                         nargs=argparse.REMAINDER)  # 命令行覆盖配置（键值对列表）
     parser.add_argument("--local_rank", default=0, type=int)  # 分布式训练时由 torchrun 传入
+    
+    # 🔥 新增：MoE模块命令行开关
+    parser.add_argument("--use_moe", action="store_true", 
+                       help="启用多尺度MoE特征融合模块 (默认: False)")
+    parser.add_argument("--disable_moe", action="store_true", 
+                       help="强制禁用多尺度MoE特征融合模块 (默认: False)")
     args = parser.parse_args()  # 解析参数
 
     if args.config_file != "":
         cfg.merge_from_file(args.config_file)  # 从 YAML 合并配置
     cfg.merge_from_list(args.opts)  # 从命令行 opts 合并覆盖
+    
+    # 🔥 新增：处理MoE命令行开关
+    # 优先级：--disable_moe > --use_moe > 配置文件设置
+    if args.disable_moe:
+        # 强制禁用MoE模块
+        cfg.defrost()  # 解冻配置以修改
+        cfg.MODEL.USE_MULTI_SCALE_MOE = False
+        cfg.freeze()
+        print("🔥 命令行参数 --disable_moe: 强制禁用MoE模块")
+    elif args.use_moe:
+        # 启用MoE模块
+        cfg.defrost()  # 解冻配置以修改
+        cfg.MODEL.USE_MULTI_SCALE_MOE = True
+        # 确保多尺度滑动窗口也启用
+        cfg.MODEL.USE_CLIP_MULTI_SCALE = True
+        cfg.freeze()
+        print("🔥 命令行参数 --use_moe: 启用MoE模块")
+    
     cfg.freeze()  # 冻结配置，避免训练中被误改
 
     set_seed(cfg.SOLVER.SEED)  # 设定随机种子
@@ -73,6 +97,14 @@ if __name__ == '__main__':
     logger = setup_logger("MambaPro", output_dir, if_train=True)  # 初始化日志器
     logger.info("Saving model in the path :{}".format(cfg.OUTPUT_DIR))  # 打印保存路径
     logger.info(args)  # 打印启动参数
+    
+    # 🔥 新增：显示MoE模块状态
+    moe_status = "启用" if cfg.MODEL.USE_MULTI_SCALE_MOE else "禁用"
+    multi_scale_status = "启用" if cfg.MODEL.USE_CLIP_MULTI_SCALE else "禁用"
+    logger.info("🔥 MoE模块状态: {}".format(moe_status))
+    logger.info("🔥 多尺度滑动窗口状态: {}".format(multi_scale_status))
+    if cfg.MODEL.USE_MULTI_SCALE_MOE:
+        logger.info("🔥 MoE滑动窗口尺度: {}".format(cfg.MODEL.MOE_SCALES))
 
     if args.config_file != "":
         logger.info("Loaded configuration file {}".format(args.config_file))  # 记录已加载的配置文件

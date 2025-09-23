@@ -18,6 +18,15 @@ MODEL:
   # 🔥 测试控制：设置为False使用原始CLIP，设置为True使用多尺度滑动窗口
   USE_CLIP_MULTI_SCALE: False   # 启用CLIP多尺度滑动窗口特征提取
   CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度（4x4小窗口，8x8中窗口，16x16大窗口）
+  
+  # ========== 创新点配置：多尺度MoE特征融合模块 ==========
+  # 用户修改：添加多尺度MoE特征融合配置，支持命令行开关控制
+  # 功能：启用基于专家网络的多尺度特征动态融合机制
+  # 🔥 测试控制：可通过--use_moe启用，--disable_moe禁用，或直接修改此配置
+  USE_MULTI_SCALE_MOE: False    # 启用多尺度MoE特征融合模块
+  MOE_SCALES: [4, 8, 16]        # MoE滑动窗口尺度（与多尺度滑动窗口保持一致）
+  MOE_EXPERT_HIDDEN_DIM: 1024   # MoE专家网络隐藏层维度
+  MOE_TEMPERATURE: 1.0          # MoE门控网络温度参数（控制权重分布尖锐程度）
 
 INPUT:
   SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
@@ -73,9 +82,36 @@ TEST:
   FEAT_NORM: 'yes' # 特征归一化
   MISS: "nothing" # 缺失
 
-# ========== 多尺度滑动窗口实验输出目录 ==========
-# 用户修改：修改输出目录以区分多尺度滑动窗口实验结果
-# 功能：将多尺度滑动窗口实验结果保存到专门的目录，便于对比分析
-OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/multi_scale_experiment' # 多尺度滑动窗口实验输出目录
+# ========== 创新点实验输出目录 ==========
+# 用户修改：修改输出目录以区分不同创新点实验结果
+# 功能：将多尺度滑动窗口和MoE实验结果保存到专门的目录，便于对比分析
+# 🔥 注意：可通过命令行参数--output_dir覆盖此设置
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/innovation_experiment' # 创新点实验输出目录
+
+# ========== 创新点使用说明 ==========
+# 用户修改：添加详细的使用说明，方便进行消融实验
+# 
+# 🔥 四种实验组合：
+# 1. 基线方法（无创新点）：
+#    python tools/train.py --config_file configs/RGBNT201/MambaPro.yml --disable_moe
+# 
+# 2. 仅多尺度滑动窗口：
+#    python tools/train.py --config_file configs/RGBNT201/MambaPro.yml --disable_moe MODEL.USE_CLIP_MULTI_SCALE True
+# 
+# 3. 多尺度滑动窗口 + MoE融合：
+#    python tools/train.py --config_file configs/RGBNT201/MambaPro.yml --use_moe
+# 
+# 4. 仅MoE融合（不推荐）：
+#    python tools/train.py --config_file configs/RGBNT201/MambaPro.yml --use_moe MODEL.USE_CLIP_MULTI_SCALE False
+# 
+# 🔥 命令行参数优先级：
+#    --disable_moe > --use_moe > 配置文件设置
+# 
+# 🔥 配置文件直接修改：
+#    修改 USE_CLIP_MULTI_SCALE: True/False 控制多尺度滑动窗口
+#    修改 USE_MULTI_SCALE_MOE: True/False 控制MoE融合
+# 
+# 🔥 消融实验建议：
+#    建议按顺序进行：基线 → 多尺度 → MoE，分析每个创新点的贡献度
 
 

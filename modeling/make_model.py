@@ -131,6 +131,28 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 print('✅ 为CLIP启用多尺度滑动窗口特征提取模块')
                 print(f'   - 滑动窗口尺度: [4, 8, 16]')
                 print(f'   - 特征维度: 512 (CLIP投影维度)')
+            
+            # 🔥 新增：多尺度MoE配置和初始化
+            # 功能：从配置文件读取MoE设置，初始化MoE模块
+            self.use_multi_scale_moe = getattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE', False)
+            self.moe_scales = getattr(cfg.MODEL, 'MOE_SCALES', [4, 8, 16])
+            
+            if self.use_multi_scale_moe:
+                from modeling.fusion_part.multi_scale_moe import CLIPMultiScaleMoE
+                # 初始化多尺度MoE模块：512维输入，4x4/8x8/16x16滑动窗口，专家网络
+                self.clip_multi_scale_moe = CLIPMultiScaleMoE(
+                    feat_dim=512, 
+                    scales=self.moe_scales,
+                    expert_hidden_dim=1024,
+                    temperature=1.0
+                )
+                # 初始化专家权重历史记录（用于分析）
+                self.expert_weights_history = []
+                print('🔥 为CLIP启用多尺度MoE特征融合模块')
+                print(f'   - 滑动窗口尺度: {self.moe_scales}')
+                print(f'   - 特征维度: 512 (CLIP投影维度)')
+                print(f'   - 专家隐藏层维度: 1024')
+                print(f'   - 门控网络温度: 1.0')
 
             if cfg.MODEL.SIE_CAMERA and cfg.MODEL.SIE_VIEW:
                 self.cv_embed = nn.Parameter(torch.zeros(camera_num * view_num, 768))  # 相机×视角嵌入（CLIP实际维度）
@@ -178,9 +200,19 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 cls_token = x[:, 0:1, :]  # [B, 1, 512] - CLIP的CLS token
                 patch_tokens = x[:, 1:, :]  # [B, N, 512] - CLIP的patch tokens
                 
-                # 🔥 对patch tokens进行多尺度滑动窗口处理
-                # 核心算法：4x4/8x8/16x16滑动窗口 → 多尺度特征融合
-                multi_scale_feature = self.clip_multi_scale_extractor(patch_tokens)  # [B, 512]
+                # 🔥 检查是否使用MoE融合
+                if hasattr(self, 'use_multi_scale_moe') and self.use_multi_scale_moe and hasattr(self, 'clip_multi_scale_moe'):
+                    # 🔥 使用MoE融合多尺度特征
+                    # 核心算法：4x4/8x8/16x16滑动窗口 → MoE专家网络 → 动态权重融合
+                    multi_scale_feature, expert_weights = self.clip_multi_scale_moe(patch_tokens)  # [B, 512], [B, 3]
+                    
+                    # 保存专家权重用于分析（可选）
+                    if hasattr(self, 'expert_weights_history'):
+                        self.expert_weights_history.append(expert_weights.detach().cpu())
+                else:
+                    # 🔥 使用传统MLP融合多尺度特征
+                    # 核心算法：4x4/8x8/16x16滑动窗口 → MLP特征融合
+                    multi_scale_feature = self.clip_multi_scale_extractor(patch_tokens)  # [B, 512]
                 
                 # 🔥 将多尺度特征与CLS token结合（残差连接）
                 # 增强CLS token：原始CLS + 多尺度特征
