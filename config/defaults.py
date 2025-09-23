@@ -44,6 +44,17 @@ _C.MODEL.FROZEN = True # whether freeze the backbone
 # CLIP Multi-Scale Sliding Window settings
 _C.MODEL.USE_CLIP_MULTI_SCALE = False # whether use CLIP multi-scale sliding window (默认关闭，保持向后兼容)
 _C.MODEL.CLIP_MULTI_SCALE_SCALES = [4, 8, 16] # sliding window scales for CLIP (4x4, 8x8, 16x16窗口)
+
+# ========== 新增配置：多尺度MoE特征融合设置 ==========
+# 用户修改：添加多尺度MoE特征融合配置，支持命令行开关控制
+# 功能：控制是否启用基于专家网络的多尺度特征动态融合机制
+# 基于：MoE多尺度特征融合创新设计
+# 撤销方法：删除以下四行配置代码
+# Multi-Scale MoE settings
+_C.MODEL.USE_MULTI_SCALE_MOE = False    # whether use multi-scale MoE fusion (默认关闭，保持向后兼容)
+_C.MODEL.MOE_SCALES = [4, 8, 16]        # MoE sliding window scales (与多尺度滑动窗口保持一致)
+_C.MODEL.MOE_EXPERT_HIDDEN_DIM = 1024   # MoE expert network hidden dimension
+_C.MODEL.MOE_TEMPERATURE = 1.0          # MoE gating network temperature parameter
 # If train with label smooth, options: 'on', 'off'
 _C.MODEL.IF_LABELSMOOTH = 'on'
 # If train with the contact feature
