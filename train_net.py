@@ -36,8 +36,11 @@ if __name__ == '__main__':
     # 🔥 新增：多尺度滑动窗口控制参数
     parser.add_argument("--use_multi_scale", action="store_true", help="Enable multi-scale sliding window (default: False)")
     parser.add_argument("--no_multi_scale", action="store_true", help="Disable multi-scale sliding window (default: False)")
-    # 🔥 新增：MoE控制参数
-    parser.add_argument("--use_moe", action="store_true", help="Enable Multi-scale MoE fusion (default: False)")
+    # 🔥 新增：MoE控制参数（从tools/train.py移植）
+    parser.add_argument("--use_moe", action="store_true", 
+                       help="启用多尺度MoE特征融合模块 (默认: False)")
+    parser.add_argument("--disable_moe", action="store_true", 
+                       help="强制禁用多尺度MoE特征融合模块 (默认: False)")
     parser.add_argument("--no_moe", action="store_true", help="Disable Multi-scale MoE fusion (default: False)")
     args = parser.parse_args() # 解析参数
 
@@ -57,13 +60,28 @@ if __name__ == '__main__':
         # 使用配置文件中的默认值
         print(f"🔥 使用配置文件设置: USE_CLIP_MULTI_SCALE = {cfg.MODEL.USE_CLIP_MULTI_SCALE}")
     
-    # 🔥 新增：处理MoE命令行参数
-    if args.use_moe:
-        cfg.MODEL.USE_MULTI_SCALE_MOE = True
-        print("🚀 启用多尺度MoE融合 (命令行参数)")
-    elif args.no_moe:
+    # 🔥 新增：处理MoE命令行参数（从tools/train.py移植）
+    # 优先级：--disable_moe > --use_moe > 配置文件设置
+    if args.disable_moe:
+        # 强制禁用MoE模块
+        cfg.defrost()  # 解冻配置以修改
         cfg.MODEL.USE_MULTI_SCALE_MOE = False
-        print("🚀 禁用多尺度MoE融合 (命令行参数)")
+        cfg.freeze()
+        print("🔥 命令行参数 --disable_moe: 强制禁用MoE模块")
+    elif args.use_moe:
+        # 启用MoE模块
+        cfg.defrost()  # 解冻配置以修改
+        cfg.MODEL.USE_MULTI_SCALE_MOE = True
+        # 确保多尺度滑动窗口也启用
+        cfg.MODEL.USE_CLIP_MULTI_SCALE = True
+        cfg.freeze()
+        print("🔥 命令行参数 --use_moe: 启用MoE模块")
+    elif args.no_moe:
+        # 兼容旧参数
+        cfg.defrost()
+        cfg.MODEL.USE_MULTI_SCALE_MOE = False
+        cfg.freeze()
+        print("🚀 禁用多尺度MoE融合 (命令行参数 --no_moe)")
     else:
         # 使用配置文件中的默认值
         print(f"🚀 使用配置文件设置: USE_MULTI_SCALE_MOE = {cfg.MODEL.USE_MULTI_SCALE_MOE}")
@@ -82,6 +100,14 @@ if __name__ == '__main__':
     logger = setup_logger("MambaPro", output_dir, if_train=True) # 设置日志
     logger.info("Saving model in the path :{}".format(cfg.OUTPUT_DIR)) # 打印输出目录
     logger.info(args) # 打印参数
+    
+    # 🔥 新增：显示MoE模块状态（从tools/train.py移植）
+    moe_status = "启用" if cfg.MODEL.USE_MULTI_SCALE_MOE else "禁用"
+    multi_scale_status = "启用" if cfg.MODEL.USE_CLIP_MULTI_SCALE else "禁用"
+    logger.info("🔥 MoE模块状态: {}".format(moe_status))
+    logger.info("🔥 多尺度滑动窗口状态: {}".format(multi_scale_status))
+    if cfg.MODEL.USE_MULTI_SCALE_MOE:
+        logger.info("🔥 MoE滑动窗口尺度: {}".format(cfg.MODEL.MOE_SCALES))
 
     if args.config_file != "":
         logger.info("Loaded configuration file {}".format(args.config_file)) # 打印加载的配置文件
