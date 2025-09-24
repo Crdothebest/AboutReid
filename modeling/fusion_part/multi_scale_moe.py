@@ -35,16 +35,21 @@ class ExpertNetwork(nn.Module):
         """
         super(ExpertNetwork, self).__init__()
         
-        # 🔥 专家网络结构：两层MLP + 残差连接
+        # ========== MLP专家网络：特征增强处理器 ==========
+        # 🔥 功能：对单个尺度的特征进行增强处理，提升表达能力
+        # 🎯 作用：特征增强 - 让每个尺度的特征变得更"聪明"
+        # 📊 输入：input_dim (512维，单个尺度特征)
+        # 📊 输出：output_dim (512维，增强后的尺度特征)
+        # 🔧 实现：两层MLP + LayerNorm + GELU激活 + Dropout + 残差连接
         self.expert = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, output_dim),
-            nn.LayerNorm(output_dim),
-            nn.GELU(),
-            nn.Dropout(dropout)
+            nn.Linear(input_dim, hidden_dim),    # 第一层MLP：512 -> 1024 (升维增强)
+            nn.LayerNorm(hidden_dim),            # 层归一化：稳定训练过程
+            nn.GELU(),                           # GELU激活：增加非线性表达能力
+            nn.Dropout(dropout),                 # Dropout正则化：防止过拟合
+            nn.Linear(hidden_dim, output_dim),   # 第二层MLP：1024 -> 512 (降维输出)
+            nn.LayerNorm(output_dim),            # 层归一化：稳定训练过程
+            nn.GELU(),                           # GELU激活：增加非线性表达能力
+            nn.Dropout(dropout)                  # Dropout正则化：防止过拟合
         )
         
         # 残差连接的投影层（如果输入输出维度不同）
@@ -75,10 +80,14 @@ class ExpertNetwork(nn.Module):
             print(f"🧠 专家网络开始处理特征: {x.shape}")
             self._expert_forward_called = True
         
-        # 专家处理
-        expert_output = self.expert(x)
+        # ========== MLP专家网络前向传播：特征增强处理 ==========
+        # 🔥 功能：通过专家网络MLP对输入特征进行增强处理
+        # 🎯 作用：特征增强 - 让每个尺度的特征变得更"聪明"
+        # 📊 输入：x [B, 512] (单个尺度特征)
+        # 📊 输出：output [B, 512] (增强后的尺度特征)
+        expert_output = self.expert(x)  # MLP专家网络处理
         
-        # 残差连接
+        # 残差连接：保持原始信息，增强梯度流动
         residual = self.residual_proj(x)
         output = expert_output + residual
         
@@ -105,13 +114,18 @@ class GatingNetwork(nn.Module):
         self.num_experts = num_experts
         self.temperature = temperature
         
-        # 🔥 门控网络：两层MLP
+        # ========== MLP门控网络：专家权重决策器 ==========
+        # 🔥 功能：根据多尺度特征计算各专家的权重分布
+        # 🎯 作用：权重计算 - 判断哪个尺度的特征更重要
+        # 📊 输入：input_dim (1536维，3个尺度特征拼接)
+        # 📊 输出：num_experts (3维，每个专家的权重)
+        # 🔧 实现：两层MLP + LayerNorm + GELU激活 + Dropout
         self.gate = nn.Sequential(
-            nn.Linear(input_dim, input_dim // 2),
-            nn.LayerNorm(input_dim // 2),
-            nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Linear(input_dim // 2, num_experts)
+            nn.Linear(input_dim, input_dim // 2),  # 第一层MLP：1536 -> 768 (降维处理)
+            nn.LayerNorm(input_dim // 2),          # 层归一化：稳定训练过程
+            nn.GELU(),                             # GELU激活：增加非线性表达能力
+            nn.Dropout(0.1),                       # Dropout正则化：防止过拟合
+            nn.Linear(input_dim // 2, num_experts) # 第二层MLP：768 -> 3 (输出专家权重)
         )
         
         # 初始化权重
@@ -139,10 +153,14 @@ class GatingNetwork(nn.Module):
             print(f"🎯 门控网络开始计算专家权重: 输入{x.shape} → 输出[{x.shape[0]}, {self.num_experts}]")
             self._gate_forward_called = True
         
-        # 计算门控分数
-        gate_scores = self.gate(x)  # [B, num_experts]
+        # ========== MLP门控网络前向传播：计算专家权重 ==========
+        # 🔥 功能：通过门控网络MLP计算各专家的权重分布
+        # 🎯 作用：权重计算 - 判断哪个尺度的特征更重要
+        # 📊 输入：x [B, 1536] (多尺度特征拼接)
+        # 📊 输出：weights [B, 3] (每个专家的权重)
+        gate_scores = self.gate(x)  # [B, num_experts] - 门控网络MLP处理
         
-        # 应用温度参数
+        # 应用温度参数：控制权重分布的尖锐程度
         gate_scores = gate_scores / self.temperature
         
         # Softmax归一化得到权重分布
@@ -196,12 +214,17 @@ class MultiScaleMoE(nn.Module):
             temperature=temperature
         )
         
-        # 🔥 最终融合层：将专家输出融合为单一特征
+        # ========== MLP最终融合层：专家输出融合器 ==========
+        # 🔥 功能：将MoE专家网络的输出进行最终融合处理
+        # 🎯 作用：特征融合 - 将专家输出融合为单一特征
+        # 📊 输入：feat_dim (512维，MoE加权融合后的特征)
+        # 📊 输出：feat_dim (512维，最终融合特征)
+        # 🔧 实现：单层MLP + LayerNorm + GELU激活 + Dropout
         self.final_fusion = nn.Sequential(
-            nn.Linear(feat_dim, feat_dim),
-            nn.LayerNorm(feat_dim),
-            nn.GELU(),
-            nn.Dropout(0.1)
+            nn.Linear(feat_dim, feat_dim),  # MLP层：512 -> 512 (特征增强)
+            nn.LayerNorm(feat_dim),         # 层归一化：稳定训练过程
+            nn.GELU(),                      # GELU激活：增加非线性表达能力
+            nn.Dropout(0.1)                 # Dropout正则化：防止过拟合
         )
         
         print(f"🔥 多尺度MoE模块初始化完成:")
@@ -236,13 +259,21 @@ class MultiScaleMoE(nn.Module):
         # 🔥 步骤1：拼接多尺度特征作为门控网络输入
         concat_features = torch.cat(multi_scale_features, dim=1)  # [B, feat_dim * num_scales]
         
-        # 🔥 步骤2：门控网络计算专家权重
+        # ========== MLP门控网络调用：计算专家权重 ==========
+        # 🔥 功能：通过门控网络MLP计算各专家的权重分布
+        # 🎯 作用：权重计算 - 判断哪个尺度的特征更重要
+        # 📊 输入：concat_features [B, 1536] (多尺度特征拼接)
+        # 📊 输出：expert_weights [B, 3] (每个专家的权重)
         expert_weights = self.gating_network(concat_features)  # [B, num_experts]
         
-        # 🔥 步骤3：专家网络处理对应尺度特征
+        # ========== MLP专家网络调用：处理各尺度特征 ==========
+        # 🔥 功能：通过专家网络MLP处理各尺度的特征
+        # 🎯 作用：特征增强 - 让每个尺度的特征变得更"聪明"
+        # 📊 输入：multi_scale_features (List[Tensor], 每个元素[B, 512])
+        # 📊 输出：expert_outputs (List[Tensor], 每个元素[B, 512])
         expert_outputs = []
         for i, (expert, feature) in enumerate(zip(self.experts, multi_scale_features)):
-            expert_output = expert(feature)  # [B, feat_dim]
+            expert_output = expert(feature)  # [B, feat_dim] - 专家网络MLP处理
             expert_outputs.append(expert_output)
         
         # 🔥 步骤4：加权融合专家输出
@@ -257,7 +288,11 @@ class MultiScaleMoE(nn.Module):
         # 求和得到融合特征
         fused_feature = torch.sum(torch.stack(weighted_outputs, dim=0), dim=0)  # [B, feat_dim]
         
-        # 🔥 步骤5：最终融合层处理
+        # ========== MLP最终融合层调用：专家输出融合 ==========
+        # 🔥 功能：通过最终融合层MLP处理MoE加权融合后的特征
+        # 🎯 作用：特征融合 - 将专家输出融合为单一特征
+        # 📊 输入：fused_feature [B, 512] (MoE加权融合后的特征)
+        # 📊 输出：final_feature [B, 512] (最终融合特征)
         final_feature = self.final_fusion(fused_feature)  # [B, feat_dim]
         
         return final_feature, expert_weights
