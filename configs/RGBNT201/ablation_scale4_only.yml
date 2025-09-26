@@ -1,0 +1,110 @@
+MODEL:
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
+  TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
+  STRIDE_SIZE: [ 16, 16 ] # 步长
+  SIE_CAMERA: True # 是否使用相机嵌入
+  DIRECT: 1 # 直接
+  SIE_COE: 1.0 # 相机嵌入系数
+  ID_LOSS_WEIGHT: 0.25 # 分类损失权重
+  TRIPLET_LOSS_WEIGHT: 1.0 # 三元组损失权重
+  PROMPT: True # 是否使用提示
+  ADAPTER: True # 是否使用适配器
+  MAMBA: True # 是否使用Mamba
+  FROZEN: True # 是否冻结
+  
+  # ========== 消融实验配置：仅4×4小尺度滑动窗口 ==========
+  # 实验目的：验证4×4小尺度滑动窗口的独立效果
+  # 功能：启用基于CLIP的4×4小尺度特征提取机制
+  # 🔥 消融实验：仅使用4×4小尺度，不使用MoE融合
+  USE_CLIP_MULTI_SCALE: True   # 启用CLIP多尺度滑动窗口特征提取
+  CLIP_MULTI_SCALE_SCALES: [4]  # 滑动窗口尺度（仅4x4小窗口）
+  
+  # ========== MoE配置：禁用MoE融合 ==========
+  # 实验目的：仅测试滑动窗口效果，不使用MoE融合
+  # 功能：禁用多尺度MoE特征融合模块
+  # 🔥 消融实验：禁用MoE，仅使用滑动窗口
+  USE_MULTI_SCALE_MOE: False    # 禁用多尺度MoE特征融合模块
+  MOE_SCALES: [4]              # MoE滑动窗口尺度（对应1个专家，虽然不用）
+  MOE_EXPERT_HIDDEN_DIM: 1024   # MoE专家网络隐藏层维度
+  MOE_TEMPERATURE: 1.0          # MoE门控网络温度参数（控制权重分布尖锐程度）
+
+INPUT:
+  SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
+  SIZE_TEST: [ 256, 128 ] # 测试尺寸
+  PROB: 0.5 # random horizontal flip # 随机水平翻转
+  RE_PROB: 0.5 # random erasing # 随机擦除
+  PADDING: 10 # 填充
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet' # 采样器
+  NUM_INSTANCE: 8 # 每个批次实例数 (提高采样多样性)
+  NUM_WORKERS: 8 # 工作线程数
+
+DATASETS:
+  NAMES: ('RGBNT201') # 数据集名称
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
+
+SOLVER:
+  # 优化器设置
+  OPTIMIZER_NAME: 'Adam' # 优化器名称
+  BASE_LR: 0.0005 # 基础学习率 (论文baseline推荐值)
+  WEIGHT_DECAY: 0.0005 # 权重衰减
+  WEIGHT_DECAY_BIAS: 0.0005 # 偏置权重衰减
+  MOMENTUM: 0.9 # 动量
+  
+  # 训练设置
+  MAX_EPOCHS: 60 # 最大迭代数 (论文标准设置)
+  IMS_PER_BATCH: 32 # 每个批次图像数 (提高训练稳定性)
+  WARMUP_ITERS: 20 # 预热迭代数 (充分预热)
+  WARMUP_METHOD: 'linear' # 预热方法
+  WARMUP_FACTOR: 0.01 # 预热因子
+  
+  # 损失函数设置
+  MARGIN: 0.3 # 三元组损失边界
+  CENTER_LOSS_WEIGHT: 0.0005 # 中心损失权重
+  CENTER_LR: 0.5 # 中心学习率
+  
+  # 学习率调度
+  GAMMA: 0.1 # 衰减率
+  STEPS: (30, 50) # 学习率衰减步数
+  
+  # 其他设置
+  SEED: 42 # 随机种子 (确保可复现性)
+  CHECKPOINT_PERIOD: 10 # 检查点保存周期
+  LOG_PERIOD: 10 # 日志打印周期
+  EVAL_PERIOD: 5 # 验证周期
+
+TEST:
+  IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
+  RE_RANKING: 'no' # 是否重新排序
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
+  FEAT_NORM: 'yes' # 特征归一化
+  MISS: "nothing" # 缺失
+
+# ========== 消融实验输出目录 ==========
+# 实验目的：为4×4小尺度滑动窗口实验设置专门的输出目录
+# 功能：便于对比不同尺度的实验结果
+# 🔥 消融实验：4×4小尺度滑动窗口实验结果
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation_scale4_only' # 4×4小尺度实验输出目录
+
+# ========== 消融实验使用说明 ==========
+# 实验目的：验证4×4小尺度滑动窗口的独立效果
+# 
+# 🔥 实验配置：
+# - 滑动窗口尺度：仅4×4小尺度
+# - MoE融合：禁用
+# - 特征类型：局部细节特征
+# 
+# 🔥 执行命令：
+# python train_net.py --config_file configs/RGBNT201/ablation_scale4_only.yml
+# 
+# 🔥 预期效果：
+# - 捕获局部细节和纹理信息
+# - 性能可能略低于基线（仅单尺度）
+# - 计算效率较高
+# 
+# 🔥 分析维度：
+# - 局部细节识别能力
+# - 小尺度特征贡献度
+# - 计算效率分析
