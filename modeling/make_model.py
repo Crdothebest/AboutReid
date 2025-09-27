@@ -139,20 +139,23 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             
             if self.use_multi_scale_moe:
                 from modeling.fusion_part.multi_scale_moe import CLIPMultiScaleMoE
+                # 🔥 修复：从配置文件读取MoE参数，而不是硬编码
+                expert_hidden_dim = getattr(cfg.MODEL, 'MOE_EXPERT_HIDDEN_DIM', 1024)
+                temperature = getattr(cfg.MODEL, 'MOE_TEMPERATURE', 1.0)
                 # 初始化多尺度MoE模块：512维输入，4x4/8x8/16x16滑动窗口，专家网络
                 self.clip_multi_scale_moe = CLIPMultiScaleMoE(
                     feat_dim=512, 
                     scales=self.moe_scales,
-                    expert_hidden_dim=1024,
-                    temperature=1.0
+                    expert_hidden_dim=expert_hidden_dim,
+                    temperature=temperature
                 )
                 # 初始化专家权重历史记录（用于分析）
                 self.expert_weights_history = []
                 print('🔥 为CLIP启用多尺度MoE特征融合模块')
                 print(f'   - 滑动窗口尺度: {self.moe_scales}')
                 print(f'   - 特征维度: 512 (CLIP投影维度)')
-                print(f'   - 专家隐藏层维度: 1024')
-                print(f'   - 门控网络温度: 1.0')
+                print(f'   - 专家隐藏层维度: {expert_hidden_dim}')
+                print(f'   - 门控网络温度: {temperature}')
 
             if cfg.MODEL.SIE_CAMERA and cfg.MODEL.SIE_VIEW:
                 self.cv_embed = nn.Parameter(torch.zeros(camera_num * view_num, 768))  # 相机×视角嵌入（CLIP实际维度）
