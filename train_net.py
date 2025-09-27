@@ -49,6 +49,57 @@ if __name__ == '__main__':
     cfg.merge_from_list(args.opts) # 从命令行合并配置
     cfg.TEST.FEAT = args.fea_cft # 设置特征选择
     
+    # 🔥 新增：消融实验启动提示功能
+    def print_ablation_experiment_info(config_file_path):
+        """打印消融实验启动信息"""
+        if "ablation_scale4_only" in config_file_path:
+            print("=" * 80)
+            print("🔥 消融实验启动：4×4小尺度滑动窗口实验")
+            print("=" * 80)
+            print("📊 实验配置：")
+            print("   - 滑动窗口尺度：仅4×4小尺度")
+            print("   - MoE融合：禁用")
+            print("   - 特征类型：局部细节特征")
+            print("   - 预期效果：捕获局部细节和纹理信息")
+            print("   - 输出目录：ablation_scale4_only")
+            print("=" * 80)
+        elif "ablation_scale8_only" in config_file_path:
+            print("=" * 80)
+            print("🔥 消融实验启动：8×8中尺度滑动窗口实验")
+            print("=" * 80)
+            print("📊 实验配置：")
+            print("   - 滑动窗口尺度：仅8×8中尺度")
+            print("   - MoE融合：禁用")
+            print("   - 特征类型：结构信息特征")
+            print("   - 预期效果：捕获结构信息和对象部件")
+            print("   - 输出目录：ablation_scale8_only")
+            print("=" * 80)
+        elif "ablation_scale16_only" in config_file_path:
+            print("=" * 80)
+            print("🔥 消融实验启动：16×16大尺度滑动窗口实验")
+            print("=" * 80)
+            print("📊 实验配置：")
+            print("   - 滑动窗口尺度：仅16×16大尺度")
+            print("   - MoE融合：禁用")
+            print("   - 特征类型：全局上下文特征")
+            print("   - 预期效果：捕获全局上下文和场景信息")
+            print("   - 输出目录：ablation_scale16_only")
+            print("=" * 80)
+        elif "ablation" in config_file_path:
+            print("=" * 80)
+            print("🔥 消融实验启动：多尺度滑动窗口消融实验")
+            print("=" * 80)
+            print("📊 实验配置：")
+            print("   - 滑动窗口尺度：多尺度组合")
+            print("   - MoE融合：根据配置")
+            print("   - 特征类型：多尺度特征融合")
+            print("   - 预期效果：验证不同尺度组合的效果")
+            print("=" * 80)
+    
+    # 调用消融实验提示功能
+    if args.config_file != "":
+        print_ablation_experiment_info(args.config_file)
+    
     # 🔥 新增：处理多尺度滑动窗口命令行参数
     if args.use_multi_scale:
         cfg.MODEL.USE_CLIP_MULTI_SCALE = True
