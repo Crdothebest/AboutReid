@@ -24,3 +24,4 @@ python train_net.py --config_file configs/RGBNT201/ablation_scale8_only.yml
 
 echo ""
 echo "🔥 8×8中尺度滑动窗口实验完成！"
+
