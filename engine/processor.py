@@ -98,6 +98,23 @@ def do_train(cfg,
                     loss_tmp = loss_fn(score=output[i], feat=output[i + 1],
                                        target=target, target_cam=target_cam)
                     loss = loss + loss_tmp
+                
+                # 🔥 新增：MoE损失计算
+                # 功能：为MoE模块添加专门的损失函数
+                # 包含：平衡损失、稀疏性损失、多样性损失
+                if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'current_expert_weights'):
+                    expert_weights = model.BACKBONE.current_expert_weights
+                    if expert_weights is not None:
+                        # 从损失函数中获取MoE损失函数
+                        if hasattr(loss_fn, 'moe_loss_fn') and loss_fn.moe_loss_fn is not None:
+                            moe_loss, moe_loss_dict = loss_fn.moe_loss_fn(expert_weights)
+                            loss = loss + moe_loss
+                            
+                            # 记录MoE损失信息（可选）
+                            if n_iter % 100 == 0:  # 每100个iteration打印一次
+                                print(f"🔥 MoE损失: 平衡={moe_loss_dict['moe_balance_loss']:.4f}, "
+                                      f"稀疏性={moe_loss_dict['moe_sparsity_loss']:.4f}, "
+                                      f"多样性={moe_loss_dict['moe_diversity_loss']:.4f}")
 
             # 反传 + 参数更新（混合精度）
             scaler.scale(loss).backward()

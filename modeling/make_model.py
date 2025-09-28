@@ -139,15 +139,28 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             
             if self.use_multi_scale_moe:
                 from modeling.fusion_part.multi_scale_moe import CLIPMultiScaleMoE
-                # 🔥 修复：从配置文件读取MoE参数，而不是硬编码
+                # 🔥 修复：从配置文件读取所有MoE参数，替代硬编码
                 expert_hidden_dim = getattr(cfg.MODEL, 'MOE_EXPERT_HIDDEN_DIM', 1024)
                 temperature = getattr(cfg.MODEL, 'MOE_TEMPERATURE', 1.0)
-                # 初始化多尺度MoE模块：512维输入，4x4/8x8/16x16滑动窗口，专家网络
+                expert_dropout = getattr(cfg.MODEL, 'MOE_EXPERT_DROPOUT', 0.1)
+                gate_dropout = getattr(cfg.MODEL, 'MOE_GATE_DROPOUT', 0.1)
+                expert_layers = getattr(cfg.MODEL, 'MOE_EXPERT_LAYERS', 2)
+                gate_layers = getattr(cfg.MODEL, 'MOE_GATE_LAYERS', 2)
+                expert_threshold = getattr(cfg.MODEL, 'MOE_EXPERT_THRESHOLD', 0.1)
+                residual_weight = getattr(cfg.MODEL, 'MOE_RESIDUAL_WEIGHT', 1.0)
+                
+                # 初始化多尺度MoE模块：使用所有配置参数
                 self.clip_multi_scale_moe = CLIPMultiScaleMoE(
                     feat_dim=512, 
                     scales=self.moe_scales,
                     expert_hidden_dim=expert_hidden_dim,
-                    temperature=temperature
+                    temperature=temperature,
+                    expert_dropout=expert_dropout,
+                    gate_dropout=gate_dropout,
+                    expert_layers=expert_layers,
+                    gate_layers=gate_layers,
+                    expert_threshold=expert_threshold,
+                    residual_weight=residual_weight
                 )
                 # 初始化专家权重历史记录（用于分析）
                 self.expert_weights_history = []
@@ -220,6 +233,9 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     # 保存专家权重用于分析（可选）
                     if hasattr(self, 'expert_weights_history'):
                         self.expert_weights_history.append(expert_weights.detach().cpu())
+                    
+                    # 🔥 保存专家权重用于MoE损失计算
+                    self.current_expert_weights = expert_weights
                 else:
                     # 🔥 使用传统MLP融合多尺度特征
                     # 核心算法：4x4/8x8/16x16滑动窗口 → MLP特征融合

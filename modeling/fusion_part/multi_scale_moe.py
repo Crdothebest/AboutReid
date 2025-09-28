@@ -23,7 +23,7 @@ class ExpertNetwork(nn.Module):
     每个专家专门处理特定尺度的特征，实现专业化分工
     """
     
-    def __init__(self, input_dim=512, hidden_dim=1024, output_dim=512, dropout=0.1):
+    def __init__(self, input_dim=512, hidden_dim=1024, output_dim=512, dropout=0.1, num_layers=2):
         """
         初始化专家网络
         
@@ -32,25 +32,39 @@ class ExpertNetwork(nn.Module):
             hidden_dim (int): 隐藏层维度
             output_dim (int): 输出特征维度
             dropout (float): Dropout比例
+            num_layers (int): 网络层数
         """
         super(ExpertNetwork, self).__init__()
         
-        # ========== MLP专家网络：特征增强处理器 ==========
+        # ========== 可配置层数的MLP专家网络：特征增强处理器 ==========
         # 🔥 功能：对单个尺度的特征进行增强处理，提升表达能力
         # 🎯 作用：特征增强 - 让每个尺度的特征变得更"聪明"
         # 📊 输入：input_dim (512维，单个尺度特征)
         # 📊 输出：output_dim (512维，增强后的尺度特征)
-        # 🔧 实现：两层MLP + LayerNorm + GELU激活 + Dropout + 残差连接
-        self.expert = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),    # 第一层MLP：512 -> 1024 (升维增强)
-            nn.LayerNorm(hidden_dim),            # 层归一化：稳定训练过程
-            nn.GELU(),                           # GELU激活：增加非线性表达能力
-            nn.Dropout(dropout),                 # Dropout正则化：防止过拟合
-            nn.Linear(hidden_dim, output_dim),   # 第二层MLP：1024 -> 512 (降维输出)
-            nn.LayerNorm(output_dim),            # 层归一化：稳定训练过程
-            nn.GELU(),                           # GELU激活：增加非线性表达能力
-            nn.Dropout(dropout)                  # Dropout正则化：防止过拟合
-        )
+        # 🔧 实现：可配置层数的MLP + LayerNorm + GELU激活 + Dropout + 残差连接
+        
+        layers = []
+        current_dim = input_dim
+        
+        # 构建隐藏层
+        for i in range(num_layers - 1):
+            layers.extend([
+                nn.Linear(current_dim, hidden_dim),
+                nn.LayerNorm(hidden_dim),
+                nn.GELU(),
+                nn.Dropout(dropout)
+            ])
+            current_dim = hidden_dim
+        
+        # 输出层
+        layers.extend([
+            nn.Linear(current_dim, output_dim),
+            nn.LayerNorm(output_dim),
+            nn.GELU(),
+            nn.Dropout(dropout)
+        ])
+        
+        self.expert = nn.Sequential(*layers)
         
         # 残差连接的投影层（如果输入输出维度不同）
         self.residual_proj = nn.Linear(input_dim, output_dim) if input_dim != output_dim else nn.Identity()
@@ -101,7 +115,7 @@ class GatingNetwork(nn.Module):
     根据输入特征动态计算各专家的权重分布
     """
     
-    def __init__(self, input_dim=1536, num_experts=3, temperature=1.0):
+    def __init__(self, input_dim=1536, num_experts=3, temperature=1.0, dropout=0.1, num_layers=2):
         """
         初始化门控网络
         
@@ -109,24 +123,38 @@ class GatingNetwork(nn.Module):
             input_dim (int): 输入特征维度（多尺度特征拼接后的维度）
             num_experts (int): 专家数量
             temperature (float): 温度参数，控制权重分布的尖锐程度
+            dropout (float): Dropout比例
+            num_layers (int): 网络层数
         """
         super(GatingNetwork, self).__init__()
         self.num_experts = num_experts
         self.temperature = temperature
         
-        # ========== MLP门控网络：专家权重决策器 ==========
+        # ========== 可配置层数的MLP门控网络：专家权重决策器 ==========
         # 🔥 功能：根据多尺度特征计算各专家的权重分布
         # 🎯 作用：权重计算 - 判断哪个尺度的特征更重要
         # 📊 输入：input_dim (1536维，3个尺度特征拼接)
         # 📊 输出：num_experts (3维，每个专家的权重)
-        # 🔧 实现：两层MLP + LayerNorm + GELU激活 + Dropout
-        self.gate = nn.Sequential(
-            nn.Linear(input_dim, input_dim // 2),  # 第一层MLP：1536 -> 768 (降维处理)
-            nn.LayerNorm(input_dim // 2),          # 层归一化：稳定训练过程
-            nn.GELU(),                             # GELU激活：增加非线性表达能力
-            nn.Dropout(0.1),                       # Dropout正则化：防止过拟合
-            nn.Linear(input_dim // 2, num_experts) # 第二层MLP：768 -> 3 (输出专家权重)
-        )
+        # 🔧 实现：可配置层数的MLP + LayerNorm + GELU激活 + Dropout
+        
+        layers = []
+        current_dim = input_dim
+        
+        # 构建隐藏层
+        for i in range(num_layers - 1):
+            next_dim = current_dim // 2 if i == 0 else current_dim
+            layers.extend([
+                nn.Linear(current_dim, next_dim),
+                nn.LayerNorm(next_dim),
+                nn.GELU(),
+                nn.Dropout(dropout)
+            ])
+            current_dim = next_dim
+        
+        # 输出层
+        layers.append(nn.Linear(current_dim, num_experts))
+        
+        self.gate = nn.Sequential(*layers)
         
         # 初始化权重
         self._init_weights()
@@ -180,7 +208,9 @@ class MultiScaleMoE(nn.Module):
     - 加权融合得到最终特征
     """
     
-    def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0):
+    def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0, 
+                 expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
+                 expert_threshold=0.1, residual_weight=1.0):
         """
         初始化多尺度MoE模块
         
@@ -189,29 +219,40 @@ class MultiScaleMoE(nn.Module):
             scales (list): 滑动窗口尺度列表
             expert_hidden_dim (int): 专家网络隐藏层维度
             temperature (float): 门控网络温度参数
+            expert_dropout (float): 专家网络Dropout比例
+            gate_dropout (float): 门控网络Dropout比例
+            expert_layers (int): 专家网络层数
+            gate_layers (int): 门控网络层数
+            expert_threshold (float): 专家激活阈值
+            residual_weight (float): 残差连接权重
         """
         super(MultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
         self.scales = scales
         self.num_experts = len(scales)
+        self.expert_threshold = expert_threshold
+        self.residual_weight = residual_weight
         
-        # 🔥 为每个尺度创建专门的专家网络
+        # 🔥 为每个尺度创建专门的专家网络（使用配置参数）
         self.experts = nn.ModuleList()
         for i, scale in enumerate(scales):
             expert = ExpertNetwork(
                 input_dim=feat_dim,
                 hidden_dim=expert_hidden_dim,
                 output_dim=feat_dim,
-                dropout=0.1
+                dropout=expert_dropout,
+                num_layers=expert_layers
             )
             self.experts.append(expert)
         
-        # 🔥 门控网络：根据多尺度特征计算专家权重
+        # 🔥 门控网络：根据多尺度特征计算专家权重（使用配置参数）
         gate_input_dim = feat_dim * len(scales)  # 1536维（3个尺度×512维）
         self.gating_network = GatingNetwork(
             input_dim=gate_input_dim,
             num_experts=self.num_experts,
-            temperature=temperature
+            temperature=temperature,
+            dropout=gate_dropout,
+            num_layers=gate_layers
         )
         
         # ========== MLP最终融合层：专家输出融合器 ==========
@@ -330,7 +371,9 @@ class CLIPMultiScaleMoE(nn.Module):
     集成多尺度滑动窗口和MoE机制
     """
     
-    def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0):
+    def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0,
+                 expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
+                 expert_threshold=0.1, residual_weight=1.0):
         """
         初始化CLIP多尺度MoE模块
         
@@ -339,6 +382,12 @@ class CLIPMultiScaleMoE(nn.Module):
             scales (list): 滑动窗口尺度列表
             expert_hidden_dim (int): 专家网络隐藏层维度
             temperature (float): 门控网络温度参数
+            expert_dropout (float): 专家网络Dropout比例
+            gate_dropout (float): 门控网络Dropout比例
+            expert_layers (int): 专家网络层数
+            gate_layers (int): 门控网络层数
+            expert_threshold (float): 专家激活阈值
+            residual_weight (float): 残差连接权重
         """
         super(CLIPMultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -348,12 +397,18 @@ class CLIPMultiScaleMoE(nn.Module):
         from .clip_multi_scale_sliding_window import CLIPMultiScaleSlidingWindow
         self.multi_scale_extractor = CLIPMultiScaleSlidingWindow(feat_dim, scales)
         
-        # 🔥 MoE融合模块
+        # 🔥 MoE融合模块（使用所有配置参数）
         self.moe_fusion = MultiScaleMoE(
             feat_dim=feat_dim,
             scales=scales,
             expert_hidden_dim=expert_hidden_dim,
-            temperature=temperature
+            temperature=temperature,
+            expert_dropout=expert_dropout,
+            gate_dropout=gate_dropout,
+            expert_layers=expert_layers,
+            gate_layers=gate_layers,
+            expert_threshold=expert_threshold,
+            residual_weight=residual_weight
         )
         
         print(f"🔥 CLIP多尺度MoE模块初始化完成:")

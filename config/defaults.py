@@ -49,12 +49,25 @@ _C.MODEL.CLIP_MULTI_SCALE_SCALES = [4, 8, 16] # sliding window scales for CLIP (
 # 用户修改：添加多尺度MoE特征融合配置，支持命令行开关控制
 # 功能：控制是否启用基于专家网络的多尺度特征动态融合机制
 # 基于：MoE多尺度特征融合创新设计
-# 撤销方法：删除以下四行配置代码
+# 撤销方法：删除以下配置代码
 # Multi-Scale MoE settings
 _C.MODEL.USE_MULTI_SCALE_MOE = False    # whether use multi-scale MoE fusion (默认关闭，保持向后兼容)
 _C.MODEL.MOE_SCALES = [4, 8, 16]        # MoE sliding window scales (与多尺度滑动窗口保持一致)
 _C.MODEL.MOE_EXPERT_HIDDEN_DIM = 1024   # MoE expert network hidden dimension
 _C.MODEL.MOE_TEMPERATURE = 1.0          # MoE gating network temperature parameter
+
+# MoE专家网络参数
+_C.MODEL.MOE_EXPERT_DROPOUT = 0.1       # MoE expert network dropout
+_C.MODEL.MOE_GATE_DROPOUT = 0.1          # MoE gating network dropout
+_C.MODEL.MOE_EXPERT_LAYERS = 2           # MoE expert network layers
+_C.MODEL.MOE_GATE_LAYERS = 2             # MoE gating network layers
+_C.MODEL.MOE_EXPERT_THRESHOLD = 0.1      # MoE expert activation threshold
+_C.MODEL.MOE_RESIDUAL_WEIGHT = 1.0       # MoE residual connection weight
+
+# MoE损失权重参数
+_C.MODEL.MOE_BALANCE_LOSS_WEIGHT = 0.01  # MoE expert balance loss weight
+_C.MODEL.MOE_SPARSITY_LOSS_WEIGHT = 0.001 # MoE sparsity loss weight
+_C.MODEL.MOE_DIVERSITY_LOSS_WEIGHT = 0.01 # MoE diversity loss weight
 # If train with label smooth, options: 'on', 'off'
 _C.MODEL.IF_LABELSMOOTH = 'on'
 # If train with the contact feature

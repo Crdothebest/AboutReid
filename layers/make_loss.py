@@ -17,6 +17,15 @@ def make_loss(cfg, num_classes):  # modified by gu
 
     # 创建 CenterLoss 对象，计算样本类中心的损失
     center_criterion = CenterLoss(num_classes=num_classes, feat_dim=feat_dim, use_gpu=False)  # center loss
+    
+    # 🔥 新增：MoE损失函数
+    # 功能：为MoE模块添加专门的损失函数
+    # 包含：平衡损失、稀疏性损失、多样性损失
+    moe_loss_fn = None
+    if getattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE', False):
+        from .moe_loss import make_moe_loss
+        moe_loss_fn = make_moe_loss(cfg)
+        print("🔥 启用MoE损失函数")
 
     # 如果配置中包含 'triplet'，则选择三元组损失函数
     if 'triplet' in cfg.MODEL.METRIC_LOSS_TYPE:
@@ -94,5 +103,10 @@ def make_loss(cfg, num_classes):  # modified by gu
         print('expected sampler should be softmax, triplet, softmax_triplet or softmax_triplet_center'
               'but got {}'.format(cfg.DATALOADER.SAMPLER))
 
+    # 🔥 修改：将MoE损失函数附加到损失函数上
+    # 功能：让损失函数能够访问MoE损失函数
+    if moe_loss_fn is not None:
+        loss_func.moe_loss_fn = moe_loss_fn
+    
     # 返回损失函数和中心损失（CenterLoss）
     return loss_func, center_criterion
