@@ -1,0 +1,70 @@
+MODEL:
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
+  TRANSFORMER_TYPE: 'ViT-B-16'
+  STRIDE_SIZE: [ 16, 16 ]
+  SIE_CAMERA: True
+  DIRECT: 1
+  SIE_COE: 1.0
+  ID_LOSS_WEIGHT: 0.25
+  TRIPLET_LOSS_WEIGHT: 1.0
+  PROMPT: True
+  ADAPTER: True
+  MAMBA: True
+  FROZEN: True
+  
+  # ========== 消融实验：2尺度滑动窗口 ==========
+  USE_CLIP_MULTI_SCALE: True
+  CLIP_MULTI_SCALE_SCALES: [4, 16]  # 仅使用4x4和16x16两个尺度
+  
+  USE_MULTI_SCALE_MOE: True
+  MOE_SCALES: [4, 16]  # 对应2个专家网络
+  MOE_EXPERT_HIDDEN_DIM: 1024
+  MOE_TEMPERATURE: 1.0
+
+INPUT:
+  SIZE_TRAIN: [ 256, 128 ]
+  SIZE_TEST: [ 256, 128 ]
+  PROB: 0.5
+  RE_PROB: 0.5
+  PADDING: 10
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 8
+  NUM_WORKERS: 8
+
+DATASETS:
+  NAMES: ('RGBNT201')
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/'
+
+SOLVER:
+  OPTIMIZER_NAME: 'Adam'
+  BASE_LR: 0.0005
+  WEIGHT_DECAY: 0.0005
+  WEIGHT_DECAY_BIAS: 0.0005
+  MOMENTUM: 0.9
+  MAX_EPOCHS: 60
+  IMS_PER_BATCH: 32
+  WARMUP_ITERS: 20
+  WARMUP_METHOD: 'linear'
+  WARMUP_FACTOR: 0.01
+  MARGIN: 0.3
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  GAMMA: 0.1
+  STEPS: (30, 50)
+  SEED: 42
+  CHECKPOINT_PERIOD: 10
+  LOG_PERIOD: 10
+  EVAL_PERIOD: 5
+
+TEST:
+  IMS_PER_BATCH: 64
+  RE_RANKING: 'no'
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth'
+  NECK_FEAT: 'after'
+  FEAT_NORM: 'yes'
+  MISS: "nothing"
+
+# 消融实验输出目录
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/ablation_2scale'

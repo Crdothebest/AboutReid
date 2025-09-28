@@ -1,0 +1,108 @@
+MODEL:
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
+  TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
+  STRIDE_SIZE: [ 16, 16 ] # 步长
+  SIE_CAMERA: True # 是否使用相机嵌入
+  DIRECT: 1 # 直接
+  SIE_COE: 1.0 # 相机嵌入系数
+  ID_LOSS_WEIGHT: 0.25 # 分类损失权重
+  TRIPLET_LOSS_WEIGHT: 1.0 # 三元组损失权重
+  PROMPT: True # 是否使用提示
+  ADAPTER: True # 是否使用适配器
+  MAMBA: True # 是否使用Mamba
+  FROZEN: True # 是否冻结
+  
+  # ========== 优化MoE配置：调整参数提升性能 ==========
+  # 实验目的：优化MoE参数，提升多尺度MoE融合效果
+  # 功能：启用基于专家网络的多尺度特征动态融合机制
+  # 🔥 优化策略：降低复杂度，调整学习率，优化门控网络
+  USE_CLIP_MULTI_SCALE: True   # 启用CLIP多尺度滑动窗口特征提取
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度（4x4小窗口，8x8中窗口，16x16大窗口）
+  
+  USE_MULTI_SCALE_MOE: True    # 启用多尺度MoE特征融合模块
+  MOE_SCALES: [4, 8, 16]       # MoE滑动窗口尺度（与多尺度滑动窗口保持一致）
+  MOE_EXPERT_HIDDEN_DIM: 512   # MoE专家网络隐藏层维度（从1024降低到512）
+  MOE_TEMPERATURE: 0.5         # MoE门控网络温度参数（从1.0降低到0.5）
+
+INPUT:
+  SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
+  SIZE_TEST: [ 256, 128 ] # 测试尺寸
+  PROB: 0.5 # random horizontal flip # 随机水平翻转
+  RE_PROB: 0.5 # random erasing # 随机擦除
+  PADDING: 10 # 填充
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet' # 采样器
+  NUM_INSTANCE: 8 # 每个批次实例数 (提高采样多样性)
+  NUM_WORKERS: 8 # 工作线程数
+
+DATASETS:
+  NAMES: ('RGBNT201') # 数据集名称
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
+
+SOLVER:
+  # 优化器设置
+  OPTIMIZER_NAME: 'Adam' # 优化器名称
+  BASE_LR: 0.0003 # 基础学习率 (从0.0005降低到0.0003，适合MoE训练)
+  WEIGHT_DECAY: 0.0005 # 权重衰减
+  WEIGHT_DECAY_BIAS: 0.0005 # 偏置权重衰减
+  MOMENTUM: 0.9 # 动量
+  
+  # 训练设置
+  MAX_EPOCHS: 80 # 最大迭代数 (从60增加到80，给MoE更多训练时间)
+  IMS_PER_BATCH: 32 # 每个批次图像数 (提高训练稳定性)
+  WARMUP_ITERS: 30 # 预热迭代数 (从20增加到30，充分预热MoE)
+  WARMUP_METHOD: 'linear' # 预热方法
+  WARMUP_FACTOR: 0.01 # 预热因子
+  
+  # 损失函数设置
+  MARGIN: 0.3 # 三元组损失边界
+  CENTER_LOSS_WEIGHT: 0.0005 # 中心损失权重
+  CENTER_LR: 0.5 # 中心学习率
+  
+  # 学习率调度
+  GAMMA: 0.1 # 衰减率
+  STEPS: (40, 60) # 学习率衰减步数 (从(30,50)调整到(40,60))
+  
+  # 其他设置
+  SEED: 42 # 随机种子 (确保可复现性)
+  CHECKPOINT_PERIOD: 10 # 检查点保存周期
+  LOG_PERIOD: 10 # 日志打印周期
+  EVAL_PERIOD: 5 # 验证周期
+
+TEST:
+  IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
+  RE_RANKING: 'no' # 是否重新排序
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
+  FEAT_NORM: 'yes' # 特征归一化
+  MISS: "nothing" # 缺失
+
+# ========== 优化MoE实验输出目录 ==========
+# 实验目的：为优化MoE实验设置专门的输出目录
+# 功能：便于对比优化前后的MoE效果
+# 🔥 优化MoE：调整参数后的MoE实验结果
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/moe_optimized' # 优化MoE实验输出目录
+
+# ========== 优化MoE使用说明 ==========
+# 实验目的：验证优化后的MoE参数效果
+# 
+# 🔥 优化策略：
+# - 专家网络隐藏层维度：1024 → 512 (降低复杂度)
+# - 门控网络温度参数：1.0 → 0.5 (更尖锐的权重分布)
+# - 学习率：0.0005 → 0.0003 (适合MoE训练)
+# - 训练轮数：60 → 80 (更多训练时间)
+# - 预热轮数：20 → 30 (充分预热)
+# 
+# 🔥 执行命令：
+# python train_net.py --config_file configs/RGBNT201/MambaPro_moe_optimized.yml
+# 
+# 🔥 预期效果：
+# - 训练更稳定
+# - 专家分工更明确
+# - 性能提升更明显
+# 
+# 🔥 分析维度：
+# - 专家权重分布分析
+# - 训练稳定性对比
+# - 性能提升幅度
