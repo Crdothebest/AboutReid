@@ -68,6 +68,11 @@ _C.MODEL.MOE_RESIDUAL_WEIGHT = 1.0       # MoE residual connection weight
 _C.MODEL.MOE_BALANCE_LOSS_WEIGHT = 0.01  # MoE expert balance loss weight
 _C.MODEL.MOE_SPARSITY_LOSS_WEIGHT = 0.001 # MoE sparsity loss weight
 _C.MODEL.MOE_DIVERSITY_LOSS_WEIGHT = 0.01 # MoE diversity loss weight
+
+# MoE损失权重参数（SOLVER部分）
+_C.SOLVER.MOE_BALANCE_LOSS_WEIGHT = 0.01  # MoE expert balance loss weight
+_C.SOLVER.MOE_SPARSITY_LOSS_WEIGHT = 0.001 # MoE sparsity loss weight
+_C.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT = 0.01 # MoE diversity loss weight
 # If train with label smooth, options: 'on', 'off'
 _C.MODEL.IF_LABELSMOOTH = 'on'
 # If train with the contact feature
