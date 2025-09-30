@@ -126,10 +126,12 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             # 功能：在CLIP分支基础上添加多尺度滑动窗口特征提取
             if self.use_clip_multi_scale:
                 from modeling.fusion_part.clip_multi_scale_sliding_window import CLIPMultiScaleFeatureExtractor
-                # 初始化多尺度特征提取器：512维输入，4x4/8x8/16x16滑动窗口
-                self.clip_multi_scale_extractor = CLIPMultiScaleFeatureExtractor(feat_dim=512, scales=[4, 8, 16])
+                # 🔥 修复：从配置文件读取滑动窗口尺度，替代硬编码
+                clip_scales = getattr(cfg.MODEL, 'CLIP_MULTI_SCALE_SCALES', [4, 8, 16])
+                # 初始化多尺度特征提取器：512维输入，从配置读取滑动窗口尺度
+                self.clip_multi_scale_extractor = CLIPMultiScaleFeatureExtractor(feat_dim=512, scales=clip_scales)
                 print('✅ 为CLIP启用多尺度滑动窗口特征提取模块')
-                print(f'   - 滑动窗口尺度: [4, 8, 16]')
+                print(f'   - 滑动窗口尺度: {clip_scales}')
                 print(f'   - 特征维度: 512 (CLIP投影维度)')
             
             # 🔥 新增：多尺度MoE配置和初始化
