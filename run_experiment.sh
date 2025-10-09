@@ -124,17 +124,28 @@ fi
 # 第五部分：构建训练命令
 # =============================================================================
 
+# 🔥 新增：在配置文件中添加注意力相关配置
+if [ "$ATTENTION_ENABLED" = "true" ]; then
+    echo "🎯 在配置文件中添加注意力机制配置..."
+    # 在MODEL部分添加注意力配置
+    sed -i.bak "/^MODEL:/a\\
+  # ========== 多头注意力配置：启用注意力机制增强MoE ==========\\
+  # 实验目的：通过多头注意力机制提升MoE融合效果\\
+  # 功能：使用多头自注意力处理多尺度特征，实现更智能的融合\\
+  # 🔥 核心配置：启用多头注意力，提升特征融合质量\\
+  USE_MULTI_HEAD_ATTENTION: True    # 启用多头注意力机制\\
+  ATTENTION_NUM_HEADS: $ATTENTION_HEADS            # 注意力头数（${ATTENTION_HEADS}个注意力头）\\
+  ATTENTION_DROPOUT: $ATTENTION_DROPOUT            # 注意力Dropout比例\\
+" "$MODIFIED_CONFIG"
+    echo "🎯 启用多头注意力机制: $ATTENTION_HEADS个注意力头, Dropout=$ATTENTION_DROPOUT"
+else
+    echo "ℹ️  使用传统MoE融合机制（无注意力）"
+fi
+
 # 构建训练命令 - 使用修改后的配置文件
 # 这里直接写明，命令行的运行是走 train_net.py 文件
 # 由于参数已经在配置文件中动态修改，这里只需要使用配置文件
-# 🔥 新增：支持注意力机制的命令行参数（可配置）
-if [ "$ATTENTION_ENABLED" = "true" ]; then
-    CMD="python train_net.py --config_file $MODIFIED_CONFIG --use_attention --attention_heads $ATTENTION_HEADS --attention_dropout $ATTENTION_DROPOUT"
-    echo "🎯 启用多头注意力机制: $ATTENTION_HEADS个注意力头, Dropout=$ATTENTION_DROPOUT"
-else
-    CMD="python train_net.py --config_file $MODIFIED_CONFIG"
-    echo "ℹ️  使用传统MoE融合机制（无注意力）"
-fi
+CMD="python train_net.py --config_file $MODIFIED_CONFIG"
 
 # 显示将要执行的完整命令
 echo "🔧 执行命令: $CMD"
