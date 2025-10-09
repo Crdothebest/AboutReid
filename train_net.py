@@ -42,12 +42,49 @@ if __name__ == '__main__':
     parser.add_argument("--disable_moe", action="store_true", 
                        help="强制禁用多尺度MoE特征融合模块 (默认: False)")
     parser.add_argument("--no_moe", action="store_true", help="Disable Multi-scale MoE fusion (default: False)")
+    
+    # 🔥 新增：多头注意力控制参数
+    parser.add_argument("--use_attention", action="store_true", 
+                       help="启用多头注意力机制 (默认: False)")
+    parser.add_argument("--disable_attention", action="store_true", 
+                       help="强制禁用多头注意力机制 (默认: False)")
+    parser.add_argument("--attention_heads", type=int, default=8, 
+                       help="设置注意力头数 (默认: 8)")
+    parser.add_argument("--attention_dropout", type=float, default=0.1, 
+                       help="设置注意力Dropout比例 (默认: 0.1)")
     args = parser.parse_args() # 解析参数
 
     if args.config_file != "":
         cfg.merge_from_file(args.config_file) # 从配置文件合并配置
     cfg.merge_from_list(args.opts) # 从命令行合并配置
     cfg.TEST.FEAT = args.fea_cft # 设置特征选择
+    
+    # 🔥 新增：命令行参数覆盖配置文件设置
+    # 多尺度滑动窗口控制
+    if args.use_multi_scale:
+        cfg.MODEL.USE_CLIP_MULTI_SCALE = True
+        print("🔥 命令行启用多尺度滑动窗口")
+    elif args.no_multi_scale:
+        cfg.MODEL.USE_CLIP_MULTI_SCALE = False
+        print("🔥 命令行禁用多尺度滑动窗口")
+    
+    # MoE控制
+    if args.use_moe:
+        cfg.MODEL.USE_MULTI_SCALE_MOE = True
+        print("🔥 命令行启用多尺度MoE融合")
+    elif args.disable_moe or args.no_moe:
+        cfg.MODEL.USE_MULTI_SCALE_MOE = False
+        print("🔥 命令行禁用多尺度MoE融合")
+    
+    # 多头注意力控制
+    if args.use_attention:
+        cfg.MODEL.USE_MULTI_HEAD_ATTENTION = True
+        cfg.MODEL.ATTENTION_NUM_HEADS = args.attention_heads
+        cfg.MODEL.ATTENTION_DROPOUT = args.attention_dropout
+        print(f"🔥 命令行启用多头注意力机制: {args.attention_heads}个注意力头, Dropout={args.attention_dropout}")
+    elif args.disable_attention:
+        cfg.MODEL.USE_MULTI_HEAD_ATTENTION = False
+        print("🔥 命令行禁用多头注意力机制")
     
     # 🔥 新增：消融实验启动提示功能
     def print_ablation_experiment_info(config_file_path):

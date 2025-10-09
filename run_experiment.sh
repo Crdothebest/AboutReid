@@ -62,6 +62,11 @@ sed -i.bak "s|OUTPUT_DIR:.*|OUTPUT_DIR: '$EXPERIMENT_DIR/logs'|g" "$MODIFIED_CON
 # 第四部分：动态参数处理
 # =============================================================================
 
+# 初始化注意力参数（默认值）
+ATTENTION_ENABLED=false
+ATTENTION_HEADS=8
+ATTENTION_DROPOUT=0.1
+
 # 检查是否有命令行参数
 if [ $# -gt 0 ]; then
     echo "🔧 检测到命令行参数，将动态覆盖配置文件参数..."
@@ -74,7 +79,17 @@ if [ $# -gt 0 ]; then
         PARAM_NAME="$1"
         PARAM_VALUE="$2"
         
-        if [ -n "$PARAM_NAME" ] && [ -n "$PARAM_VALUE" ]; then
+        # 🔥 新增：处理注意力相关参数
+        if [[ "$PARAM_NAME" == "ATTENTION_ENABLED" ]]; then
+            ATTENTION_ENABLED="$PARAM_VALUE"
+            echo "  🎯 设置注意力机制: $ATTENTION_ENABLED"
+        elif [[ "$PARAM_NAME" == "ATTENTION_HEADS" ]]; then
+            ATTENTION_HEADS="$PARAM_VALUE"
+            echo "  🎯 设置注意力头数: $ATTENTION_HEADS"
+        elif [[ "$PARAM_NAME" == "ATTENTION_DROPOUT" ]]; then
+            ATTENTION_DROPOUT="$PARAM_VALUE"
+            echo "  🎯 设置注意力Dropout: $ATTENTION_DROPOUT"
+        elif [ -n "$PARAM_NAME" ] && [ -n "$PARAM_VALUE" ]; then
             echo "  📝 覆盖参数: $PARAM_NAME = $PARAM_VALUE"
             
             # 使用sed动态修改配置文件中的参数
@@ -112,7 +127,14 @@ fi
 # 构建训练命令 - 使用修改后的配置文件
 # 这里直接写明，命令行的运行是走 train_net.py 文件
 # 由于参数已经在配置文件中动态修改，这里只需要使用配置文件
-CMD="python train_net.py --config_file $MODIFIED_CONFIG"
+# 🔥 新增：支持注意力机制的命令行参数（可配置）
+if [ "$ATTENTION_ENABLED" = "true" ]; then
+    CMD="python train_net.py --config_file $MODIFIED_CONFIG --use_attention --attention_heads $ATTENTION_HEADS --attention_dropout $ATTENTION_DROPOUT"
+    echo "🎯 启用多头注意力机制: $ATTENTION_HEADS个注意力头, Dropout=$ATTENTION_DROPOUT"
+else
+    CMD="python train_net.py --config_file $MODIFIED_CONFIG"
+    echo "ℹ️  使用传统MoE融合机制（无注意力）"
+fi
 
 # 显示将要执行的完整命令
 echo "🔧 执行命令: $CMD"

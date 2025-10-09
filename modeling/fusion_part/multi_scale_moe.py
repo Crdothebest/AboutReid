@@ -1,3 +1,5 @@
+# 这是最重要的代码部分
+
 """
 多尺度Mixture-of-Experts (MoE) 特征融合模块
 
@@ -197,6 +199,93 @@ class GatingNetwork(nn.Module):
         return weights
 
 
+class MultiHeadAttentionConcat(nn.Module):
+    """
+    🔥 多头注意力拼接模块
+    
+    核心功能：
+    - 使用多头自注意力机制处理多尺度特征
+    - 动态计算注意力权重
+    - 实现更智能的特征融合
+    """
+    
+    def __init__(self, feat_dim=512, num_heads=8, scales=[4, 8, 16], dropout=0.1):
+        super(MultiHeadAttentionConcat, self).__init__()
+        self.feat_dim = feat_dim
+        self.num_heads = num_heads
+        self.scales = scales
+        
+        # 多头自注意力层
+        self.multi_head_attn = nn.MultiheadAttention(
+            embed_dim=feat_dim, 
+            num_heads=num_heads, 
+            dropout=dropout,
+            batch_first=True
+        )
+        
+        # 注意力权重计算
+        self.attention_weights = nn.Sequential(
+            nn.Linear(feat_dim * len(scales), feat_dim),
+            nn.LayerNorm(feat_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(feat_dim, len(scales)),
+            nn.Softmax(dim=-1)
+        )
+        
+        # 最终融合层
+        self.final_fusion = nn.Sequential(
+            nn.Linear(feat_dim, feat_dim),
+            nn.LayerNorm(feat_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout)
+        )
+        
+        self._init_weights()
+    
+    def _init_weights(self):
+        """初始化权重"""
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+    
+    def forward(self, multi_scale_features):
+        """
+        多头注意力拼接前向传播
+        
+        Args:
+            multi_scale_features: List[Tensor] - 多尺度特征列表
+        Returns:
+            final_feature: [B, feat_dim] - 注意力融合后的特征
+            attention_weights: [B, num_scales] - 注意力权重分布
+        """
+        B = multi_scale_features[0].shape[0]
+        
+        # 🔥 步骤1：计算注意力权重
+        concat_features = torch.cat(multi_scale_features, dim=1)  # [B, feat_dim * num_scales]
+        attention_weights = self.attention_weights(concat_features)  # [B, num_scales]
+        
+        # 🔥 步骤2：加权拼接特征
+        weighted_features = []
+        for i, (feat, weight) in enumerate(zip(multi_scale_features, attention_weights.unbind(-1))):
+            weighted_feat = feat * weight.unsqueeze(-1)  # [B, feat_dim]
+            weighted_features.append(weighted_feat)
+        
+        # 🔥 步骤3：多头自注意力处理
+        stacked_features = torch.stack(weighted_features, dim=1)  # [B, num_scales, feat_dim]
+        attn_output, attn_weights = self.multi_head_attn(
+            stacked_features, stacked_features, stacked_features
+        )
+        
+        # 🔥 步骤4：最终融合
+        final_feature = torch.mean(attn_output, dim=1)  # [B, feat_dim]
+        final_feature = self.final_fusion(final_feature)
+        
+        return final_feature, attention_weights
+
+
 class MultiScaleMoE(nn.Module):
     """
     🔥 多尺度Mixture-of-Experts模块
@@ -206,11 +295,13 @@ class MultiScaleMoE(nn.Module):
     - 通过门控网络计算专家权重
     - 使用专家网络处理对应尺度特征
     - 加权融合得到最终特征
+    - 支持多头注意力机制增强
     """
     
     def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0, 
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
-                 expert_threshold=0.1, residual_weight=1.0):
+                 expert_threshold=0.1, residual_weight=1.0, use_multi_head_attention=False,
+                 attention_num_heads=8, attention_dropout=0.1):
         """
         初始化多尺度MoE模块
         
@@ -225,6 +316,9 @@ class MultiScaleMoE(nn.Module):
             gate_layers (int): 门控网络层数
             expert_threshold (float): 专家激活阈值
             residual_weight (float): 残差连接权重
+            use_multi_head_attention (bool): 是否使用多头注意力机制
+            attention_num_heads (int): 注意力头数
+            attention_dropout (float): 注意力Dropout比例
         """
         super(MultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -232,6 +326,20 @@ class MultiScaleMoE(nn.Module):
         self.num_experts = len(scales)
         self.expert_threshold = expert_threshold
         self.residual_weight = residual_weight
+        self.use_multi_head_attention = use_multi_head_attention
+        
+        # 🔥 多头注意力模块（可选）
+        if self.use_multi_head_attention:
+            self.multi_head_attention = MultiHeadAttentionConcat(
+                feat_dim=feat_dim,
+                num_heads=attention_num_heads,
+                scales=scales,
+                dropout=attention_dropout
+            )
+            print(f"🔥 启用多头注意力机制: {attention_num_heads}个注意力头")
+        else:
+            self.multi_head_attention = None
+            print("🔥 使用传统MoE融合机制")
         
         # 🔥 为每个尺度创建专门的专家网络（使用配置参数）
         self.experts = nn.ModuleList()
@@ -293,10 +401,18 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
             print(f"   - 滑动窗口尺度: {self.scales}")
             print(f"   - 专家数量: {self.num_experts}")
+            print(f"   - 多头注意力: {'启用' if self.use_multi_head_attention else '禁用'}")
             self._moe_forward_called = True
         
         B = multi_scale_features[0].shape[0]
         
+        # 🔥 分支1：使用多头注意力机制
+        if self.use_multi_head_attention and self.multi_head_attention is not None:
+            # 使用多头注意力进行特征融合
+            final_feature, attention_weights = self.multi_head_attention(multi_scale_features)
+            return final_feature, attention_weights
+        
+        # 🔥 分支2：传统MoE融合机制
         # 🔥 步骤1：拼接多尺度特征作为门控网络输入
         concat_features = torch.cat(multi_scale_features, dim=1)  # [B, feat_dim * num_scales]
         
@@ -373,7 +489,8 @@ class CLIPMultiScaleMoE(nn.Module):
     
     def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0,
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
-                 expert_threshold=0.1, residual_weight=1.0):
+                 expert_threshold=0.1, residual_weight=1.0, use_multi_head_attention=False,
+                 attention_num_heads=8, attention_dropout=0.1):
         """
         初始化CLIP多尺度MoE模块
         
@@ -388,6 +505,9 @@ class CLIPMultiScaleMoE(nn.Module):
             gate_layers (int): 门控网络层数
             expert_threshold (float): 专家激活阈值
             residual_weight (float): 残差连接权重
+            use_multi_head_attention (bool): 是否使用多头注意力机制
+            attention_num_heads (int): 注意力头数
+            attention_dropout (float): 注意力Dropout比例
         """
         super(CLIPMultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -408,7 +528,10 @@ class CLIPMultiScaleMoE(nn.Module):
             expert_layers=expert_layers,
             gate_layers=gate_layers,
             expert_threshold=expert_threshold,
-            residual_weight=residual_weight
+            residual_weight=residual_weight,
+            use_multi_head_attention=use_multi_head_attention,
+            attention_num_heads=attention_num_heads,
+            attention_dropout=attention_dropout
         )
         
         print(f"🔥 CLIP多尺度MoE模块初始化完成:")
