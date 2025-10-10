@@ -93,6 +93,9 @@ if [ $# -gt 0 ]; then
             if [[ "$PARAM_VALUE" == "True" || "$PARAM_VALUE" == "true" ]]; then
                 ATTENTION_ENABLED="true"
                 echo "  🎯 通过MODEL.USE_MULTI_HEAD_ATTENTION启用注意力机制"
+            elif [[ "$PARAM_VALUE" == "False" || "$PARAM_VALUE" == "false" ]]; then
+                ATTENTION_ENABLED="false"
+                echo "  🎯 通过MODEL.USE_MULTI_HEAD_ATTENTION禁用注意力机制"
             fi
         elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_NUM_HEADS" ]]; then
             ATTENTION_HEADS="$PARAM_VALUE"
@@ -149,6 +152,19 @@ if [ "$ATTENTION_ENABLED" = "true" ]; then
   ATTENTION_DROPOUT: $ATTENTION_DROPOUT            # 注意力Dropout比例\\
 " "$MODIFIED_CONFIG"
     echo "🎯 启用多头注意力机制: $ATTENTION_HEADS个注意力头, Dropout=$ATTENTION_DROPOUT"
+elif [ "$ATTENTION_ENABLED" = "false" ]; then
+    echo "🎯 在配置文件中禁用注意力机制配置..."
+    # 在MODEL部分添加禁用注意力配置
+    sed -i.bak "/^MODEL:/a\\
+  # ========== 多头注意力配置：禁用注意力机制，使用传统MoE融合 ==========\\
+  # 实验目的：使用传统MoE融合机制，避免注意力机制过拟合\\
+  # 功能：禁用多头注意力，使用简单有效的MoE融合\\
+  # 🔥 核心配置：禁用多头注意力，保持模型简洁\\
+  USE_MULTI_HEAD_ATTENTION: False   # 禁用多头注意力机制\\
+  ATTENTION_NUM_HEADS: 8            # 注意力头数（默认值，不使用）\\
+  ATTENTION_DROPOUT: 0.1            # 注意力Dropout比例（默认值，不使用）\\
+" "$MODIFIED_CONFIG"
+    echo "🎯 禁用多头注意力机制，使用传统MoE融合"
 else
     echo "ℹ️  使用传统MoE融合机制（无注意力）"
 fi
