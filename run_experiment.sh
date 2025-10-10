@@ -94,9 +94,11 @@ if [ $# -gt 0 ]; then
             if [[ "$PARAM_VALUE" == "True" || "$PARAM_VALUE" == "true" ]]; then
                 ATTENTION_ENABLED="true"
                 echo "  🎯 通过命令行启用门控融合机制"
+                echo "  🔍 调试：ATTENTION_ENABLED设置为: $ATTENTION_ENABLED"
             elif [[ "$PARAM_VALUE" == "False" || "$PARAM_VALUE" == "false" ]]; then
                 ATTENTION_ENABLED="false"
                 echo "  🎯 通过命令行禁用门控融合机制"
+                echo "  🔍 调试：ATTENTION_ENABLED设置为: $ATTENTION_ENABLED"
             fi
         elif [[ "$PARAM_NAME" == "MODEL.GATE_NUM_HEADS" ]]; then
             ATTENTION_HEADS="$PARAM_VALUE"
@@ -161,6 +163,10 @@ fi
 # =============================================================================
 
 # 🔥 门控融合配置：根据命令行参数动态设置
+echo "🔍 调试：ATTENTION_ENABLED当前值: $ATTENTION_ENABLED"
+echo "🔍 调试：ATTENTION_HEADS当前值: $ATTENTION_HEADS"
+echo "🔍 调试：ATTENTION_DROPOUT当前值: $ATTENTION_DROPOUT"
+
 if [ "$ATTENTION_ENABLED" = "true" ]; then
     echo "🎯 配置门控融合机制：启用门控融合"
     # 先删除所有现有的门控融合相关设置
