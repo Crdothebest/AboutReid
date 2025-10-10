@@ -138,18 +138,18 @@ if [ $# -gt 0 ]; then
     
     echo "✅ 参数覆盖完成"
     echo "📊 使用配置: 原配置 + 命令行参数覆盖"
+    echo "🔍 调试：参数处理完成，继续执行..."
     
     # 🔥 调试：显示关键参数修改结果
     echo "🔍 关键参数检查："
     if grep -q "USE_GATE_FUSION:" "$MODIFIED_CONFIG"; then
         echo "  - USE_GATE_FUSION设置："
-        grep "USE_GATE_FUSION:" "$MODIFIED_CONFIG" | while read line; do
-            echo "    $line"
-        done
+        grep "USE_GATE_FUSION:" "$MODIFIED_CONFIG" | head -5
     fi
     if grep -q "MOE_TEMPERATURE:" "$MODIFIED_CONFIG"; then
         echo "  - MOE_TEMPERATURE: $(grep "MOE_TEMPERATURE:" "$MODIFIED_CONFIG" | head -1)"
     fi
+    echo "🔍 调试：关键参数检查完成，继续执行..."
 else
     echo "ℹ️  未检测到命令行参数，使用配置文件默认值"
     echo "📊 使用配置: 原配置文件参数（无修改）"
@@ -160,6 +160,7 @@ fi
 # =============================================================================
 
 # 🔥 门控融合配置：根据命令行参数动态设置
+echo "🔍 调试：进入门控融合配置阶段"
 echo "🔍 调试：ATTENTION_ENABLED当前值: $ATTENTION_ENABLED"
 echo "🔍 调试：ATTENTION_HEADS当前值: $ATTENTION_HEADS"
 echo "🔍 调试：ATTENTION_DROPOUT当前值: $ATTENTION_DROPOUT"
