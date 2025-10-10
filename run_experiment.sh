@@ -229,7 +229,7 @@ echo "🚀 开始执行训练命令..."
 echo "⏰ 设置30秒超时，如果卡住将显示错误信息..."
 
 # 使用timeout命令设置超时
-timeout 30s eval $CMD
+timeout 30s bash -c "$CMD"
 TIMEOUT_EXIT_CODE=$?
 
 if [ $TIMEOUT_EXIT_CODE -eq 124 ]; then
