@@ -90,7 +90,7 @@ if [ $# -gt 0 ]; then
         elif [[ "$PARAM_NAME" == "ATTENTION_DROPOUT" ]]; then
             ATTENTION_DROPOUT="$PARAM_VALUE"
             echo "  🎯 设置门控网络Dropout: $ATTENTION_DROPOUT"
-        elif [[ "$PARAM_NAME" == "MODEL.USE_MULTI_HEAD_ATTENTION" ]]; then
+        elif [[ "$PARAM_NAME" == "MODEL.USE_GATE_FUSION" ]]; then
             if [[ "$PARAM_VALUE" == "True" || "$PARAM_VALUE" == "true" ]]; then
                 ATTENTION_ENABLED="true"
                 echo "  🎯 通过命令行启用门控融合机制"
@@ -98,12 +98,12 @@ if [ $# -gt 0 ]; then
                 ATTENTION_ENABLED="false"
                 echo "  🎯 通过命令行禁用门控融合机制"
             fi
-        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_NUM_HEADS" ]]; then
+        elif [[ "$PARAM_NAME" == "MODEL.GATE_NUM_HEADS" ]]; then
             ATTENTION_HEADS="$PARAM_VALUE"
-            echo "  🎯 通过MODEL.ATTENTION_NUM_HEADS设置门控网络头数: $ATTENTION_HEADS"
-        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_DROPOUT" ]]; then
+            echo "  🎯 通过MODEL.GATE_NUM_HEADS设置门控网络头数: $ATTENTION_HEADS"
+        elif [[ "$PARAM_NAME" == "MODEL.GATE_DROPOUT" ]]; then
             ATTENTION_DROPOUT="$PARAM_VALUE"
-            echo "  🎯 通过MODEL.ATTENTION_DROPOUT设置门控网络Dropout: $ATTENTION_DROPOUT"
+            echo "  🎯 通过MODEL.GATE_DROPOUT设置门控网络Dropout: $ATTENTION_DROPOUT"
         elif [ -n "$PARAM_NAME" ] && [ -n "$PARAM_VALUE" ]; then
             echo "  📝 覆盖参数: $PARAM_NAME = $PARAM_VALUE"
             
@@ -164,35 +164,35 @@ fi
 if [ "$ATTENTION_ENABLED" = "true" ]; then
     echo "🎯 配置门控融合机制：启用门控融合"
     # 先删除所有现有的门控融合相关设置
-    sed -i.bak "/^  USE_MULTI_HEAD_ATTENTION:/d" "$MODIFIED_CONFIG"
-    sed -i.bak "/^  ATTENTION_NUM_HEADS:/d" "$MODIFIED_CONFIG"
-    sed -i.bak "/^  ATTENTION_DROPOUT:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  USE_GATE_FUSION:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  GATE_NUM_HEADS:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  GATE_DROPOUT:/d" "$MODIFIED_CONFIG"
     # 添加启用配置
     sed -i.bak "/^MODEL:/a\\
   # ========== 门控融合配置：启用门控融合机制增强MoE ==========\\
   # 实验目的：通过门控融合机制提升MoE融合效果\\
   # 功能：使用门控网络处理多尺度特征，实现更智能的融合\\
   # 🔥 核心配置：启用门控融合，提升特征融合质量\\
-  USE_MULTI_HEAD_ATTENTION: True    # 启用门控融合机制\\
-  ATTENTION_NUM_HEADS: $ATTENTION_HEADS            # 门控网络头数（${ATTENTION_HEADS}个门控头）\\
-  ATTENTION_DROPOUT: $ATTENTION_DROPOUT            # 门控网络Dropout比例\\
+  USE_GATE_FUSION: True    # 启用门控融合机制\\
+  GATE_NUM_HEADS: $ATTENTION_HEADS            # 门控网络头数（${ATTENTION_HEADS}个门控头）\\
+  GATE_DROPOUT: $ATTENTION_DROPOUT            # 门控网络Dropout比例\\
 " "$MODIFIED_CONFIG"
     echo "🎯 门控融合机制已启用: ${ATTENTION_HEADS}个门控头, Dropout=${ATTENTION_DROPOUT}"
 elif [ "$ATTENTION_ENABLED" = "false" ]; then
     echo "🎯 配置门控融合机制：禁用门控融合机制，使用传统MLP融合"
     # 先删除所有现有的门控融合相关设置
-    sed -i.bak "/^  USE_MULTI_HEAD_ATTENTION:/d" "$MODIFIED_CONFIG"
-    sed -i.bak "/^  ATTENTION_NUM_HEADS:/d" "$MODIFIED_CONFIG"
-    sed -i.bak "/^  ATTENTION_DROPOUT:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  USE_GATE_FUSION:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  GATE_NUM_HEADS:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  GATE_DROPOUT:/d" "$MODIFIED_CONFIG"
     # 添加禁用配置
     sed -i.bak "/^MODEL:/a\\
   # ========== 门控融合配置：禁用门控融合机制，使用传统MLP融合 ==========\\
   # 实验目的：使用传统MLP融合机制，保持模型简洁\\
   # 功能：禁用门控融合，使用简单有效的MLP融合\\
   # 🔥 核心配置：禁用门控融合，使用传统MLP融合\\
-  USE_MULTI_HEAD_ATTENTION: False   # 禁用门控融合机制\\
-  ATTENTION_NUM_HEADS: 8            # 门控网络头数（默认值，不使用）\\
-  ATTENTION_DROPOUT: 0.1            # 门控网络Dropout比例（默认值，不使用）\\
+  USE_GATE_FUSION: False   # 禁用门控融合机制\\
+  GATE_NUM_HEADS: 8            # 门控网络头数（默认值，不使用）\\
+  GATE_DROPOUT: 0.1            # 门控网络Dropout比例（默认值，不使用）\\
 " "$MODIFIED_CONFIG"
     echo "🎯 门控融合机制已禁用：使用传统MLP融合"
 else
