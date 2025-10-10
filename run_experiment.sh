@@ -169,22 +169,14 @@ echo "🔍 调试：ATTENTION_DROPOUT当前值: $ATTENTION_DROPOUT"
 
 if [ "$ATTENTION_ENABLED" = "true" ]; then
     echo "🎯 配置门控融合机制：启用门控融合"
-    # 先删除所有现有的门控融合相关设置
-    sed -i.bak "/^  USE_GATE_FUSION:/d" "$MODIFIED_CONFIG"
-    sed -i.bak "/^  GATE_NUM_HEADS:/d" "$MODIFIED_CONFIG"
-    sed -i.bak "/^  GATE_DROPOUT:/d" "$MODIFIED_CONFIG"
-    # 简化配置添加
+    # 直接添加配置，不删除现有设置
     echo "  USE_GATE_FUSION: True" >> "$MODIFIED_CONFIG"
     echo "  GATE_NUM_HEADS: $ATTENTION_HEADS" >> "$MODIFIED_CONFIG"
     echo "  GATE_DROPOUT: $ATTENTION_DROPOUT" >> "$MODIFIED_CONFIG"
     echo "🎯 门控融合机制已启用: ${ATTENTION_HEADS}个门控头, Dropout=${ATTENTION_DROPOUT}"
 elif [ "$ATTENTION_ENABLED" = "false" ]; then
     echo "🎯 配置门控融合机制：禁用门控融合机制，使用传统MLP融合"
-    # 先删除所有现有的门控融合相关设置
-    sed -i.bak "/^  USE_GATE_FUSION:/d" "$MODIFIED_CONFIG"
-    sed -i.bak "/^  GATE_NUM_HEADS:/d" "$MODIFIED_CONFIG"
-    sed -i.bak "/^  GATE_DROPOUT:/d" "$MODIFIED_CONFIG"
-    # 简化配置添加
+    # 直接添加配置，不删除现有设置
     echo "  USE_GATE_FUSION: False" >> "$MODIFIED_CONFIG"
     echo "  GATE_NUM_HEADS: 8" >> "$MODIFIED_CONFIG"
     echo "  GATE_DROPOUT: 0.1" >> "$MODIFIED_CONFIG"
