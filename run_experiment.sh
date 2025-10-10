@@ -63,6 +63,7 @@ sed -i.bak "s|OUTPUT_DIR:.*|OUTPUT_DIR: '$EXPERIMENT_DIR/logs'|g" "$MODIFIED_CON
 # =============================================================================
 
 # 初始化注意力参数（默认值）
+# 默认禁用注意力机制，使用传统MLP融合
 ATTENTION_ENABLED=false
 ATTENTION_HEADS=8
 ATTENTION_DROPOUT=0.1
@@ -92,10 +93,10 @@ if [ $# -gt 0 ]; then
         elif [[ "$PARAM_NAME" == "MODEL.USE_MULTI_HEAD_ATTENTION" ]]; then
             if [[ "$PARAM_VALUE" == "True" || "$PARAM_VALUE" == "true" ]]; then
                 ATTENTION_ENABLED="true"
-                echo "  🎯 通过MODEL.USE_MULTI_HEAD_ATTENTION启用注意力机制"
+                echo "  🎯 通过命令行启用注意力机制"
             elif [[ "$PARAM_VALUE" == "False" || "$PARAM_VALUE" == "false" ]]; then
                 ATTENTION_ENABLED="false"
-                echo "  🎯 通过MODEL.USE_MULTI_HEAD_ATTENTION禁用注意力机制"
+                echo "  🎯 通过命令行禁用注意力机制"
             fi
         elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_NUM_HEADS" ]]; then
             ATTENTION_HEADS="$PARAM_VALUE"
@@ -120,7 +121,11 @@ if [ $# -gt 0 ]; then
                 
                 # 🔥 特殊处理：如果参数在MODEL部分，确保正确替换
                 if [[ "$SECTION" == "MODEL" ]]; then
-                    sed -i.bak "s|^  $KEY:.*|  $KEY: $PARAM_VALUE|" "$MODIFIED_CONFIG"
+                    # 先删除所有现有的该参数设置
+                    sed -i.bak "/^  $KEY:/d" "$MODIFIED_CONFIG"
+                    # 然后在MODEL部分末尾添加新设置
+                    sed -i.bak "/^MODEL:/a\\
+  $KEY: $PARAM_VALUE" "$MODIFIED_CONFIG"
                 fi
             else
                 # 处理简单参数
@@ -138,7 +143,10 @@ if [ $# -gt 0 ]; then
     # 🔥 调试：显示关键参数修改结果
     echo "🔍 关键参数检查："
     if grep -q "USE_MULTI_HEAD_ATTENTION:" "$MODIFIED_CONFIG"; then
-        echo "  - USE_MULTI_HEAD_ATTENTION: $(grep "USE_MULTI_HEAD_ATTENTION:" "$MODIFIED_CONFIG" | head -1)"
+        echo "  - USE_MULTI_HEAD_ATTENTION设置："
+        grep "USE_MULTI_HEAD_ATTENTION:" "$MODIFIED_CONFIG" | while read line; do
+            echo "    $line"
+        done
     fi
     if grep -q "MOE_TEMPERATURE:" "$MODIFIED_CONFIG"; then
         echo "  - MOE_TEMPERATURE: $(grep "MOE_TEMPERATURE:" "$MODIFIED_CONFIG" | head -1)"
@@ -152,10 +160,14 @@ fi
 # 第五部分：构建训练命令
 # =============================================================================
 
-# 🔥 新增：在配置文件中添加注意力相关配置
+# 🔥 注意力机制配置：根据命令行参数动态设置
 if [ "$ATTENTION_ENABLED" = "true" ]; then
-    echo "🎯 在配置文件中添加注意力机制配置..."
-    # 在MODEL部分添加注意力配置
+    echo "🎯 配置注意力机制：启用多头注意力融合"
+    # 先删除所有现有的注意力相关设置
+    sed -i.bak "/^  USE_MULTI_HEAD_ATTENTION:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  ATTENTION_NUM_HEADS:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  ATTENTION_DROPOUT:/d" "$MODIFIED_CONFIG"
+    # 添加启用配置
     sed -i.bak "/^MODEL:/a\\
   # ========== 多头注意力配置：启用注意力机制增强MoE ==========\\
   # 实验目的：通过多头注意力机制提升MoE融合效果\\
@@ -165,22 +177,26 @@ if [ "$ATTENTION_ENABLED" = "true" ]; then
   ATTENTION_NUM_HEADS: $ATTENTION_HEADS            # 注意力头数（${ATTENTION_HEADS}个注意力头）\\
   ATTENTION_DROPOUT: $ATTENTION_DROPOUT            # 注意力Dropout比例\\
 " "$MODIFIED_CONFIG"
-    echo "🎯 启用多头注意力机制: $ATTENTION_HEADS个注意力头, Dropout=$ATTENTION_DROPOUT"
+    echo "🎯 注意力机制已启用: ${ATTENTION_HEADS}个注意力头, Dropout=${ATTENTION_DROPOUT}"
 elif [ "$ATTENTION_ENABLED" = "false" ]; then
-    echo "🎯 在配置文件中禁用注意力机制配置..."
-    # 在MODEL部分添加禁用注意力配置
+    echo "🎯 配置注意力机制：禁用注意力机制，使用传统MLP融合"
+    # 先删除所有现有的注意力相关设置
+    sed -i.bak "/^  USE_MULTI_HEAD_ATTENTION:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  ATTENTION_NUM_HEADS:/d" "$MODIFIED_CONFIG"
+    sed -i.bak "/^  ATTENTION_DROPOUT:/d" "$MODIFIED_CONFIG"
+    # 添加禁用配置
     sed -i.bak "/^MODEL:/a\\
-  # ========== 多头注意力配置：禁用注意力机制，使用传统MoE融合 ==========\\
-  # 实验目的：使用传统MoE融合机制，避免注意力机制过拟合\\
-  # 功能：禁用多头注意力，使用简单有效的MoE融合\\
-  # 🔥 核心配置：禁用多头注意力，保持模型简洁\\
+  # ========== 多头注意力配置：禁用注意力机制，使用传统MLP融合 ==========\\
+  # 实验目的：使用传统MLP融合机制，保持模型简洁\\
+  # 功能：禁用多头注意力，使用简单有效的MLP融合\\
+  # 🔥 核心配置：禁用多头注意力，使用传统MLP融合\\
   USE_MULTI_HEAD_ATTENTION: False   # 禁用多头注意力机制\\
   ATTENTION_NUM_HEADS: 8            # 注意力头数（默认值，不使用）\\
   ATTENTION_DROPOUT: 0.1            # 注意力Dropout比例（默认值，不使用）\\
 " "$MODIFIED_CONFIG"
-    echo "🎯 禁用多头注意力机制，使用传统MoE融合"
+    echo "🎯 注意力机制已禁用：使用传统MLP融合"
 else
-    echo "ℹ️  使用传统MoE融合机制（无注意力）"
+    echo "ℹ️  使用默认配置：传统MLP融合机制（无注意力）"
 fi
 
 # 构建训练命令 - 使用修改后的配置文件

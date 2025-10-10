@@ -265,7 +265,7 @@ class MultiHeadAttentionConcat(nn.Module):
         
         # 🔥 注意力机制启动提示（仅在第一次调用时显示）
         if not hasattr(self, '_attention_forward_called'):
-            print(f"🎯 多头注意力融合机制启动！")
+            print(f"🎯 注意力融合机制启动！")
             print(f"   - 输入多尺度特征数量: {len(multi_scale_features)}")
             print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
             print(f"   - 注意力头数: {self.num_heads}")
@@ -294,7 +294,7 @@ class MultiHeadAttentionConcat(nn.Module):
         
         # 🔥 注意力机制处理完成提示（仅在第一次调用时显示）
         if not hasattr(self, '_attention_complete_called'):
-            print(f"✅ 多头注意力融合完成！")
+            print(f"✅ 注意力融合完成！")
             print(f"   - 输出特征形状: {final_feature.shape}")
             print(f"   - 注意力权重形状: {attention_weights.shape}")
             print(f"   - 注意力权重分布: {attention_weights[0].detach().cpu().numpy()}")
@@ -354,10 +354,10 @@ class MultiScaleMoE(nn.Module):
                 scales=scales,
                 dropout=attention_dropout
             )
-            print(f"🔥 启用多头注意力机制: {attention_num_heads}个注意力头")
+            print(f"🔥 注意力机制：已启用 ({attention_num_heads}个注意力头, Dropout={attention_dropout})")
         else:
             self.multi_head_attention = None
-            print("🔥 使用传统MoE融合机制")
+            print("🔥 注意力机制：已禁用 (使用传统MLP融合)")
         
         # 🔥 为每个尺度创建专门的专家网络（使用配置参数）
         self.experts = nn.ModuleList()
@@ -419,51 +419,139 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
             print(f"   - 滑动窗口尺度: {self.scales}")
             print(f"   - 专家数量: {self.num_experts}")
-            print(f"   - 多头注意力: {'启用' if self.use_multi_head_attention else '禁用'}")
+            print(f"   - 注意力机制: {'已启用' if self.use_multi_head_attention else '已禁用'}")
             self._moe_forward_called = True
         
         B = multi_scale_features[0].shape[0]
         
-        # 🔥 分支1：使用多头注意力机制
+        # 🔥 分支1：使用注意力机制进行特征融合（替代简单拼接）
         if self.use_multi_head_attention and self.multi_head_attention is not None:
             # 🔥 注意力机制调用提示（仅在第一次调用时显示）
             if not hasattr(self, '_attention_branch_called'):
-                print(f"🎯 使用多头注意力机制进行特征融合！")
-                print(f"   - 替代传统MoE门控网络")
-                print(f"   - 使用智能注意力权重计算")
+                print(f"🎯 拼接融合：使用注意力机制替代简单拼接")
+                print(f"   - 注意力头数: {self.multi_head_attention.num_heads}")
+                print(f"   - 注意力Dropout: {self.multi_head_attention.attention_dropout}")
+                print(f"   - 智能注意力权重计算")
                 print(f"   - 多头自注意力处理多尺度特征")
+                print(f"   - 然后通过专家网络处理")
                 self._attention_branch_called = True
             
-            # 使用多头注意力进行特征融合
-            final_feature, attention_weights = self.multi_head_attention(multi_scale_features)
-            return final_feature, attention_weights
+            # 使用注意力机制进行特征融合，得到融合后的多尺度特征
+            fused_multi_scale_features = self._attention_fusion_features(multi_scale_features)
+            # 继续使用专家网络处理融合后的特征
+            return self._expert_network_processing(fused_multi_scale_features)
         
-        # 🔥 分支2：传统MoE融合机制
+        # 🔥 分支2：传统MoE融合机制（简单拼接 + 专家网络）
+        # 🔥 传统MoE融合提示（仅在第一次调用时显示）
+        if not hasattr(self, '_traditional_moe_called'):
+            print(f"🎯 拼接融合：使用简单拼接 + 专家网络")
+            print(f"   - 拼接方式: torch.cat() 简单拼接")
+            print(f"   - 拼接维度: feat_dim * num_scales = {self.feat_dim} * {len(self.scales)} = {self.feat_dim * len(self.scales)}")
+            print(f"   - 门控网络计算专家权重")
+            print(f"   - 专家网络处理多尺度特征")
+            print(f"   - 加权融合得到最终特征")
+            self._traditional_moe_called = True
+        
+        # 直接使用专家网络处理原始多尺度特征
+        return self._expert_network_processing(multi_scale_features)
+    
+    def _attention_fusion_features(self, multi_scale_features):
+        """
+        使用注意力机制融合多尺度特征（替代简单拼接）
+        
+        核心思想：只改变拼接融合方式，不动滑动窗口和专家网络
+        
+        Args:
+            multi_scale_features: List[Tensor] - 多尺度特征列表
+        Returns:
+            fused_multi_scale_features: List[Tensor] - 注意力融合后的多尺度特征
+        """
+        # 🔥 注意力机制启动提示（仅在第一次调用时显示）
+        if not hasattr(self, '_attention_fusion_called'):
+            print(f"🎯 注意力拼接融合启动！")
+            print(f"   - 输入多尺度特征数量: {len(multi_scale_features)}")
+            print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
+            print(f"   - 注意力头数: {self.multi_head_attention.num_heads}")
+            print(f"   - 注意力Dropout: {self.multi_head_attention.attention_dropout}")
+            print(f"   - 滑动窗口尺度: {self.scales}")
+            print(f"   - 特征维度: {self.feat_dim}")
+            self._attention_fusion_called = True
+        
+        # 使用多头注意力进行特征融合
+        final_feature, attention_weights = self.multi_head_attention(multi_scale_features)
+        
+        # 🔥 注意力机制处理完成提示（仅在第一次调用时显示）
+        if not hasattr(self, '_attention_fusion_complete_called'):
+            print(f"✅ 注意力拼接融合完成！")
+            print(f"   - 输出特征形状: {final_feature.shape}")
+            print(f"   - 注意力权重形状: {attention_weights.shape}")
+            print(f"   - 注意力权重分布: {attention_weights[0].detach().cpu().numpy()}")
+            self._attention_fusion_complete_called = True
+        
+        # 将融合后的特征重新分配给各尺度（保持多尺度结构）
+        # 这里可以根据注意力权重重新分配特征
+        fused_multi_scale_features = []
+        for i, scale in enumerate(self.scales):
+            # 使用注意力权重对融合特征进行加权
+            weight = attention_weights[:, i:i+1]  # [B, 1]
+            weighted_feature = final_feature * weight  # [B, feat_dim]
+            fused_multi_scale_features.append(weighted_feature)
+        
+        return fused_multi_scale_features
+    
+    def _expert_network_processing(self, multi_scale_features):
+        """
+        专家网络处理多尺度特征
+        
+        Args:
+            multi_scale_features: List[Tensor] - 多尺度特征列表
+        Returns:
+            final_feature: [B, feat_dim] - 最终特征
+            expert_weights: [B, num_experts] - 专家权重
+        """
+        # 🔥 专家网络处理提示（仅在第一次调用时显示）
+        if not hasattr(self, '_expert_processing_called'):
+            print(f"🎯 专家网络处理：使用门控网络和专家网络")
+            print(f"   - 专家数量: {len(self.experts)}")
+            print(f"   - 专家隐藏层维度: {self.experts[0].hidden_dim if hasattr(self.experts[0], 'hidden_dim') else 'N/A'}")
+            print(f"   - 专家层数: {self.experts[0].num_layers if hasattr(self.experts[0], 'num_layers') else 'N/A'}")
+            print(f"   - 门控网络计算专家权重")
+            print(f"   - 专家网络处理多尺度特征")
+            print(f"   - 加权融合得到最终特征")
+            self._expert_processing_called = True
+        
+        B = multi_scale_features[0].shape[0]
+        
         # 🔥 步骤1：拼接多尺度特征作为门控网络输入
         concat_features = torch.cat(multi_scale_features, dim=1)  # [B, feat_dim * num_scales]
         
+        # 🔥 门控网络处理提示（仅在第一次调用时显示）
+        if not hasattr(self, '_gating_network_called'):
+            print(f"🎯 门控网络处理：计算专家权重")
+            print(f"   - 输入特征形状: {concat_features.shape}")
+            print(f"   - 输出权重形状: [B, {len(self.experts)}]")
+            self._gating_network_called = True
+        
         # ========== MLP门控网络调用：计算专家权重 ==========
-        # 🔥 功能：通过门控网络MLP计算各专家的权重分布
-        # 🎯 作用：权重计算 - 判断哪个尺度的特征更重要
-        # 📊 输入：concat_features [B, 1536] (多尺度特征拼接)
-        # 📊 输出：expert_weights [B, 3] (每个专家的权重)
         expert_weights = self.gating_network(concat_features)  # [B, num_experts]
         
+        # 🔥 专家网络处理提示（仅在第一次调用时显示）
+        if not hasattr(self, '_expert_network_called'):
+            print(f"🎯 专家网络处理：处理各尺度特征")
+            print(f"   - 专家网络数量: {len(self.experts)}")
+            print(f"   - 输入特征形状: {multi_scale_features[0].shape}")
+            print(f"   - 输出特征形状: [B, {self.feat_dim}]")
+            self._expert_network_called = True
+        
         # ========== MLP专家网络调用：处理各尺度特征 ==========
-        # 🔥 功能：通过专家网络MLP处理各尺度的特征
-        # 🎯 作用：特征增强 - 让每个尺度的特征变得更"聪明"
-        # 📊 输入：multi_scale_features (List[Tensor], 每个元素[B, 512])
-        # 📊 输出：expert_outputs (List[Tensor], 每个元素[B, 512])
         expert_outputs = []
         for i, (expert, feature) in enumerate(zip(self.experts, multi_scale_features)):
-            expert_output = expert(feature)  # [B, feat_dim] - 专家网络MLP处理
+            expert_output = expert(feature)  # [B, feat_dim]
             expert_outputs.append(expert_output)
         
         # 🔥 步骤4：加权融合专家输出
-        # 将专家权重广播到特征维度
         weighted_outputs = []
         for i, expert_output in enumerate(expert_outputs):
-            # expert_weights[:, i] 形状为 [B]，需要扩展为 [B, feat_dim]
             weight = expert_weights[:, i:i+1].expand_as(expert_output)  # [B, feat_dim]
             weighted_output = weight * expert_output  # [B, feat_dim]
             weighted_outputs.append(weighted_output)
@@ -471,11 +559,14 @@ class MultiScaleMoE(nn.Module):
         # 求和得到融合特征
         fused_feature = torch.sum(torch.stack(weighted_outputs, dim=0), dim=0)  # [B, feat_dim]
         
+        # 🔥 最终融合提示（仅在第一次调用时显示）
+        if not hasattr(self, '_final_fusion_called'):
+            print(f"🎯 最终融合：专家输出融合")
+            print(f"   - 融合特征形状: {fused_feature.shape}")
+            print(f"   - 最终特征形状: [B, {self.feat_dim}]")
+            self._final_fusion_called = True
+        
         # ========== MLP最终融合层调用：专家输出融合 ==========
-        # 🔥 功能：通过最终融合层MLP处理MoE加权融合后的特征
-        # 🎯 作用：特征融合 - 将专家输出融合为单一特征
-        # 📊 输入：fused_feature [B, 512] (MoE加权融合后的特征)
-        # 📊 输出：final_feature [B, 512] (最终融合特征)
         final_feature = self.final_fusion(fused_feature)  # [B, feat_dim]
         
         return final_feature, expert_weights
