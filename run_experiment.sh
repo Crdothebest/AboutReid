@@ -117,6 +117,11 @@ if [ $# -gt 0 ]; then
                 sed -i.bak "/^$SECTION:/,/^[A-Z_]*:/ {
                     s|^  $KEY:.*|  $KEY: $PARAM_VALUE|
                 }" "$MODIFIED_CONFIG"
+                
+                # 🔥 特殊处理：如果参数在MODEL部分，确保正确替换
+                if [[ "$SECTION" == "MODEL" ]]; then
+                    sed -i.bak "s|^  $KEY:.*|  $KEY: $PARAM_VALUE|" "$MODIFIED_CONFIG"
+                fi
             else
                 # 处理简单参数
                 sed -i.bak "s|^$PARAM_NAME:.*|$PARAM_NAME: $PARAM_VALUE|" "$MODIFIED_CONFIG"
@@ -129,6 +134,15 @@ if [ $# -gt 0 ]; then
     
     echo "✅ 参数覆盖完成"
     echo "📊 使用配置: 原配置 + 命令行参数覆盖"
+    
+    # 🔥 调试：显示关键参数修改结果
+    echo "🔍 关键参数检查："
+    if grep -q "USE_MULTI_HEAD_ATTENTION:" "$MODIFIED_CONFIG"; then
+        echo "  - USE_MULTI_HEAD_ATTENTION: $(grep "USE_MULTI_HEAD_ATTENTION:" "$MODIFIED_CONFIG" | head -1)"
+    fi
+    if grep -q "MOE_TEMPERATURE:" "$MODIFIED_CONFIG"; then
+        echo "  - MOE_TEMPERATURE: $(grep "MOE_TEMPERATURE:" "$MODIFIED_CONFIG" | head -1)"
+    fi
 else
     echo "ℹ️  未检测到命令行参数，使用配置文件默认值"
     echo "📊 使用配置: 原配置文件参数（无修改）"
