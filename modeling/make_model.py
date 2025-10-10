@@ -170,8 +170,7 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     expert_threshold=expert_threshold,
                     residual_weight=residual_weight,
                     use_gate_fusion=self.use_gate_fusion,
-                    gate_num_heads=self.gate_num_heads,
-                    gate_dropout=self.gate_dropout
+                    gate_num_heads=self.gate_num_heads
                 )
                 # 初始化专家权重历史记录（用于分析）
                 self.expert_weights_history = []
