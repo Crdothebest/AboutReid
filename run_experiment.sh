@@ -76,9 +76,11 @@ if [ $# -gt 0 ]; then
     
     # 解析并应用参数覆盖
     # 格式：MODEL.MOE_EXPERT_HIDDEN_DIM 640
+    echo "🔍 调试：开始处理参数，剩余参数数量: $#"
     while [ $# -gt 0 ]; do
         PARAM_NAME="$1"
         PARAM_VALUE="$2"
+        echo "🔍 调试：处理参数 $PARAM_NAME = $PARAM_VALUE"
         
         # 🔥 新增：处理门控融合相关参数
         if [[ "$PARAM_NAME" == "ATTENTION_ENABLED" ]]; then
@@ -91,6 +93,7 @@ if [ $# -gt 0 ]; then
             ATTENTION_DROPOUT="$PARAM_VALUE"
             echo "  🎯 设置门控网络Dropout: $ATTENTION_DROPOUT"
         elif [[ "$PARAM_NAME" == "MODEL.USE_GATE_FUSION" ]]; then
+            echo "  🔍 调试：处理MODEL.USE_GATE_FUSION参数"
             if [[ "$PARAM_VALUE" == "True" || "$PARAM_VALUE" == "true" ]]; then
                 ATTENTION_ENABLED="true"
                 echo "  🎯 通过命令行启用门控融合机制"
@@ -100,6 +103,7 @@ if [ $# -gt 0 ]; then
                 echo "  🎯 通过命令行禁用门控融合机制"
                 echo "  🔍 调试：ATTENTION_ENABLED设置为: $ATTENTION_ENABLED"
             fi
+            echo "  🔍 调试：MODEL.USE_GATE_FUSION处理完成"
         elif [[ "$PARAM_NAME" == "MODEL.GATE_NUM_HEADS" ]]; then
             ATTENTION_HEADS="$PARAM_VALUE"
             echo "  🎯 通过MODEL.GATE_NUM_HEADS设置门控网络头数: $ATTENTION_HEADS"
@@ -115,9 +119,12 @@ if [ $# -gt 0 ]; then
                 # 处理嵌套参数，如 MODEL.MOE_EXPERT_HIDDEN_DIM
                 SECTION=$(echo "$PARAM_NAME" | cut -d'.' -f1)
                 KEY=$(echo "$PARAM_NAME" | cut -d'.' -f2-)
+                echo "  🔍 调试：处理嵌套参数 $SECTION.$KEY = $PARAM_VALUE"
                 
                 # 查找并替换参数
+                echo "  🔍 调试：执行sed命令前"
                 sed -i.bak "/^$SECTION:/,/^[A-Z_]*:/ s|^  $KEY:.*|  $KEY: $PARAM_VALUE|" "$MODIFIED_CONFIG"
+                echo "  🔍 调试：执行sed命令后"
                 
                 # 🔥 特殊处理：如果参数在MODEL部分，确保正确替换
                 if [[ "$SECTION" == "MODEL" ]]; then
@@ -134,7 +141,9 @@ if [ $# -gt 0 ]; then
         
         # 移动到下一对参数
         shift 2
+        echo "  🔍 调试：参数处理完成，剩余参数数量: $#"
     done
+    echo "🔍 调试：所有参数处理完成"
     
     echo "✅ 参数覆盖完成"
     echo "📊 使用配置: 原配置 + 命令行参数覆盖"
