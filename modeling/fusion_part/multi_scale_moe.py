@@ -234,13 +234,23 @@ class MultiHeadAttentionConcat(nn.Module):
             nn.Softmax(dim=-1)
         )
         
-        # 最终融合层
+        # 最终融合层 - 优化设计，保持多尺度信息
         self.final_fusion = nn.Sequential(
             nn.Linear(feat_dim, feat_dim),
             nn.LayerNorm(feat_dim),
             nn.ReLU(),
-            nn.Dropout(dropout)
+            nn.Dropout(dropout * 0.5)  # 减少Dropout，保持信息
         )
+        
+        # 多尺度特征增强层 - 为每个尺度提供独立的增强
+        self.scale_enhancers = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(feat_dim, feat_dim),
+                nn.LayerNorm(feat_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout * 0.3)
+            ) for _ in range(len(scales))
+        ])
         
         self._init_weights()
     
@@ -289,20 +299,38 @@ class MultiHeadAttentionConcat(nn.Module):
             stacked_features, stacked_features, stacked_features
         )
         
-        # 🔥 步骤4：最终融合
+        # 🔥 步骤4：智能多尺度特征增强（保持并增强多尺度信息）
+        enhanced_multi_scale_features = []
+        for i, scale in enumerate(self.scales):
+            # 获取对应尺度的注意力增强特征
+            enhanced_feat = attn_output[:, i, :]  # [B, feat_dim]
+            
+            # 使用对应尺度的独立增强器
+            enhanced_feat = self.scale_enhancers[i](enhanced_feat)
+            
+            # 添加残差连接，保持原始信息
+            original_feat = multi_scale_features[i]
+            enhanced_feat = enhanced_feat + original_feat * 0.1  # 残差连接
+            
+            enhanced_multi_scale_features.append(enhanced_feat)
+        
+        # 计算全局融合特征（用于返回）
         final_feature = torch.mean(attn_output, dim=1)  # [B, feat_dim]
         final_feature = self.final_fusion(final_feature)
         
         # 🔥 注意力机制处理完成提示（仅在第一次调用时显示）
         if not hasattr(self, '_attention_complete_called'):
-            print(f"✅ 注意力融合完成！")
-            print(f"   - 输出特征形状: {final_feature.shape}")
+            print(f"✅ 智能注意力融合完成！")
+            print(f"   - 输出多尺度特征数量: {len(enhanced_multi_scale_features)}")
+            print(f"   - 每个特征形状: {enhanced_multi_scale_features[0].shape}")
             print(f"   - 注意力权重形状: {attention_weights.shape}")
             print(f"   - 注意力权重分布: {attention_weights[0].detach().cpu().numpy()}")
             print(f"   - 多头注意力权重形状: {attn_weights.shape}")
+            print(f"   - 保持多尺度结构: 不丢失信息")
+            print(f"   - 残差连接: 保持原始特征信息")
             self._attention_complete_called = True
         
-        return final_feature, attention_weights
+        return enhanced_multi_scale_features, attention_weights
 
 
 class MultiScaleMoE(nn.Module):
@@ -478,27 +506,20 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 特征维度: {self.feat_dim}")
             self._attention_fusion_called = True
         
-        # 使用多头注意力进行特征融合
-        final_feature, attention_weights = self.multi_head_attention(multi_scale_features)
+        # 使用多头注意力进行特征融合（返回增强后的多尺度特征）
+        enhanced_multi_scale_features, attention_weights = self.multi_head_attention(multi_scale_features)
         
         # 🔥 注意力机制处理完成提示（仅在第一次调用时显示）
         if not hasattr(self, '_attention_fusion_complete_called'):
             print(f"✅ 注意力拼接融合完成！")
-            print(f"   - 输出特征形状: {final_feature.shape}")
+            print(f"   - 输出多尺度特征数量: {len(enhanced_multi_scale_features)}")
+            print(f"   - 每个特征形状: {enhanced_multi_scale_features[0].shape}")
             print(f"   - 注意力权重形状: {attention_weights.shape}")
             print(f"   - 注意力权重分布: {attention_weights[0].detach().cpu().numpy()}")
+            print(f"   - 保持多尺度结构: 不丢失信息")
             self._attention_fusion_complete_called = True
         
-        # 将融合后的特征重新分配给各尺度（保持多尺度结构）
-        # 这里可以根据注意力权重重新分配特征
-        fused_multi_scale_features = []
-        for i, scale in enumerate(self.scales):
-            # 使用注意力权重对融合特征进行加权
-            weight = attention_weights[:, i:i+1]  # [B, 1]
-            weighted_feature = final_feature * weight  # [B, feat_dim]
-            fused_multi_scale_features.append(weighted_feature)
-        
-        return fused_multi_scale_features
+        return enhanced_multi_scale_features
     
     def _expert_network_processing(self, multi_scale_features):
         """
