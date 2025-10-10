@@ -214,6 +214,7 @@ class MultiHeadAttentionConcat(nn.Module):
         self.feat_dim = feat_dim
         self.num_heads = num_heads
         self.scales = scales
+        self.dropout = dropout
         
         # 多头自注意力层
         self.multi_head_attn = nn.MultiheadAttention(
@@ -430,7 +431,7 @@ class MultiScaleMoE(nn.Module):
             if not hasattr(self, '_attention_branch_called'):
                 print(f"🎯 拼接融合：使用注意力机制替代简单拼接")
                 print(f"   - 注意力头数: {self.multi_head_attention.num_heads}")
-                print(f"   - 注意力Dropout: {self.multi_head_attention.attention_dropout}")
+                print(f"   - 注意力Dropout: {self.multi_head_attention.dropout}")
                 print(f"   - 智能注意力权重计算")
                 print(f"   - 多头自注意力处理多尺度特征")
                 print(f"   - 然后通过专家网络处理")
@@ -472,7 +473,7 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 输入多尺度特征数量: {len(multi_scale_features)}")
             print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
             print(f"   - 注意力头数: {self.multi_head_attention.num_heads}")
-            print(f"   - 注意力Dropout: {self.multi_head_attention.attention_dropout}")
+            print(f"   - 注意力Dropout: {self.multi_head_attention.dropout}")
             print(f"   - 滑动窗口尺度: {self.scales}")
             print(f"   - 特征维度: {self.feat_dim}")
             self._attention_fusion_called = True
