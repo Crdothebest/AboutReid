@@ -117,17 +117,14 @@ if [ $# -gt 0 ]; then
                 KEY=$(echo "$PARAM_NAME" | cut -d'.' -f2-)
                 
                 # 查找并替换参数
-                sed -i.bak "/^$SECTION:/,/^[A-Z_]*:/ {
-                    s|^  $KEY:.*|  $KEY: $PARAM_VALUE|
-                }" "$MODIFIED_CONFIG"
+                sed -i.bak "/^$SECTION:/,/^[A-Z_]*:/ s|^  $KEY:.*|  $KEY: $PARAM_VALUE|" "$MODIFIED_CONFIG"
                 
                 # 🔥 特殊处理：如果参数在MODEL部分，确保正确替换
                 if [[ "$SECTION" == "MODEL" ]]; then
                     # 先删除所有现有的该参数设置
                     sed -i.bak "/^  $KEY:/d" "$MODIFIED_CONFIG"
                     # 然后在MODEL部分末尾添加新设置
-                    sed -i.bak "/^MODEL:/a\\
-  $KEY: $PARAM_VALUE" "$MODIFIED_CONFIG"
+                    sed -i.bak "/^MODEL:/a\\  $KEY: $PARAM_VALUE" "$MODIFIED_CONFIG"
                 fi
             else
                 # 处理简单参数
@@ -217,17 +214,45 @@ EOF
 
 # 显示训练开始信息
 echo "🏃 开始训练..."
+echo "🔍 调试：即将执行命令: $CMD"
+echo "🔍 调试：当前工作目录: $(pwd)"
+echo "🔍 调试：Python路径: $(which python)"
+echo "🔍 调试：配置文件内容检查:"
+head -20 "$MODIFIED_CONFIG"
+echo "🔍 调试：配置文件末尾内容:"
+tail -10 "$MODIFIED_CONFIG"
+
 # 执行训练命令
 # eval 命令用于执行存储在变量中的命令
-eval $CMD
+echo "🚀 开始执行训练命令..."
+echo "⏰ 设置30秒超时，如果卡住将显示错误信息..."
+
+# 使用timeout命令设置超时
+timeout 30s eval $CMD
+TIMEOUT_EXIT_CODE=$?
+
+if [ $TIMEOUT_EXIT_CODE -eq 124 ]; then
+    echo "❌ 训练命令在30秒内没有响应，可能卡住了"
+    echo "🔍 可能的原因："
+    echo "  1. 数据加载问题"
+    echo "  2. 模型初始化问题"
+    echo "  3. CUDA设备问题"
+    echo "  4. 配置文件格式问题"
+    echo "💡 建议：直接运行 python train_net.py --config_file $MODIFIED_CONFIG 来调试"
+    exit 1
+elif [ $TIMEOUT_EXIT_CODE -ne 0 ]; then
+    echo "❌ 训练命令执行失败，退出码: $TIMEOUT_EXIT_CODE"
+    exit $TIMEOUT_EXIT_CODE
+fi
 
 # =============================================================================
 # 第八部分：处理训练结果
 # =============================================================================
 
 # 检查训练结果
-# $? 是上一个命令的退出码，0表示成功
-if [ $? -eq 0 ]; then
+# 如果超时退出，TIMEOUT_EXIT_CODE已经处理了
+# 如果正常执行，检查退出码
+if [ $TIMEOUT_EXIT_CODE -eq 0 ]; then
     # 训练成功的情况
     echo "✅ 训练完成"
     
