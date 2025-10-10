@@ -263,6 +263,15 @@ class MultiHeadAttentionConcat(nn.Module):
         """
         B = multi_scale_features[0].shape[0]
         
+        # 🔥 注意力机制启动提示（仅在第一次调用时显示）
+        if not hasattr(self, '_attention_forward_called'):
+            print(f"🎯 多头注意力融合机制启动！")
+            print(f"   - 输入多尺度特征数量: {len(multi_scale_features)}")
+            print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
+            print(f"   - 注意力头数: {self.num_heads}")
+            print(f"   - 滑动窗口尺度: {self.scales}")
+            self._attention_forward_called = True
+        
         # 🔥 步骤1：计算注意力权重
         concat_features = torch.cat(multi_scale_features, dim=1)  # [B, feat_dim * num_scales]
         attention_weights = self.attention_weights(concat_features)  # [B, num_scales]
@@ -282,6 +291,15 @@ class MultiHeadAttentionConcat(nn.Module):
         # 🔥 步骤4：最终融合
         final_feature = torch.mean(attn_output, dim=1)  # [B, feat_dim]
         final_feature = self.final_fusion(final_feature)
+        
+        # 🔥 注意力机制处理完成提示（仅在第一次调用时显示）
+        if not hasattr(self, '_attention_complete_called'):
+            print(f"✅ 多头注意力融合完成！")
+            print(f"   - 输出特征形状: {final_feature.shape}")
+            print(f"   - 注意力权重形状: {attention_weights.shape}")
+            print(f"   - 注意力权重分布: {attention_weights[0].detach().cpu().numpy()}")
+            print(f"   - 多头注意力权重形状: {attn_weights.shape}")
+            self._attention_complete_called = True
         
         return final_feature, attention_weights
 
@@ -408,6 +426,14 @@ class MultiScaleMoE(nn.Module):
         
         # 🔥 分支1：使用多头注意力机制
         if self.use_multi_head_attention and self.multi_head_attention is not None:
+            # 🔥 注意力机制调用提示（仅在第一次调用时显示）
+            if not hasattr(self, '_attention_branch_called'):
+                print(f"🎯 使用多头注意力机制进行特征融合！")
+                print(f"   - 替代传统MoE门控网络")
+                print(f"   - 使用智能注意力权重计算")
+                print(f"   - 多头自注意力处理多尺度特征")
+                self._attention_branch_called = True
+            
             # 使用多头注意力进行特征融合
             final_feature, attention_weights = self.multi_head_attention(multi_scale_features)
             return final_feature, attention_weights

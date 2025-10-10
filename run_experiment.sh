@@ -89,6 +89,17 @@ if [ $# -gt 0 ]; then
         elif [[ "$PARAM_NAME" == "ATTENTION_DROPOUT" ]]; then
             ATTENTION_DROPOUT="$PARAM_VALUE"
             echo "  🎯 设置注意力Dropout: $ATTENTION_DROPOUT"
+        elif [[ "$PARAM_NAME" == "MODEL.USE_MULTI_HEAD_ATTENTION" ]]; then
+            if [[ "$PARAM_VALUE" == "True" || "$PARAM_VALUE" == "true" ]]; then
+                ATTENTION_ENABLED="true"
+                echo "  🎯 通过MODEL.USE_MULTI_HEAD_ATTENTION启用注意力机制"
+            fi
+        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_NUM_HEADS" ]]; then
+            ATTENTION_HEADS="$PARAM_VALUE"
+            echo "  🎯 通过MODEL.ATTENTION_NUM_HEADS设置注意力头数: $ATTENTION_HEADS"
+        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_DROPOUT" ]]; then
+            ATTENTION_DROPOUT="$PARAM_VALUE"
+            echo "  🎯 通过MODEL.ATTENTION_DROPOUT设置注意力Dropout: $ATTENTION_DROPOUT"
         elif [ -n "$PARAM_NAME" ] && [ -n "$PARAM_VALUE" ]; then
             echo "  📝 覆盖参数: $PARAM_NAME = $PARAM_VALUE"
             
