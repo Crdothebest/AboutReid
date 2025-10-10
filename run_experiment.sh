@@ -169,22 +169,33 @@ if [ "$ATTENTION_ENABLED" = "true" ]; then
     echo "🎯 配置门控融合机制：启用门控融合"
     # 直接添加配置到文件末尾，避免sed卡住
     echo "" >> "$MODIFIED_CONFIG"
-    echo "  # ========== 门控融合配置：启用门控融合机制 ==========" >> "$MODIFIED_CONFIG"
-    echo "  USE_GATE_FUSION: True" >> "$MODIFIED_CONFIG"
-    echo "  GATE_NUM_HEADS: $ATTENTION_HEADS" >> "$MODIFIED_CONFIG"
-    echo "  GATE_DROPOUT: $ATTENTION_DROPOUT" >> "$MODIFIED_CONFIG"
+    echo "# ========== 门控融合配置：启用门控融合机制 ==========" >> "$MODIFIED_CONFIG"
+    echo "USE_GATE_FUSION: True" >> "$MODIFIED_CONFIG"
+    echo "GATE_NUM_HEADS: $ATTENTION_HEADS" >> "$MODIFIED_CONFIG"
+    echo "GATE_DROPOUT: $ATTENTION_DROPOUT" >> "$MODIFIED_CONFIG"
     echo "🎯 门控融合机制已启用: ${ATTENTION_HEADS}个门控头, Dropout=${ATTENTION_DROPOUT}"
 elif [ "$ATTENTION_ENABLED" = "false" ]; then
     echo "🎯 配置门控融合机制：禁用门控融合机制，使用传统MLP融合"
     # 直接添加配置到文件末尾，避免sed卡住
     echo "" >> "$MODIFIED_CONFIG"
-    echo "  # ========== 门控融合配置：禁用门控融合机制 ==========" >> "$MODIFIED_CONFIG"
-    echo "  USE_GATE_FUSION: False" >> "$MODIFIED_CONFIG"
-    echo "  GATE_NUM_HEADS: 8" >> "$MODIFIED_CONFIG"
-    echo "  GATE_DROPOUT: 0.1" >> "$MODIFIED_CONFIG"
+    echo "# ========== 门控融合配置：禁用门控融合机制 ==========" >> "$MODIFIED_CONFIG"
+    echo "USE_GATE_FUSION: False" >> "$MODIFIED_CONFIG"
+    echo "GATE_NUM_HEADS: 8" >> "$MODIFIED_CONFIG"
+    echo "GATE_DROPOUT: 0.1" >> "$MODIFIED_CONFIG"
     echo "🎯 门控融合机制已禁用：使用传统MLP融合"
 else
     echo "ℹ️  使用默认配置：传统MLP融合机制（无门控融合）"
+fi
+
+# 验证YAML格式
+echo "🔍 验证配置文件YAML格式..."
+if python -c "import yaml; yaml.safe_load(open('$MODIFIED_CONFIG'))" 2>/dev/null; then
+    echo "✅ 配置文件YAML格式正确"
+else
+    echo "❌ 配置文件YAML格式错误"
+    echo "🔍 配置文件内容检查："
+    tail -10 "$MODIFIED_CONFIG"
+    exit 1
 fi
 
 # 构建训练命令 - 使用修改后的配置文件
