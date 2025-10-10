@@ -142,9 +142,9 @@ if [ $# -gt 0 ]; then
     
     # 🔥 调试：显示关键参数修改结果
     echo "🔍 关键参数检查："
-    if grep -q "USE_MULTI_HEAD_ATTENTION:" "$MODIFIED_CONFIG"; then
-        echo "  - USE_MULTI_HEAD_ATTENTION设置："
-        grep "USE_MULTI_HEAD_ATTENTION:" "$MODIFIED_CONFIG" | while read line; do
+    if grep -q "USE_GATE_FUSION:" "$MODIFIED_CONFIG"; then
+        echo "  - USE_GATE_FUSION设置："
+        grep "USE_GATE_FUSION:" "$MODIFIED_CONFIG" | while read line; do
             echo "    $line"
         done
     fi
