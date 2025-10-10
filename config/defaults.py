@@ -69,15 +69,15 @@ _C.MODEL.MOE_BALANCE_LOSS_WEIGHT = 0.01  # MoE expert balance loss weight
 _C.MODEL.MOE_SPARSITY_LOSS_WEIGHT = 0.001 # MoE sparsity loss weight
 _C.MODEL.MOE_DIVERSITY_LOSS_WEIGHT = 0.01 # MoE diversity loss weight
 
-# ========== 新增配置：多头注意力机制设置 ==========
-# 用户修改：添加多头注意力机制配置，支持命令行开关控制
-# 功能：控制是否启用多头自注意力机制增强MoE融合效果
-# 基于：多头注意力增强MoE特征融合创新设计
+# ========== 新增配置：门控融合机制设置 ==========
+# 用户修改：添加门控融合机制配置，支持命令行开关控制
+# 功能：控制是否启用门控融合机制增强MoE融合效果
+# 基于：门控融合增强MoE特征融合创新设计
 # 撤销方法：删除以下配置代码
-# Multi-Head Attention settings
-_C.MODEL.USE_MULTI_HEAD_ATTENTION = False    # whether use multi-head attention (默认关闭，保持向后兼容)
-_C.MODEL.ATTENTION_NUM_HEADS = 8              # number of attention heads (默认8个注意力头)
-_C.MODEL.ATTENTION_DROPOUT = 0.1              # attention dropout rate (默认0.1)
+# Gate Fusion settings
+_C.MODEL.USE_GATE_FUSION = False              # whether use gate fusion mechanism (默认关闭)
+_C.MODEL.GATE_NUM_HEADS = 8                   # number of gate network heads (默认8个门控头)
+_C.MODEL.GATE_DROPOUT = 0.1                   # gate network dropout rate (默认0.1)
 
 # If train with label smooth, options: 'on', 'off'
 _C.MODEL.IF_LABELSMOOTH = 'on'

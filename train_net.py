@@ -43,15 +43,15 @@ if __name__ == '__main__':
                        help="强制禁用多尺度MoE特征融合模块 (默认: False)")
     parser.add_argument("--no_moe", action="store_true", help="Disable Multi-scale MoE fusion (default: False)")
     
-    # 🔥 新增：多头注意力控制参数
+    # 🔥 新增：门控融合控制参数
     parser.add_argument("--use_attention", action="store_true", 
-                       help="启用多头注意力机制 (默认: False)")
+                       help="启用门控融合机制 (默认: False)")
     parser.add_argument("--disable_attention", action="store_true", 
-                       help="强制禁用多头注意力机制 (默认: False)")
+                       help="强制禁用门控融合机制 (默认: False)")
     parser.add_argument("--attention_heads", type=int, default=8, 
-                       help="设置注意力头数 (默认: 8)")
+                       help="设置门控网络头数 (默认: 8)")
     parser.add_argument("--attention_dropout", type=float, default=0.1, 
-                       help="设置注意力Dropout比例 (默认: 0.1)")
+                       help="设置门控网络Dropout比例 (默认: 0.1)")
     args = parser.parse_args() # 解析参数
 
     if args.config_file != "":
@@ -76,15 +76,15 @@ if __name__ == '__main__':
         cfg.MODEL.USE_MULTI_SCALE_MOE = False
         print("🔥 命令行禁用多尺度MoE融合")
     
-    # 多头注意力控制
+    # 门控融合控制
     if args.use_attention:
         cfg.MODEL.USE_MULTI_HEAD_ATTENTION = True
         cfg.MODEL.ATTENTION_NUM_HEADS = args.attention_heads
         cfg.MODEL.ATTENTION_DROPOUT = args.attention_dropout
-        print(f"🔥 命令行启用多头注意力机制: {args.attention_heads}个注意力头, Dropout={args.attention_dropout}")
+        print(f"🔥 命令行启用门控融合机制: {args.attention_heads}个门控头, Dropout={args.attention_dropout}")
     elif args.disable_attention:
         cfg.MODEL.USE_MULTI_HEAD_ATTENTION = False
-        print("🔥 命令行禁用多头注意力机制")
+        print("🔥 命令行禁用门控融合机制")
     
     # 🔥 新增：消融实验启动提示功能
     def print_ablation_experiment_info(config_file_path):

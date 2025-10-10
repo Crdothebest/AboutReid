@@ -139,11 +139,11 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             self.use_multi_scale_moe = getattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE', False)
             self.moe_scales = getattr(cfg.MODEL, 'MOE_SCALES', [4, 8, 16])
             
-            # 🔥 新增：多头注意力配置
-            # 功能：从配置文件读取注意力设置，支持注意力机制开关
-            self.use_multi_head_attention = getattr(cfg.MODEL, 'USE_MULTI_HEAD_ATTENTION', False)
-            self.attention_num_heads = getattr(cfg.MODEL, 'ATTENTION_NUM_HEADS', 8)
-            self.attention_dropout = getattr(cfg.MODEL, 'ATTENTION_DROPOUT', 0.1)
+            # 🔥 新增：门控融合配置
+            # 功能：从配置文件读取门控融合设置，支持门控融合机制开关
+            self.use_gate_fusion = getattr(cfg.MODEL, 'USE_GATE_FUSION', False)
+            self.gate_num_heads = getattr(cfg.MODEL, 'GATE_NUM_HEADS', 8)
+            self.gate_dropout = getattr(cfg.MODEL, 'GATE_DROPOUT', 0.1)
             
             if self.use_multi_scale_moe:
                 from modeling.fusion_part.multi_scale_moe import CLIPMultiScaleMoE
@@ -169,9 +169,9 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     gate_layers=gate_layers,
                     expert_threshold=expert_threshold,
                     residual_weight=residual_weight,
-                    use_multi_head_attention=self.use_multi_head_attention,
-                    attention_num_heads=self.attention_num_heads,
-                    attention_dropout=self.attention_dropout
+                    use_gate_fusion=self.use_gate_fusion,
+                    gate_num_heads=self.gate_num_heads,
+                    gate_dropout=self.gate_dropout
                 )
                 # 初始化专家权重历史记录（用于分析）
                 self.expert_weights_history = []

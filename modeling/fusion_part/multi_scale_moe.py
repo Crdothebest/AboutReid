@@ -201,11 +201,11 @@ class GatingNetwork(nn.Module):
 
 class MultiHeadAttentionConcat(nn.Module):
     """
-    🔥 多头注意力拼接模块
+    🔥 门控融合模块
     
     核心功能：
-    - 使用多头自注意力机制处理多尺度特征
-    - 动态计算注意力权重
+    - 使用门控网络学习动态权重
+    - 智能加权融合多尺度特征
     - 实现更智能的特征融合
     """
     
@@ -216,22 +216,22 @@ class MultiHeadAttentionConcat(nn.Module):
         self.scales = scales
         self.dropout = dropout
         
-        # 多头自注意力层
-        self.multi_head_attn = nn.MultiheadAttention(
-            embed_dim=feat_dim, 
-            num_heads=num_heads, 
-            dropout=dropout,
-            batch_first=True
-        )
-        
-        # 注意力权重计算
-        self.attention_weights = nn.Sequential(
+        # 门控融合网络（推荐方案）
+        self.gate_network = nn.Sequential(
             nn.Linear(feat_dim * len(scales), feat_dim),
             nn.LayerNorm(feat_dim),
             nn.ReLU(),
-            nn.Dropout(dropout),
+            nn.Dropout(dropout * 0.3),
             nn.Linear(feat_dim, len(scales)),
             nn.Softmax(dim=-1)
+        )
+        
+        # 特征增强网络
+        self.feature_enhancer = nn.Sequential(
+            nn.Linear(feat_dim, feat_dim),
+            nn.LayerNorm(feat_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout * 0.2)
         )
         
         # 最终融合层 - 优化设计，保持多尺度信息
@@ -242,15 +242,13 @@ class MultiHeadAttentionConcat(nn.Module):
             nn.Dropout(dropout * 0.5)  # 减少Dropout，保持信息
         )
         
-        # 多尺度特征增强层 - 为每个尺度提供独立的增强
-        self.scale_enhancers = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(feat_dim, feat_dim),
-                nn.LayerNorm(feat_dim),
-                nn.ReLU(),
-                nn.Dropout(dropout * 0.3)
-            ) for _ in range(len(scales))
-        ])
+        # 特征增强器
+        self.feature_enhancer = nn.Sequential(
+            nn.Linear(feat_dim, feat_dim),
+            nn.LayerNorm(feat_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout * 0.3)
+        )
         
         self._init_weights()
     
@@ -264,73 +262,56 @@ class MultiHeadAttentionConcat(nn.Module):
     
     def forward(self, multi_scale_features):
         """
-        多头注意力拼接前向传播
+        门控融合前向传播
         
         Args:
             multi_scale_features: List[Tensor] - 多尺度特征列表
         Returns:
-            final_feature: [B, feat_dim] - 注意力融合后的特征
-            attention_weights: [B, num_scales] - 注意力权重分布
+            enhanced_multi_scale_features: List[Tensor] - 门控融合后的多尺度特征
+            gate_weights: [B, num_scales] - 门控权重分布
         """
         B = multi_scale_features[0].shape[0]
         
-        # 🔥 注意力机制启动提示（仅在第一次调用时显示）
+        # 🔥 门控融合启动提示（仅在第一次调用时显示）
         if not hasattr(self, '_attention_forward_called'):
-            print(f"🎯 注意力融合机制启动！")
+            print(f"🎯 门控融合机制启动！")
             print(f"   - 输入多尺度特征数量: {len(multi_scale_features)}")
             print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
-            print(f"   - 注意力头数: {self.num_heads}")
+            print(f"   - 门控网络: 学习动态权重")
             print(f"   - 滑动窗口尺度: {self.scales}")
             self._attention_forward_called = True
         
-        # 🔥 步骤1：计算注意力权重
+        # 🔥 步骤1：门控权重计算
         concat_features = torch.cat(multi_scale_features, dim=1)  # [B, feat_dim * num_scales]
-        attention_weights = self.attention_weights(concat_features)  # [B, num_scales]
+        gate_weights = self.gate_network(concat_features)  # [B, num_scales]
         
-        # 🔥 步骤2：加权拼接特征
-        weighted_features = []
-        for i, (feat, weight) in enumerate(zip(multi_scale_features, attention_weights.unbind(-1))):
-            weighted_feat = feat * weight.unsqueeze(-1)  # [B, feat_dim]
-            weighted_features.append(weighted_feat)
-        
-        # 🔥 步骤3：多头自注意力处理
-        stacked_features = torch.stack(weighted_features, dim=1)  # [B, num_scales, feat_dim]
-        attn_output, attn_weights = self.multi_head_attn(
-            stacked_features, stacked_features, stacked_features
-        )
-        
-        # 🔥 步骤4：智能多尺度特征增强（保持并增强多尺度信息）
+        # 🔥 步骤2：门控加权融合
         enhanced_multi_scale_features = []
-        for i, scale in enumerate(self.scales):
-            # 获取对应尺度的注意力增强特征
-            enhanced_feat = attn_output[:, i, :]  # [B, feat_dim]
+        for i, (feat, weight) in enumerate(zip(multi_scale_features, gate_weights.unbind(-1))):
+            # 门控加权
+            weighted_feat = feat * weight.unsqueeze(-1)  # [B, feat_dim]
             
-            # 使用对应尺度的独立增强器
-            enhanced_feat = self.scale_enhancers[i](enhanced_feat)
+            # 特征增强
+            enhanced_feat = self.feature_enhancer(weighted_feat)
             
-            # 添加残差连接，保持原始信息
-            original_feat = multi_scale_features[i]
-            enhanced_feat = enhanced_feat + original_feat * 0.1  # 残差连接
+            # 残差连接，保持原始信息
+            enhanced_feat = enhanced_feat + feat * 0.3  # 残差连接
             
             enhanced_multi_scale_features.append(enhanced_feat)
         
-        # 计算全局融合特征（用于返回）
-        final_feature = torch.mean(attn_output, dim=1)  # [B, feat_dim]
-        final_feature = self.final_fusion(final_feature)
-        
-        # 🔥 注意力机制处理完成提示（仅在第一次调用时显示）
+        # 🔥 门控融合处理完成提示（仅在第一次调用时显示）
         if not hasattr(self, '_attention_complete_called'):
-            print(f"✅ 智能注意力融合完成！")
+            print(f"✅ 门控融合完成！")
             print(f"   - 输出多尺度特征数量: {len(enhanced_multi_scale_features)}")
             print(f"   - 每个特征形状: {enhanced_multi_scale_features[0].shape}")
-            print(f"   - 注意力权重形状: {attention_weights.shape}")
-            print(f"   - 注意力权重分布: {attention_weights[0].detach().cpu().numpy()}")
-            print(f"   - 多头注意力权重形状: {attn_weights.shape}")
+            print(f"   - 门控权重形状: {gate_weights.shape}")
+            print(f"   - 门控权重分布: {gate_weights[0].detach().cpu().numpy()}")
+            print(f"   - 门控网络: 学习动态权重")
             print(f"   - 保持多尺度结构: 不丢失信息")
-            print(f"   - 残差连接: 保持原始特征信息")
+            print(f"   - 残差连接: 30%原始信息保留")
             self._attention_complete_called = True
         
-        return enhanced_multi_scale_features, attention_weights
+        return enhanced_multi_scale_features, gate_weights
 
 
 class MultiScaleMoE(nn.Module):
@@ -342,13 +323,13 @@ class MultiScaleMoE(nn.Module):
     - 通过门控网络计算专家权重
     - 使用专家网络处理对应尺度特征
     - 加权融合得到最终特征
-    - 支持多头注意力机制增强
+    - 支持门控融合机制增强
     """
     
     def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0, 
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
-                 expert_threshold=0.1, residual_weight=1.0, use_multi_head_attention=False,
-                 attention_num_heads=8, attention_dropout=0.1):
+                 expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
+                 gate_num_heads=8):
         """
         初始化多尺度MoE模块
         
@@ -363,9 +344,9 @@ class MultiScaleMoE(nn.Module):
             gate_layers (int): 门控网络层数
             expert_threshold (float): 专家激活阈值
             residual_weight (float): 残差连接权重
-            use_multi_head_attention (bool): 是否使用多头注意力机制
-            attention_num_heads (int): 注意力头数
-            attention_dropout (float): 注意力Dropout比例
+            use_gate_fusion (bool): 是否使用门控融合机制
+            gate_num_heads (int): 门控网络头数
+            gate_dropout (float): 门控网络Dropout比例
         """
         super(MultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -373,20 +354,20 @@ class MultiScaleMoE(nn.Module):
         self.num_experts = len(scales)
         self.expert_threshold = expert_threshold
         self.residual_weight = residual_weight
-        self.use_multi_head_attention = use_multi_head_attention
+        self.use_gate_fusion = use_gate_fusion
         
-        # 🔥 多头注意力模块（可选）
-        if self.use_multi_head_attention:
-            self.multi_head_attention = MultiHeadAttentionConcat(
+        # 🔥 门控融合模块（可选）
+        if self.use_gate_fusion:
+            self.gate_fusion = MultiHeadAttentionConcat(
                 feat_dim=feat_dim,
-                num_heads=attention_num_heads,
+                num_heads=gate_num_heads,
                 scales=scales,
-                dropout=attention_dropout
+                dropout=gate_dropout
             )
-            print(f"🔥 注意力机制：已启用 ({attention_num_heads}个注意力头, Dropout={attention_dropout})")
+            print(f"🔥 门控融合机制：已启用 ({gate_num_heads}个门控头, Dropout={gate_dropout})")
         else:
-            self.multi_head_attention = None
-            print("🔥 注意力机制：已禁用 (使用传统MLP融合)")
+            self.gate_fusion = None
+            print("🔥 门控融合机制：已禁用 (使用传统MLP融合)")
         
         # 🔥 为每个尺度创建专门的专家网络（使用配置参数）
         self.experts = nn.ModuleList()
@@ -448,24 +429,24 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
             print(f"   - 滑动窗口尺度: {self.scales}")
             print(f"   - 专家数量: {self.num_experts}")
-            print(f"   - 注意力机制: {'已启用' if self.use_multi_head_attention else '已禁用'}")
+            print(f"   - 门控融合机制: {'已启用' if self.use_gate_fusion else '已禁用'}")
             self._moe_forward_called = True
         
         B = multi_scale_features[0].shape[0]
         
-        # 🔥 分支1：使用注意力机制进行特征融合（替代简单拼接）
-        if self.use_multi_head_attention and self.multi_head_attention is not None:
-            # 🔥 注意力机制调用提示（仅在第一次调用时显示）
+        # 🔥 分支1：使用门控融合进行特征融合（替代简单拼接）
+        if self.use_gate_fusion and self.gate_fusion is not None:
+            # 🔥 门控融合调用提示（仅在第一次调用时显示）
             if not hasattr(self, '_attention_branch_called'):
-                print(f"🎯 拼接融合：使用注意力机制替代简单拼接")
-                print(f"   - 注意力头数: {self.multi_head_attention.num_heads}")
-                print(f"   - 注意力Dropout: {self.multi_head_attention.dropout}")
-                print(f"   - 智能注意力权重计算")
-                print(f"   - 多头自注意力处理多尺度特征")
+                print(f"🎯 拼接融合：使用门控融合替代简单拼接")
+                print(f"   - 门控网络头数: {self.gate_fusion.num_heads}")
+                print(f"   - 门控网络Dropout: {self.gate_fusion.dropout}")
+                print(f"   - 智能门控权重计算")
+                print(f"   - 门控网络处理多尺度特征")
                 print(f"   - 然后通过专家网络处理")
                 self._attention_branch_called = True
             
-            # 使用注意力机制进行特征融合，得到融合后的多尺度特征
+            # 使用门控融合进行特征融合，得到融合后的多尺度特征
             fused_multi_scale_features = self._attention_fusion_features(multi_scale_features)
             # 继续使用专家网络处理融合后的特征
             return self._expert_network_processing(fused_multi_scale_features)
@@ -486,36 +467,36 @@ class MultiScaleMoE(nn.Module):
     
     def _attention_fusion_features(self, multi_scale_features):
         """
-        使用注意力机制融合多尺度特征（替代简单拼接）
+        使用门控融合融合多尺度特征（替代简单拼接）
         
         核心思想：只改变拼接融合方式，不动滑动窗口和专家网络
         
         Args:
             multi_scale_features: List[Tensor] - 多尺度特征列表
         Returns:
-            fused_multi_scale_features: List[Tensor] - 注意力融合后的多尺度特征
+            fused_multi_scale_features: List[Tensor] - 门控融合后的多尺度特征
         """
-        # 🔥 注意力机制启动提示（仅在第一次调用时显示）
+        # 🔥 门控融合启动提示（仅在第一次调用时显示）
         if not hasattr(self, '_attention_fusion_called'):
-            print(f"🎯 注意力拼接融合启动！")
+            print(f"🎯 门控拼接融合启动！")
             print(f"   - 输入多尺度特征数量: {len(multi_scale_features)}")
             print(f"   - 每个特征形状: {multi_scale_features[0].shape}")
-            print(f"   - 注意力头数: {self.multi_head_attention.num_heads}")
-            print(f"   - 注意力Dropout: {self.multi_head_attention.dropout}")
+            print(f"   - 门控网络头数: {self.gate_fusion.num_heads}")
+            print(f"   - 门控网络Dropout: {self.gate_fusion.dropout}")
             print(f"   - 滑动窗口尺度: {self.scales}")
             print(f"   - 特征维度: {self.feat_dim}")
             self._attention_fusion_called = True
         
-        # 使用多头注意力进行特征融合（返回增强后的多尺度特征）
-        enhanced_multi_scale_features, attention_weights = self.multi_head_attention(multi_scale_features)
+        # 使用门控融合进行特征融合（返回增强后的多尺度特征）
+        enhanced_multi_scale_features, gate_weights = self.gate_fusion(multi_scale_features)
         
-        # 🔥 注意力机制处理完成提示（仅在第一次调用时显示）
+        # 🔥 门控融合处理完成提示（仅在第一次调用时显示）
         if not hasattr(self, '_attention_fusion_complete_called'):
-            print(f"✅ 注意力拼接融合完成！")
+            print(f"✅ 门控拼接融合完成！")
             print(f"   - 输出多尺度特征数量: {len(enhanced_multi_scale_features)}")
             print(f"   - 每个特征形状: {enhanced_multi_scale_features[0].shape}")
-            print(f"   - 注意力权重形状: {attention_weights.shape}")
-            print(f"   - 注意力权重分布: {attention_weights[0].detach().cpu().numpy()}")
+            print(f"   - 门控权重形状: {gate_weights.shape}")
+            print(f"   - 门控权重分布: {gate_weights[0].detach().cpu().numpy()}")
             print(f"   - 保持多尺度结构: 不丢失信息")
             self._attention_fusion_complete_called = True
         
@@ -628,8 +609,8 @@ class CLIPMultiScaleMoE(nn.Module):
     
     def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0,
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
-                 expert_threshold=0.1, residual_weight=1.0, use_multi_head_attention=False,
-                 attention_num_heads=8, attention_dropout=0.1):
+                 expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
+                 gate_num_heads=8):
         """
         初始化CLIP多尺度MoE模块
         
@@ -644,9 +625,9 @@ class CLIPMultiScaleMoE(nn.Module):
             gate_layers (int): 门控网络层数
             expert_threshold (float): 专家激活阈值
             residual_weight (float): 残差连接权重
-            use_multi_head_attention (bool): 是否使用多头注意力机制
-            attention_num_heads (int): 注意力头数
-            attention_dropout (float): 注意力Dropout比例
+            use_gate_fusion (bool): 是否使用门控融合机制
+            gate_num_heads (int): 门控网络头数
+            gate_dropout (float): 门控网络Dropout比例
         """
         super(CLIPMultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -668,9 +649,8 @@ class CLIPMultiScaleMoE(nn.Module):
             gate_layers=gate_layers,
             expert_threshold=expert_threshold,
             residual_weight=residual_weight,
-            use_multi_head_attention=use_multi_head_attention,
-            attention_num_heads=attention_num_heads,
-            attention_dropout=attention_dropout
+            use_gate_fusion=use_gate_fusion,
+            gate_num_heads=gate_num_heads
         )
         
         print(f"🔥 CLIP多尺度MoE模块初始化完成:")
