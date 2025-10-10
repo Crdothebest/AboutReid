@@ -167,16 +167,10 @@ if [ "$ATTENTION_ENABLED" = "true" ]; then
     sed -i.bak "/^  USE_GATE_FUSION:/d" "$MODIFIED_CONFIG"
     sed -i.bak "/^  GATE_NUM_HEADS:/d" "$MODIFIED_CONFIG"
     sed -i.bak "/^  GATE_DROPOUT:/d" "$MODIFIED_CONFIG"
-    # 添加启用配置
-    sed -i.bak "/^MODEL:/a\\
-  # ========== 门控融合配置：启用门控融合机制增强MoE ==========\\
-  # 实验目的：通过门控融合机制提升MoE融合效果\\
-  # 功能：使用门控网络处理多尺度特征，实现更智能的融合\\
-  # 🔥 核心配置：启用门控融合，提升特征融合质量\\
-  USE_GATE_FUSION: True    # 启用门控融合机制\\
-  GATE_NUM_HEADS: $ATTENTION_HEADS            # 门控网络头数（${ATTENTION_HEADS}个门控头）\\
-  GATE_DROPOUT: $ATTENTION_DROPOUT            # 门控网络Dropout比例\\
-" "$MODIFIED_CONFIG"
+    # 简化配置添加
+    echo "  USE_GATE_FUSION: True" >> "$MODIFIED_CONFIG"
+    echo "  GATE_NUM_HEADS: $ATTENTION_HEADS" >> "$MODIFIED_CONFIG"
+    echo "  GATE_DROPOUT: $ATTENTION_DROPOUT" >> "$MODIFIED_CONFIG"
     echo "🎯 门控融合机制已启用: ${ATTENTION_HEADS}个门控头, Dropout=${ATTENTION_DROPOUT}"
 elif [ "$ATTENTION_ENABLED" = "false" ]; then
     echo "🎯 配置门控融合机制：禁用门控融合机制，使用传统MLP融合"
@@ -184,16 +178,10 @@ elif [ "$ATTENTION_ENABLED" = "false" ]; then
     sed -i.bak "/^  USE_GATE_FUSION:/d" "$MODIFIED_CONFIG"
     sed -i.bak "/^  GATE_NUM_HEADS:/d" "$MODIFIED_CONFIG"
     sed -i.bak "/^  GATE_DROPOUT:/d" "$MODIFIED_CONFIG"
-    # 添加禁用配置
-    sed -i.bak "/^MODEL:/a\\
-  # ========== 门控融合配置：禁用门控融合机制，使用传统MLP融合 ==========\\
-  # 实验目的：使用传统MLP融合机制，保持模型简洁\\
-  # 功能：禁用门控融合，使用简单有效的MLP融合\\
-  # 🔥 核心配置：禁用门控融合，使用传统MLP融合\\
-  USE_GATE_FUSION: False   # 禁用门控融合机制\\
-  GATE_NUM_HEADS: 8            # 门控网络头数（默认值，不使用）\\
-  GATE_DROPOUT: 0.1            # 门控网络Dropout比例（默认值，不使用）\\
-" "$MODIFIED_CONFIG"
+    # 简化配置添加
+    echo "  USE_GATE_FUSION: False" >> "$MODIFIED_CONFIG"
+    echo "  GATE_NUM_HEADS: 8" >> "$MODIFIED_CONFIG"
+    echo "  GATE_DROPOUT: 0.1" >> "$MODIFIED_CONFIG"
     echo "🎯 门控融合机制已禁用：使用传统MLP融合"
 else
     echo "ℹ️  使用默认配置：传统MLP融合机制（无门控融合）"
