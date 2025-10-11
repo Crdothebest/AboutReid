@@ -350,7 +350,6 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             
             if is_dual_modal:
                 # 🔥 RGBNT100双模态数据集：只使用RGB和IR（NI），忽略TI
-                print("🔥 检测到双模态数据集（RGBNT100），使用RGB+IR特征融合")
                 ori = torch.cat([RGB_global, NI_global], dim=-1)  # 双模态拼接
                 # 调整bottleneck和classifier的输入维度
                 ori_global = self.bottleneck(ori)  # BNNeck
@@ -363,7 +362,6 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                     fuse_score = self.classifier_fuse(fuse_global)  # 融合分类
             else:
                 # 🔥 RGBNT201三模态数据集：使用RGB、NI、TI
-                print("🔥 检测到三模态数据集（RGBNT201），使用RGB+NI+TI特征融合")
                 ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 三模态拼接
                 ori_global = self.bottleneck(ori)  # BNNeck
                 ori_score = self.classifier(ori_global)  # 原始拼接分类

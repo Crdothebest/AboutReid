@@ -49,8 +49,6 @@ class AAM(nn.Module):
             return torch.cat([r_feature, n_feature, t_feature], dim=-1)
         else:
             # 🔥 双模态数据集（RGBNT100）：只使用RGB和IR（NI）
-            print("🔥 AAM双模态融合：使用RGB+IR特征")
-            
             # 为双模态创建虚拟的TI特征（使用NI特征）
             t = n.clone()  # 使用NI作为虚拟TI
             cls_t = cls_n.clone()
