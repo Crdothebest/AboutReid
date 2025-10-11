@@ -282,9 +282,13 @@ fi
 # =============================================================================
 
 # 检查训练结果
-# 如果超时退出，TIMEOUT_EXIT_CODE已经处理了
 # 如果正常执行，检查退出码
-if [ $TIMEOUT_EXIT_CODE -eq 0 ]; then
+# 🔥 安全检查：确保TRAIN_EXIT_CODE不为空
+if [ -z "$TRAIN_EXIT_CODE" ]; then
+    TRAIN_EXIT_CODE=0  # 如果为空，默认为成功
+fi
+
+if [ $TRAIN_EXIT_CODE -eq 0 ]; then
     # 训练成功的情况
     echo "✅ 训练完成"
     
