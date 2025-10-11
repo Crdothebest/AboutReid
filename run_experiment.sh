@@ -255,6 +255,7 @@ cat > "$EXPERIMENT_DIR/experiment_info.txt" << EOF
 参数: $@
 状态: 运行中
 目录: $EXPERIMENT_DIR
+原始配置文件: $CONFIG_FILE
 EOF
 
 # =============================================================================
@@ -486,7 +487,7 @@ def extract_dataset_info(command_line):
                     with open(info_file, 'r', encoding='utf-8') as f:
                         info_content = f.read()
                     # 从实验信息中提取原始配置文件路径
-                    original_config_match = re.search(r'命令: python train_net\.py --config_file ([^\s]+)', info_content)
+                    original_config_match = re.search(r'原始配置文件: ([^\s]+)', info_content)
                     if original_config_match:
                         original_config_path = original_config_match.group(1)
                         if "RGBNT100" in original_config_path:
