@@ -428,8 +428,14 @@ def extract_dataset_info(command_line):
     """从命令行中提取数据集信息"""
     dataset = "Unknown"
     
-    # 从命令行中提取数据集信息
-    if "RGBNT100" in command_line:
+    # 从命令行中提取数据集信息（优先从配置文件路径）
+    if "configs/RGBNT100/" in command_line:
+        dataset = "RGBNT100"
+    elif "configs/RGBNT201/" in command_line:
+        dataset = "RGBNT201"
+    elif "configs/MSVR310/" in command_line:
+        dataset = "MSVR310"
+    elif "RGBNT100" in command_line:
         dataset = "RGBNT100"
     elif "RGBNT201" in command_line:
         dataset = "RGBNT201"
@@ -441,6 +447,20 @@ def extract_dataset_info(command_line):
         dataset = "DukeMTMC"
     elif "MSMT17" in command_line:
         dataset = "MSMT17"
+    
+    # 如果从命令行中无法提取，尝试从配置文件路径中提取
+    if dataset == "Unknown":
+        # 查找配置文件路径
+        import re
+        config_match = re.search(r'--config_file\s+([^\s]+)', command_line)
+        if config_match:
+            config_path = config_match.group(1)
+            if "RGBNT100" in config_path:
+                dataset = "RGBNT100"
+            elif "RGBNT201" in config_path:
+                dataset = "RGBNT201"
+            elif "MSVR310" in config_path:
+                dataset = "MSVR310"
     
     return dataset
 
