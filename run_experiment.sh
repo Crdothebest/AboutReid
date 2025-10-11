@@ -366,44 +366,20 @@ from datetime import datetime
 def parse_training_log(log_file):
     """解析训练日志，提取最佳结果"""
     results = {
-        'mAP': 0.0,
-        'Rank-1': 0.0,
-        'Rank-5': 0.0,
-        'Rank-10': 0.0,
+        # 只保留Best相关记录
         'Best_mAP': 0.0,
         'Best_Rank-1': 0.0,
         'Best_Rank-5': 0.0,
         'Best_Rank-10': 0.0,
         '滑动窗口尺度': '',
-        '拼接方式': '',
-        # 移除专家权重占比
-        '4x4专家权重': 0.0,
-        '8x8专家权重': 0.0,
-        '16x16专家权重': 0.0
+        '拼接方式': ''
     }
     
     try:
         with open(log_file, 'r', encoding='utf-8') as f:
             content = f.read()
             
-        # 提取最终结果
-        mAP_match = re.search(r'mAP: ([\d.]+)%', content)
-        if mAP_match:
-            results['mAP'] = float(mAP_match.group(1))
-            
-        rank1_match = re.search(r'Rank-1\s*:([\d.]+)%', content)
-        if rank1_match:
-            results['Rank-1'] = float(rank1_match.group(1))
-            
-        rank5_match = re.search(r'Rank-5\s*:([\d.]+)%', content)
-        if rank5_match:
-            results['Rank-5'] = float(rank5_match.group(1))
-            
-        rank10_match = re.search(r'Rank-10\s*:([\d.]+)%', content)
-        if rank10_match:
-            results['Rank-10'] = float(rank10_match.group(1))
-            
-        # 提取最佳结果
+        # 只提取最佳结果
         best_mAP_match = re.search(r'Best mAP: ([\d.]+)%', content)
         if best_mAP_match:
             results['Best_mAP'] = float(best_mAP_match.group(1))
@@ -483,11 +459,7 @@ def update_excel_results(experiment_dir, command_line, results):
         '命令行': command_line,
         '滑动窗口尺度': results['滑动窗口尺度'],
         '拼接方式': results['拼接方式'],
-        # 移除专家权重相关列
-        'mAP': results['mAP'],
-        'Rank-1': results['Rank-1'],
-        'Rank-5': results['Rank-5'],
-        'Rank-10': results['Rank-10'],
+        # 只保留Best相关记录
         'Best_mAP': results['Best_mAP'],
         'Best_Rank-1': results['Best_Rank-1'],
         'Best_Rank-5': results['Best_Rank-5'],
@@ -502,7 +474,7 @@ def update_excel_results(experiment_dir, command_line, results):
             # 创建新的DataFrame
             df = pd.DataFrame(columns=[
                 '实验时间', '数据集', '实验目录', '命令行', '滑动窗口尺度', '拼接方式',
-                'mAP', 'Rank-1', 'Rank-5', 'Rank-10', 'Best_mAP', 'Best_Rank-1', 'Best_Rank-5', 'Best_Rank-10'
+                'Best_mAP', 'Best_Rank-1', 'Best_Rank-5', 'Best_Rank-10'
             ])
         
         # 添加新记录
@@ -538,12 +510,11 @@ if __name__ == "__main__":
     print(f"📊 实验结果摘要:")
     print(f"   滑动窗口尺度: {results['滑动窗口尺度']}")
     print(f"   拼接方式: {results['拼接方式']}")
-    # 移除专家权重占比输出
-    print(f"   mAP: {results['mAP']:.1f}%")
-    print(f"   Rank-1: {results['Rank-1']:.1f}%")
-    print(f"   Rank-5: {results['Rank-5']:.1f}%")
-    print(f"   Rank-10: {results['Rank-10']:.1f}%")
+    # 只输出Best相关结果
     print(f"   Best mAP: {results['Best_mAP']:.1f}%")
+    print(f"   Best Rank-1: {results['Best_Rank-1']:.1f}%")
+    print(f"   Best Rank-5: {results['Best_Rank-5']:.1f}%")
+    print(f"   Best Rank-10: {results['Best_Rank-10']:.1f}%")
 EOF
 
 # 执行结果记录
