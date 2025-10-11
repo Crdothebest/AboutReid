@@ -229,3 +229,8 @@ if __name__ == '__main__':
         loss_func, # 损失函数
         num_query, args.local_rank # 查询数量和本地排名
     )
+    
+    # 🔥 训练完成后输出专家权重分布
+    if cfg.MODEL.USE_MULTI_SCALE_MOE and hasattr(model, 'clip_multi_scale_moe'):
+        print("🎯 训练完成 - 输出最终专家权重分布")
+        model.clip_multi_scale_moe.moe_fusion.print_final_expert_weights()

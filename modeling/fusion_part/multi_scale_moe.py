@@ -569,11 +569,16 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 最终特征形状: [B, {self.feat_dim}]")
             self._final_fusion_called = True
         
-        # 🔥 输出专家权重分布到日志
-        with torch.no_grad():
-            avg_weights = torch.mean(expert_weights, dim=0).cpu().numpy()
-            print(f"专家权重分布: {avg_weights.tolist()}")
-            print(f"专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
+        # 🔥 输出专家权重分布到日志（仅在第一个batch输出）
+        if not hasattr(self, '_weights_output_called'):
+            with torch.no_grad():
+                avg_weights = torch.mean(expert_weights, dim=0).cpu().numpy()
+                print(f"专家权重分布: {avg_weights.tolist()}")
+                print(f"专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
+            self._weights_output_called = True
+        
+        # 🔥 保存权重信息供训练结束时输出
+        self._latest_expert_weights = expert_weights
         
         # ========== MLP最终融合层调用：专家输出融合 ==========
         final_feature = self.final_fusion(fused_feature)  # [B, feat_dim]
@@ -604,6 +609,23 @@ class MultiScaleMoE(nn.Module):
             }
             
             return stats
+    
+    def print_final_expert_weights(self):
+        """
+        训练结束时输出最终专家权重分布
+        """
+        if hasattr(self, '_latest_expert_weights'):
+            with torch.no_grad():
+                avg_weights = torch.mean(self._latest_expert_weights, dim=0).cpu().numpy()
+                print(f"🎯 训练完成 - 最终专家权重分布:")
+                print(f"   4x4专家权重: {avg_weights[0]:.4f} ({avg_weights[0]*100:.1f}%)")
+                print(f"   8x8专家权重: {avg_weights[1]:.4f} ({avg_weights[1]*100:.1f}%)")
+                print(f"   16x16专家权重: {avg_weights[2]:.4f} ({avg_weights[2]*100:.1f}%)")
+                print(f"   专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
+                return avg_weights
+        else:
+            print("⚠️ 未找到专家权重信息")
+            return None
 
 
 class CLIPMultiScaleMoE(nn.Module):
