@@ -338,7 +338,177 @@ EOF
 fi
 
 # =============================================================================
-# 第九部分：结束
+# 第九部分：自动记录结果到Excel
+# =============================================================================
+
+# 创建Python脚本来解析训练日志并记录到Excel
+cat > "$EXPERIMENT_DIR/record_results.py" << 'EOF'
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+自动记录训练结果到Excel
+"""
+
+import pandas as pd
+import re
+import sys
+import os
+from datetime import datetime
+
+def parse_training_log(log_file):
+    """解析训练日志，提取最佳结果"""
+    results = {
+        'mAP': 0.0,
+        'Rank-1': 0.0,
+        'Rank-5': 0.0,
+        'Rank-10': 0.0,
+        'Best_mAP': 0.0,
+        'Best_Rank-1': 0.0,
+        'Best_Rank-5': 0.0,
+        'Best_Rank-10': 0.0
+    }
+    
+    try:
+        with open(log_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        # 提取最终结果
+        mAP_match = re.search(r'mAP: ([\d.]+)%', content)
+        if mAP_match:
+            results['mAP'] = float(mAP_match.group(1))
+            
+        rank1_match = re.search(r'Rank-1\s*:([\d.]+)%', content)
+        if rank1_match:
+            results['Rank-1'] = float(rank1_match.group(1))
+            
+        rank5_match = re.search(r'Rank-5\s*:([\d.]+)%', content)
+        if rank5_match:
+            results['Rank-5'] = float(rank5_match.group(1))
+            
+        rank10_match = re.search(r'Rank-10\s*:([\d.]+)%', content)
+        if rank10_match:
+            results['Rank-10'] = float(rank10_match.group(1))
+            
+        # 提取最佳结果
+        best_mAP_match = re.search(r'Best mAP: ([\d.]+)%', content)
+        if best_mAP_match:
+            results['Best_mAP'] = float(best_mAP_match.group(1))
+            
+        best_rank1_match = re.search(r'Best Rank-1: ([\d.]+)%', content)
+        if best_rank1_match:
+            results['Best_Rank-1'] = float(best_rank1_match.group(1))
+            
+        best_rank5_match = re.search(r'Best Rank-5: ([\d.]+)%', content)
+        if best_rank5_match:
+            results['Best_Rank-5'] = float(best_rank5_match.group(1))
+            
+        best_rank10_match = re.search(r'Best Rank-10: ([\d.]+)%', content)
+        if best_rank10_match:
+            results['Best_Rank-10'] = float(best_rank10_match.group(1))
+            
+    except Exception as e:
+        print(f"解析日志文件时出错: {e}")
+        
+    return results
+
+def extract_dataset_info(command_line):
+    """从命令行中提取数据集信息"""
+    dataset = "Unknown"
+    
+    # 从命令行中提取数据集信息
+    if "RGBNT100" in command_line:
+        dataset = "RGBNT100"
+    elif "RGBNT201" in command_line:
+        dataset = "RGBNT201"
+    elif "MSVR310" in command_line:
+        dataset = "MSVR310"
+    elif "Market1501" in command_line:
+        dataset = "Market1501"
+    elif "DukeMTMC" in command_line:
+        dataset = "DukeMTMC"
+    elif "MSMT17" in command_line:
+        dataset = "MSMT17"
+    
+    return dataset
+
+def update_excel_results(experiment_dir, command_line, results):
+    """更新Excel结果文件"""
+    excel_file = "experiment_results.xlsx"
+    
+    # 提取数据集信息
+    dataset = extract_dataset_info(command_line)
+    
+    # 准备新记录
+    new_record = {
+        '实验时间': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        '数据集': dataset,
+        '实验目录': experiment_dir,
+        '命令行': command_line,
+        'mAP': results['mAP'],
+        'Rank-1': results['Rank-1'],
+        'Rank-5': results['Rank-5'],
+        'Rank-10': results['Rank-10'],
+        'Best_mAP': results['Best_mAP'],
+        'Best_Rank-1': results['Best_Rank-1'],
+        'Best_Rank-5': results['Best_Rank-5'],
+        'Best_Rank-10': results['Best_Rank-10']
+    }
+    
+    try:
+        # 如果Excel文件存在，读取现有数据
+        if os.path.exists(excel_file):
+            df = pd.read_excel(excel_file)
+        else:
+            # 创建新的DataFrame
+            df = pd.DataFrame(columns=[
+                '实验时间', '数据集', '实验目录', '命令行', 'mAP', 'Rank-1', 'Rank-5', 'Rank-10',
+                'Best_mAP', 'Best_Rank-1', 'Best_Rank-5', 'Best_Rank-10'
+            ])
+        
+        # 添加新记录
+        df = pd.concat([df, pd.DataFrame([new_record])], ignore_index=True)
+        
+        # 保存到Excel
+        df.to_excel(excel_file, index=False)
+        print(f"✅ 结果已记录到 {excel_file}")
+        
+    except Exception as e:
+        print(f"保存Excel文件时出错: {e}")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("用法: python record_results.py <实验目录> <命令行>")
+        sys.exit(1)
+        
+    experiment_dir = sys.argv[1]
+    command_line = sys.argv[2]
+    log_file = os.path.join(experiment_dir, "train_log.txt")
+    
+    if not os.path.exists(log_file):
+        print(f"日志文件不存在: {log_file}")
+        sys.exit(1)
+        
+    # 解析结果
+    results = parse_training_log(log_file)
+    
+    # 更新Excel
+    update_excel_results(experiment_dir, command_line, results)
+    
+    # 打印结果摘要
+    print(f"📊 实验结果摘要:")
+    print(f"   mAP: {results['mAP']:.1f}%")
+    print(f"   Rank-1: {results['Rank-1']:.1f}%")
+    print(f"   Rank-5: {results['Rank-5']:.1f}%")
+    print(f"   Rank-10: {results['Rank-10']:.1f}%")
+    print(f"   Best mAP: {results['Best_mAP']:.1f}%")
+EOF
+
+# 执行结果记录
+echo "📊 自动记录结果到Excel..."
+python3 "$EXPERIMENT_DIR/record_results.py" "$EXPERIMENT_DIR" "$CMD"
+
+# =============================================================================
+# 第十部分：结束
 # =============================================================================
 
 # 显示实验记录完成信息
