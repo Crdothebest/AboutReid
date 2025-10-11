@@ -435,6 +435,26 @@ def parse_training_log(log_file):
         first_weight_match = re.search(r'第一次专家权重分布: \[([\d., ]+)\]', content)
         last_weight_match = re.search(r'最后一次专家权重分布: \[([\d., ]+)\]', content)
         
+        # 调试：检查日志文件中的权重信息
+        print(f"🔍 调试：检查日志文件中的权重信息")
+        if '第一次专家权重分布' in content:
+            print(f"✅ 找到第一次专家权重分布")
+        else:
+            print(f"❌ 未找到第一次专家权重分布")
+            
+        if '最后一次专家权重分布' in content:
+            print(f"✅ 找到最后一次专家权重分布")
+        else:
+            print(f"❌ 未找到最后一次专家权重分布")
+            
+        if '专家权重分布:' in content:
+            print(f"✅ 找到专家权重分布信息")
+            # 显示找到的权重信息
+            weight_matches = re.findall(r'专家权重分布: \[([\d., ]+)\]', content)
+            print(f"🔍 找到的权重信息: {weight_matches}")
+        else:
+            print(f"❌ 未找到任何专家权重分布信息")
+        
         if first_weight_match and last_weight_match:
             # 提取第一次权重
             first_weights_str = first_weight_match.group(1)
@@ -466,6 +486,7 @@ def parse_training_log(log_file):
                 print("警告: 权重数量不足")
         else:
             # 备用方案：提取任何权重信息
+            print(f"🔍 调试：使用备用方案提取权重信息")
             expert_weight_patterns = [
                 r'专家权重分布: \[([\d., ]+)\]',
                 r'expert weights: \[([\d., ]+)\]',
@@ -476,10 +497,13 @@ def parse_training_log(log_file):
             ]
             
             expert_weight_match = None
-            for pattern in expert_weight_patterns:
+            for i, pattern in enumerate(expert_weight_patterns):
                 expert_weight_match = re.search(pattern, content)
                 if expert_weight_match:
+                    print(f"✅ 使用模式 {i+1} 找到权重信息: {expert_weight_match.group(1)}")
                     break
+                else:
+                    print(f"❌ 模式 {i+1} 未匹配")
             
             if expert_weight_match:
                 weights_str = expert_weight_match.group(1)
@@ -491,9 +515,16 @@ def parse_training_log(log_file):
                     results['专家权重占比'] = f"4x4:{weights[0]*100:.1f}%, 8x8:{weights[1]*100:.1f}%, 16x16:{weights[2]*100:.1f}%"
                     print(f"📊 备用方案 - 专家权重: [{weights[0]:.4f}, {weights[1]:.4f}, {weights[2]:.4f}]")
                 else:
-                    print("警告: 权重数量不足")
+                    print(f"警告: 权重数量不足，找到 {len(weights)} 个权重")
             else:
                 print("警告: 未找到专家权重信息")
+                # 显示日志文件的前几行和后几行，帮助调试
+                print(f"🔍 日志文件前5行:")
+                for i, line in enumerate(content.split('\n')[:5]):
+                    print(f"  {i+1}: {line}")
+                print(f"🔍 日志文件后5行:")
+                for i, line in enumerate(content.split('\n')[-5:]):
+                    print(f"  {len(content.split('\n'))-5+i+1}: {line}")
             
     except Exception as e:
         print(f"解析日志文件时出错: {e}")
