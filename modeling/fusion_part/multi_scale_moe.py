@@ -569,6 +569,12 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 最终特征形状: [B, {self.feat_dim}]")
             self._final_fusion_called = True
         
+        # 🔥 输出专家权重分布到日志
+        with torch.no_grad():
+            avg_weights = torch.mean(expert_weights, dim=0).cpu().numpy()
+            print(f"专家权重分布: {avg_weights.tolist()}")
+            print(f"专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
+        
         # ========== MLP最终融合层调用：专家输出融合 ==========
         final_feature = self.final_fusion(fused_feature)  # [B, feat_dim]
         
