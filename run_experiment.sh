@@ -95,6 +95,13 @@ if [ $# -gt 0 ]; then
         PARAM_VALUE="$2"
         echo "🔍 调试：处理参数 $PARAM_NAME = $PARAM_VALUE"
         
+        # 🔥 安全检查：确保参数名和值都不为空
+        if [ -z "$PARAM_NAME" ] || [ -z "$PARAM_VALUE" ]; then
+            echo "  ⚠️ 跳过无效参数: 名称为空或值为空"
+            shift 1
+            continue
+        fi
+        
         # 🔥 新增：处理门控融合相关参数
         if [[ "$PARAM_NAME" == "ATTENTION_ENABLED" ]]; then
             ATTENTION_ENABLED="$PARAM_VALUE"
@@ -152,8 +159,12 @@ if [ $# -gt 0 ]; then
             fi
         fi
         
-        # 移动到下一对参数
-        shift 2
+        # 🔥 安全移动：确保参数数量减少
+        if [ $# -ge 2 ]; then
+            shift 2
+        else
+            shift 1
+        fi
         echo "  🔍 调试：参数处理完成，剩余参数数量: $#"
     done
     echo "🔍 调试：所有参数处理完成"
