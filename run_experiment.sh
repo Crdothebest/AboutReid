@@ -379,7 +379,7 @@ def parse_training_log(log_file):
         with open(log_file, 'r', encoding='utf-8') as f:
             content = f.read()
             
-        # 只提取最佳结果
+        # 只提取最佳结果 - 支持带时间戳的日志格式
         best_mAP_match = re.search(r'Best mAP: ([\d.]+)%', content)
         if best_mAP_match:
             results['Best_mAP'] = float(best_mAP_match.group(1))
@@ -395,6 +395,27 @@ def parse_training_log(log_file):
         best_rank10_match = re.search(r'Best Rank-10: ([\d.]+)%', content)
         if best_rank10_match:
             results['Best_Rank-10'] = float(best_rank10_match.group(1))
+            
+        # 如果上面的匹配失败，尝试匹配带时间戳的格式
+        if results['Best_mAP'] == 0.0:
+            timestamp_mAP_match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}.*Best mAP: ([\d.]+)%', content)
+            if timestamp_mAP_match:
+                results['Best_mAP'] = float(timestamp_mAP_match.group(1))
+                
+        if results['Best_Rank-1'] == 0.0:
+            timestamp_rank1_match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}.*Best Rank-1: ([\d.]+)%', content)
+            if timestamp_rank1_match:
+                results['Best_Rank-1'] = float(timestamp_rank1_match.group(1))
+                
+        if results['Best_Rank-5'] == 0.0:
+            timestamp_rank5_match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}.*Best Rank-5: ([\d.]+)%', content)
+            if timestamp_rank5_match:
+                results['Best_Rank-5'] = float(timestamp_rank5_match.group(1))
+                
+        if results['Best_Rank-10'] == 0.0:
+            timestamp_rank10_match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}.*Best Rank-10: ([\d.]+)%', content)
+            if timestamp_rank10_match:
+                results['Best_Rank-10'] = float(timestamp_rank10_match.group(1))
             
         # 提取滑动窗口尺度信息
         window_scale_match = re.search(r'滑动窗口尺度: \[([\d, ]+)\]', content)
@@ -455,12 +476,35 @@ def extract_dataset_info(command_line):
         config_match = re.search(r'--config_file\s+([^\s]+)', command_line)
         if config_match:
             config_path = config_match.group(1)
-            if "RGBNT100" in config_path:
-                dataset = "RGBNT100"
-            elif "RGBNT201" in config_path:
-                dataset = "RGBNT201"
-            elif "MSVR310" in config_path:
-                dataset = "MSVR310"
+            # 检查是否是实验目录下的配置文件
+            if "experiment_" in config_path and "configs/experiment_config.yml" in config_path:
+                # 这是实验目录下的配置文件，需要从原始配置文件路径中提取
+                # 从实验信息文件中读取原始配置文件路径
+                experiment_dir = config_path.replace("/configs/experiment_config.yml", "")
+                info_file = f"{experiment_dir}/experiment_info.txt"
+                try:
+                    with open(info_file, 'r', encoding='utf-8') as f:
+                        info_content = f.read()
+                    # 从实验信息中提取原始配置文件路径
+                    original_config_match = re.search(r'命令: python train_net\.py --config_file ([^\s]+)', info_content)
+                    if original_config_match:
+                        original_config_path = original_config_match.group(1)
+                        if "RGBNT100" in original_config_path:
+                            dataset = "RGBNT100"
+                        elif "RGBNT201" in original_config_path:
+                            dataset = "RGBNT201"
+                        elif "MSVR310" in original_config_path:
+                            dataset = "MSVR310"
+                except:
+                    pass
+            else:
+                # 直接检查配置文件路径
+                if "RGBNT100" in config_path:
+                    dataset = "RGBNT100"
+                elif "RGBNT201" in config_path:
+                    dataset = "RGBNT201"
+                elif "MSVR310" in config_path:
+                    dataset = "MSVR310"
     
     return dataset
 
