@@ -365,7 +365,13 @@ def parse_training_log(log_file):
         'Best_mAP': 0.0,
         'Best_Rank-1': 0.0,
         'Best_Rank-5': 0.0,
-        'Best_Rank-10': 0.0
+        'Best_Rank-10': 0.0,
+        '滑动窗口尺度': '',
+        '拼接方式': '',
+        '专家权重占比': '',
+        '4x4专家权重': 0.0,
+        '8x8专家权重': 0.0,
+        '16x16专家权重': 0.0
     }
     
     try:
@@ -406,6 +412,36 @@ def parse_training_log(log_file):
         if best_rank10_match:
             results['Best_Rank-10'] = float(best_rank10_match.group(1))
             
+        # 提取滑动窗口尺度信息
+        window_scale_match = re.search(r'滑动窗口尺度: \[([\d, ]+)\]', content)
+        if window_scale_match:
+            results['滑动窗口尺度'] = window_scale_match.group(1).strip()
+        else:
+            # 从命令行参数中提取
+            if 'CLIP_MULTI_SCALE_SCALES' in content:
+                scale_match = re.search(r'CLIP_MULTI_SCALE_SCALES \[([\d, ]+)\]', content)
+                if scale_match:
+                    results['滑动窗口尺度'] = scale_match.group(1).strip()
+            
+        # 提取拼接方式信息
+        if '门控融合机制：已启用' in content:
+            results['拼接方式'] = '门控融合'
+        elif '门控融合机制：已禁用' in content:
+            results['拼接方式'] = '简单拼接'
+        else:
+            results['拼接方式'] = '简单拼接'  # 默认
+            
+        # 提取专家权重占比信息
+        expert_weight_match = re.search(r'专家权重分布: \[([\d., ]+)\]', content)
+        if expert_weight_match:
+            weights_str = expert_weight_match.group(1)
+            weights = [float(x.strip()) for x in weights_str.split(',')]
+            if len(weights) >= 3:
+                results['4x4专家权重'] = weights[0] * 100  # 转换为百分比
+                results['8x8专家权重'] = weights[1] * 100
+                results['16x16专家权重'] = weights[2] * 100
+                results['专家权重占比'] = f"4x4:{weights[0]*100:.1f}%, 8x8:{weights[1]*100:.1f}%, 16x16:{weights[2]*100:.1f}%"
+            
     except Exception as e:
         print(f"解析日志文件时出错: {e}")
         
@@ -444,6 +480,12 @@ def update_excel_results(experiment_dir, command_line, results):
         '数据集': dataset,
         '实验目录': experiment_dir,
         '命令行': command_line,
+        '滑动窗口尺度': results['滑动窗口尺度'],
+        '拼接方式': results['拼接方式'],
+        '专家权重占比': results['专家权重占比'],
+        '4x4专家权重': results['4x4专家权重'],
+        '8x8专家权重': results['8x8专家权重'],
+        '16x16专家权重': results['16x16专家权重'],
         'mAP': results['mAP'],
         'Rank-1': results['Rank-1'],
         'Rank-5': results['Rank-5'],
@@ -461,7 +503,8 @@ def update_excel_results(experiment_dir, command_line, results):
         else:
             # 创建新的DataFrame
             df = pd.DataFrame(columns=[
-                '实验时间', '数据集', '实验目录', '命令行', 'mAP', 'Rank-1', 'Rank-5', 'Rank-10',
+                '实验时间', '数据集', '实验目录', '命令行', '滑动窗口尺度', '拼接方式', '专家权重占比',
+                '4x4专家权重', '8x8专家权重', '16x16专家权重', 'mAP', 'Rank-1', 'Rank-5', 'Rank-10',
                 'Best_mAP', 'Best_Rank-1', 'Best_Rank-5', 'Best_Rank-10'
             ])
         
@@ -496,6 +539,9 @@ if __name__ == "__main__":
     
     # 打印结果摘要
     print(f"📊 实验结果摘要:")
+    print(f"   滑动窗口尺度: {results['滑动窗口尺度']}")
+    print(f"   拼接方式: {results['拼接方式']}")
+    print(f"   专家权重占比: {results['专家权重占比']}")
     print(f"   mAP: {results['mAP']:.1f}%")
     print(f"   Rank-1: {results['Rank-1']:.1f}%")
     print(f"   Rank-5: {results['Rank-5']:.1f}%")
