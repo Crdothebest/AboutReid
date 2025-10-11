@@ -431,53 +431,69 @@ def parse_training_log(log_file):
         else:
             results['拼接方式'] = '简单拼接'  # 默认
             
-        # 提取专家权重占比信息 - 支持多种格式
-        expert_weight_patterns = [
-            r'专家权重分布: \[([\d., ]+)\]',
-            r'expert weights: \[([\d., ]+)\]',
-            r'MoE weights: \[([\d., ]+)\]',
-            r'权重分布: \[([\d., ]+)\]',
-            r'专家权重: \[([\d., ]+)\]',
-            r'权重: \[([\d., ]+)\]',
-            r'专家权重分布: \[([\d.]+), ([\d.]+), ([\d.]+)\]',
-            r'expert weights: \[([\d.]+), ([\d.]+), ([\d.]+)\]',
-            r'MoE weights: \[([\d.]+), ([\d.]+), ([\d.]+)\]'
-        ]
+        # 提取第一次和最后一次专家权重占比信息
+        first_weight_match = re.search(r'第一次专家权重分布: \[([\d., ]+)\]', content)
+        last_weight_match = re.search(r'最后一次专家权重分布: \[([\d., ]+)\]', content)
         
-        expert_weight_match = None
-        for pattern in expert_weight_patterns:
-            expert_weight_match = re.search(pattern, content)
-            if expert_weight_match:
-                break
-        
-        if expert_weight_match:
-            if len(expert_weight_match.groups()) == 1:
-                # 格式: [0.3, 0.4, 0.3]
-                weights_str = expert_weight_match.group(1)
-                weights = [float(x.strip()) for x in weights_str.split(',')]
-            else:
-                # 格式: [0.3, 0.4, 0.3] 直接匹配三个数字
-                weights = [float(expert_weight_match.group(i)) for i in range(1, 4)]
+        if first_weight_match and last_weight_match:
+            # 提取第一次权重
+            first_weights_str = first_weight_match.group(1)
+            first_weights = [float(x.strip()) for x in first_weights_str.split(',')]
             
-            if len(weights) >= 3:
-                results['4x4专家权重'] = weights[0] * 100  # 转换为百分比
-                results['8x8专家权重'] = weights[1] * 100
-                results['16x16专家权重'] = weights[2] * 100
-                results['专家权重占比'] = f"4x4:{weights[0]*100:.1f}%, 8x8:{weights[1]*100:.1f}%, 16x16:{weights[2]*100:.1f}%"
+            # 提取最后一次权重
+            last_weights_str = last_weight_match.group(1)
+            last_weights = [float(x.strip()) for x in last_weights_str.split(',')]
+            
+            if len(first_weights) >= 3 and len(last_weights) >= 3:
+                # 记录最后一次权重（用于Excel）
+                results['4x4专家权重'] = last_weights[0] * 100  # 转换为百分比
+                results['8x8专家权重'] = last_weights[1] * 100
+                results['16x16专家权重'] = last_weights[2] * 100
+                results['专家权重占比'] = f"4x4:{last_weights[0]*100:.1f}%, 8x8:{last_weights[1]*100:.1f}%, 16x16:{last_weights[2]*100:.1f}%"
+                
+                # 记录首次和末次权重占比
+                results['首次专家权重占比'] = f"4x4:{first_weights[0]*100:.1f}%, 8x8:{first_weights[1]*100:.1f}%, 16x16:{first_weights[2]*100:.1f}%"
+                results['末次专家权重占比'] = f"4x4:{last_weights[0]*100:.1f}%, 8x8:{last_weights[1]*100:.1f}%, 16x16:{last_weights[2]*100:.1f}%"
+                
+                # 计算权重变化
+                weight_change = [last_weights[i] - first_weights[i] for i in range(3)]
+                results['权重变化'] = f"4x4:{weight_change[0]*100:+.1f}%, 8x8:{weight_change[1]*100:+.1f}%, 16x16:{weight_change[2]*100:+.1f}%"
+                
+                print(f"📊 第一次专家权重: [{first_weights[0]:.4f}, {first_weights[1]:.4f}, {first_weights[2]:.4f}]")
+                print(f"📊 最后一次专家权重: [{last_weights[0]:.4f}, {last_weights[1]:.4f}, {last_weights[2]:.4f}]")
+                print(f"📈 权重变化: [{weight_change[0]:+.4f}, {weight_change[1]:+.4f}, {weight_change[2]:+.4f}]")
             else:
-                # 如果权重数量不足，尝试从其他位置提取
-                print(f"警告: 专家权重数量不足，找到 {len(weights)} 个权重")
+                print("警告: 权重数量不足")
         else:
-            # 如果没找到权重信息，尝试从MoE损失中提取
-            moe_loss_match = re.search(r'MoE损失.*?专家权重分布: \[([\d., ]+)\]', content)
-            if moe_loss_match:
-                weights_str = moe_loss_match.group(1)
+            # 备用方案：提取任何权重信息
+            expert_weight_patterns = [
+                r'专家权重分布: \[([\d., ]+)\]',
+                r'expert weights: \[([\d., ]+)\]',
+                r'MoE weights: \[([\d., ]+)\]',
+                r'权重分布: \[([\d., ]+)\]',
+                r'专家权重: \[([\d., ]+)\]',
+                r'权重: \[([\d., ]+)\]'
+            ]
+            
+            expert_weight_match = None
+            for pattern in expert_weight_patterns:
+                expert_weight_match = re.search(pattern, content)
+                if expert_weight_match:
+                    break
+            
+            if expert_weight_match:
+                weights_str = expert_weight_match.group(1)
                 weights = [float(x.strip()) for x in weights_str.split(',')]
                 if len(weights) >= 3:
                     results['4x4专家权重'] = weights[0] * 100
                     results['8x8专家权重'] = weights[1] * 100
                     results['16x16专家权重'] = weights[2] * 100
                     results['专家权重占比'] = f"4x4:{weights[0]*100:.1f}%, 8x8:{weights[1]*100:.1f}%, 16x16:{weights[2]*100:.1f}%"
+                    print(f"📊 备用方案 - 专家权重: [{weights[0]:.4f}, {weights[1]:.4f}, {weights[2]:.4f}]")
+                else:
+                    print("警告: 权重数量不足")
+            else:
+                print("警告: 未找到专家权重信息")
             
     except Exception as e:
         print(f"解析日志文件时出错: {e}")
@@ -523,6 +539,9 @@ def update_excel_results(experiment_dir, command_line, results):
         '4x4专家权重': results['4x4专家权重'],
         '8x8专家权重': results['8x8专家权重'],
         '16x16专家权重': results['16x16专家权重'],
+        '首次专家权重占比': results.get('首次专家权重占比', ''),
+        '末次专家权重占比': results.get('末次专家权重占比', ''),
+        '权重变化': results.get('权重变化', ''),
         'mAP': results['mAP'],
         'Rank-1': results['Rank-1'],
         'Rank-5': results['Rank-5'],
@@ -541,8 +560,8 @@ def update_excel_results(experiment_dir, command_line, results):
             # 创建新的DataFrame
             df = pd.DataFrame(columns=[
                 '实验时间', '数据集', '实验目录', '命令行', '滑动窗口尺度', '拼接方式', '专家权重占比',
-                '4x4专家权重', '8x8专家权重', '16x16专家权重', 'mAP', 'Rank-1', 'Rank-5', 'Rank-10',
-                'Best_mAP', 'Best_Rank-1', 'Best_Rank-5', 'Best_Rank-10'
+                '4x4专家权重', '8x8专家权重', '16x16专家权重', '首次专家权重占比', '末次专家权重占比', '权重变化',
+                'mAP', 'Rank-1', 'Rank-5', 'Rank-10', 'Best_mAP', 'Best_Rank-1', 'Best_Rank-5', 'Best_Rank-10'
             ])
         
         # 添加新记录

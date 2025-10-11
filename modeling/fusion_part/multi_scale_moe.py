@@ -569,13 +569,23 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 最终特征形状: [B, {self.feat_dim}]")
             self._final_fusion_called = True
         
-        # 🔥 输出专家权重分布到日志（仅在第一个batch输出）
-        if not hasattr(self, '_weights_output_called'):
-            with torch.no_grad():
-                avg_weights = torch.mean(expert_weights, dim=0).cpu().numpy()
+        # 🔥 记录第一次和最后一次专家权重
+        with torch.no_grad():
+            avg_weights = torch.mean(expert_weights, dim=0).cpu().numpy()
+            
+            # 记录第一次权重
+            if not hasattr(self, '_first_expert_weights'):
+                self._first_expert_weights = avg_weights.copy()
+                print(f"🎯 第一次专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
+            
+            # 更新最后一次权重
+            self._last_expert_weights = avg_weights.copy()
+            
+            # 输出当前权重（可选，避免刷屏）
+            if not hasattr(self, '_weights_output_called'):
                 print(f"专家权重分布: {avg_weights.tolist()}")
                 print(f"专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
-            self._weights_output_called = True
+                self._weights_output_called = True
         
         # 🔥 保存权重信息供训练结束时输出
         self._latest_expert_weights = expert_weights
@@ -612,20 +622,44 @@ class MultiScaleMoE(nn.Module):
     
     def print_final_expert_weights(self):
         """
-        训练结束时输出最终专家权重分布
+        训练结束时输出第一次和最后一次专家权重分布
         """
-        if hasattr(self, '_latest_expert_weights'):
-            with torch.no_grad():
-                avg_weights = torch.mean(self._latest_expert_weights, dim=0).cpu().numpy()
-                print(f"🎯 训练完成 - 最终专家权重分布:")
-                print(f"   4x4专家权重: {avg_weights[0]:.4f} ({avg_weights[0]*100:.1f}%)")
-                print(f"   8x8专家权重: {avg_weights[1]:.4f} ({avg_weights[1]*100:.1f}%)")
-                print(f"   16x16专家权重: {avg_weights[2]:.4f} ({avg_weights[2]*100:.1f}%)")
-                print(f"   专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
-                return avg_weights
+        print(f"🎯 训练完成 - 专家权重分布对比:")
+        
+        # 输出第一次权重
+        if hasattr(self, '_first_expert_weights'):
+            first_weights = self._first_expert_weights
+            print(f"📊 第一次专家权重分布:")
+            print(f"   4x4专家权重: {first_weights[0]:.4f} ({first_weights[0]*100:.1f}%)")
+            print(f"   8x8专家权重: {first_weights[1]:.4f} ({first_weights[1]*100:.1f}%)")
+            print(f"   16x16专家权重: {first_weights[2]:.4f} ({first_weights[2]*100:.1f}%)")
+            print(f"   第一次权重分布: [{first_weights[0]:.4f}, {first_weights[1]:.4f}, {first_weights[2]:.4f}]")
         else:
-            print("⚠️ 未找到专家权重信息")
-            return None
+            print("⚠️ 未找到第一次专家权重信息")
+            first_weights = None
+        
+        # 输出最后一次权重
+        if hasattr(self, '_last_expert_weights'):
+            last_weights = self._last_expert_weights
+            print(f"📊 最后一次专家权重分布:")
+            print(f"   4x4专家权重: {last_weights[0]:.4f} ({last_weights[0]*100:.1f}%)")
+            print(f"   8x8专家权重: {last_weights[1]:.4f} ({last_weights[1]*100:.1f}%)")
+            print(f"   16x16专家权重: {last_weights[2]:.4f} ({last_weights[2]*100:.1f}%)")
+            print(f"   最后一次权重分布: [{last_weights[0]:.4f}, {last_weights[1]:.4f}, {last_weights[2]:.4f}]")
+        else:
+            print("⚠️ 未找到最后一次专家权重信息")
+            last_weights = None
+        
+        # 计算权重变化
+        if first_weights is not None and last_weights is not None:
+            weight_change = last_weights - first_weights
+            print(f"📈 权重变化分析:")
+            print(f"   4x4专家权重变化: {weight_change[0]:+.4f} ({weight_change[0]*100:+.1f}%)")
+            print(f"   8x8专家权重变化: {weight_change[1]:+.4f} ({weight_change[1]*100:+.1f}%)")
+            print(f"   16x16专家权重变化: {weight_change[2]:+.4f} ({weight_change[2]*100:+.1f}%)")
+            print(f"   权重变化分布: [{weight_change[0]:+.4f}, {weight_change[1]:+.4f}, {weight_change[2]:+.4f}]")
+        
+        return first_weights, last_weights
 
 
 class CLIPMultiScaleMoE(nn.Module):

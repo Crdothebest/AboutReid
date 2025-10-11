@@ -234,3 +234,13 @@ if __name__ == '__main__':
     if cfg.MODEL.USE_MULTI_SCALE_MOE and hasattr(model, 'clip_multi_scale_moe'):
         print("🎯 训练完成 - 输出最终专家权重分布")
         model.clip_multi_scale_moe.moe_fusion.print_final_expert_weights()
+    
+    # 🔥 备用方案：直接从模型获取权重
+    if hasattr(model, 'current_expert_weights') and model.current_expert_weights is not None:
+        with torch.no_grad():
+            avg_weights = torch.mean(model.current_expert_weights, dim=0).cpu().numpy()
+            print(f"🎯 备用方案 - 最终专家权重分布:")
+            print(f"   4x4专家权重: {avg_weights[0]:.4f} ({avg_weights[0]*100:.1f}%)")
+            print(f"   8x8专家权重: {avg_weights[1]:.4f} ({avg_weights[1]*100:.1f}%)")
+            print(f"   16x16专家权重: {avg_weights[2]:.4f} ({avg_weights[2]*100:.1f}%)")
+            print(f"   专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
