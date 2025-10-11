@@ -576,7 +576,9 @@ class MultiScaleMoE(nn.Module):
             # 记录第一次权重
             if not hasattr(self, '_first_expert_weights'):
                 self._first_expert_weights = avg_weights.copy()
-                print(f"🎯 第一次专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
+                # 动态打印专家权重，避免索引越界
+                weight_str = ", ".join([f"{avg_weights[i]:.4f}" for i in range(len(avg_weights))])
+                print(f"🎯 第一次专家权重分布: [{weight_str}]")
             
             # 更新最后一次权重
             self._last_expert_weights = avg_weights.copy()
@@ -584,7 +586,9 @@ class MultiScaleMoE(nn.Module):
             # 输出权重信息（避免刷屏，只在特定条件下输出）
             if not hasattr(self, '_weights_output_called'):
                 print(f"专家权重分布: {avg_weights.tolist()}")
-                print(f"专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
+                # 动态打印专家权重，避免索引越界
+                weight_str = ", ".join([f"{avg_weights[i]:.4f}" for i in range(len(avg_weights))])
+                print(f"专家权重分布: [{weight_str}]")
                 self._weights_output_called = True
         
         # 🔥 保存权重信息供训练结束时输出
@@ -630,10 +634,12 @@ class MultiScaleMoE(nn.Module):
         if hasattr(self, '_first_expert_weights'):
             first_weights = self._first_expert_weights
             print(f"📊 第一次专家权重分布:")
-            print(f"   4x4专家权重: {first_weights[0]:.4f} ({first_weights[0]*100:.1f}%)")
-            print(f"   8x8专家权重: {first_weights[1]:.4f} ({first_weights[1]*100:.1f}%)")
-            print(f"   16x16专家权重: {first_weights[2]:.4f} ({first_weights[2]*100:.1f}%)")
-            print(f"   第一次权重分布: [{first_weights[0]:.4f}, {first_weights[1]:.4f}, {first_weights[2]:.4f}]")
+            # 动态打印专家权重，避免索引越界
+            for i in range(len(first_weights)):
+                scale_name = f"{4*(i+1)}x{4*(i+1)}" if i < 3 else f"专家{i+1}"
+                print(f"   {scale_name}专家权重: {first_weights[i]:.4f} ({first_weights[i]*100:.1f}%)")
+            weight_str = ", ".join([f"{first_weights[i]:.4f}" for i in range(len(first_weights))])
+            print(f"   第一次权重分布: [{weight_str}]")
         else:
             print("⚠️ 未找到第一次专家权重信息")
             first_weights = None
@@ -642,10 +648,12 @@ class MultiScaleMoE(nn.Module):
         if hasattr(self, '_last_expert_weights'):
             last_weights = self._last_expert_weights
             print(f"📊 最后一次专家权重分布:")
-            print(f"   4x4专家权重: {last_weights[0]:.4f} ({last_weights[0]*100:.1f}%)")
-            print(f"   8x8专家权重: {last_weights[1]:.4f} ({last_weights[1]*100:.1f}%)")
-            print(f"   16x16专家权重: {last_weights[2]:.4f} ({last_weights[2]*100:.1f}%)")
-            print(f"   最后一次权重分布: [{last_weights[0]:.4f}, {last_weights[1]:.4f}, {last_weights[2]:.4f}]")
+            # 动态打印专家权重，避免索引越界
+            for i in range(len(last_weights)):
+                scale_name = f"{4*(i+1)}x{4*(i+1)}" if i < 3 else f"专家{i+1}"
+                print(f"   {scale_name}专家权重: {last_weights[i]:.4f} ({last_weights[i]*100:.1f}%)")
+            weight_str = ", ".join([f"{last_weights[i]:.4f}" for i in range(len(last_weights))])
+            print(f"   最后一次权重分布: [{weight_str}]")
         else:
             print("⚠️ 未找到最后一次专家权重信息")
             last_weights = None
@@ -654,10 +662,12 @@ class MultiScaleMoE(nn.Module):
         if first_weights is not None and last_weights is not None:
             weight_change = last_weights - first_weights
             print(f"📈 权重变化分析:")
-            print(f"   4x4专家权重变化: {weight_change[0]:+.4f} ({weight_change[0]*100:+.1f}%)")
-            print(f"   8x8专家权重变化: {weight_change[1]:+.4f} ({weight_change[1]*100:+.1f}%)")
-            print(f"   16x16专家权重变化: {weight_change[2]:+.4f} ({weight_change[2]*100:+.1f}%)")
-            print(f"   权重变化分布: [{weight_change[0]:+.4f}, {weight_change[1]:+.4f}, {weight_change[2]:+.4f}]")
+            # 动态打印权重变化，避免索引越界
+            for i in range(len(weight_change)):
+                scale_name = f"{4*(i+1)}x{4*(i+1)}" if i < 3 else f"专家{i+1}"
+                print(f"   {scale_name}专家权重变化: {weight_change[i]:+.4f} ({weight_change[i]*100:+.1f}%)")
+            change_str = ", ".join([f"{weight_change[i]:+.4f}" for i in range(len(weight_change))])
+            print(f"   权重变化分布: [{change_str}]")
         
         return first_weights, last_weights
 
