@@ -525,7 +525,7 @@ if __name__ == "__main__":
         
     experiment_dir = sys.argv[1]
     command_line = sys.argv[2]
-    log_file = os.path.join(experiment_dir, "train_log.txt")
+    log_file = os.path.join(experiment_dir, "logs", "train_log.txt")
     
     if not os.path.exists(log_file):
         print(f"日志文件不存在: {log_file}")
