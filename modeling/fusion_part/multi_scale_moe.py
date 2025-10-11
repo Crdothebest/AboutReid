@@ -581,9 +581,11 @@ class MultiScaleMoE(nn.Module):
             # 更新最后一次权重
             self._last_expert_weights = avg_weights.copy()
             
-            # 每次训练都输出权重信息（确保记录到日志）
-            print(f"专家权重分布: {avg_weights.tolist()}")
-            print(f"专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
+            # 输出权重信息（避免刷屏，只在特定条件下输出）
+            if not hasattr(self, '_weights_output_called'):
+                print(f"专家权重分布: {avg_weights.tolist()}")
+                print(f"专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}]")
+                self._weights_output_called = True
         
         # 🔥 保存权重信息供训练结束时输出
         self._latest_expert_weights = expert_weights

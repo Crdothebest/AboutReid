@@ -523,8 +523,10 @@ def parse_training_log(log_file):
                 for i, line in enumerate(content.split('\n')[:5]):
                     print(f"  {i+1}: {line}")
                 print(f"🔍 日志文件后5行:")
-                for i, line in enumerate(content.split('\n')[-5:]):
-                    print(f"  {len(content.split('\n'))-5+i+1}: {line}")
+                lines = content.split('\n')
+                for i, line in enumerate(lines[-5:]):
+                    line_num = len(lines) - 5 + i + 1
+                    print(f"  {line_num}: {line}")
             
     except Exception as e:
         print(f"解析日志文件时出错: {e}")
