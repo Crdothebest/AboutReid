@@ -569,30 +569,9 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 最终特征形状: [B, {self.feat_dim}]")
             self._final_fusion_called = True
         
-        # 🔥 记录第一次和最后一次专家权重
+        # 保存最新专家权重供训练结束时输出
         with torch.no_grad():
-            avg_weights = torch.mean(expert_weights, dim=0).cpu().numpy()
-            
-            # 记录第一次权重
-            if not hasattr(self, '_first_expert_weights'):
-                self._first_expert_weights = avg_weights.copy()
-                # 动态打印专家权重，避免索引越界
-                weight_str = ", ".join([f"{avg_weights[i]:.4f}" for i in range(len(avg_weights))])
-                print(f"🎯 第一次专家权重分布: [{weight_str}]")
-            
-            # 更新最后一次权重
-            self._last_expert_weights = avg_weights.copy()
-            
-            # 输出权重信息（避免刷屏，只在特定条件下输出）
-            if not hasattr(self, '_weights_output_called'):
-                print(f"专家权重分布: {avg_weights.tolist()}")
-                # 动态打印专家权重，避免索引越界
-                weight_str = ", ".join([f"{avg_weights[i]:.4f}" for i in range(len(avg_weights))])
-                print(f"专家权重分布: [{weight_str}]")
-                self._weights_output_called = True
-        
-        # 🔥 保存权重信息供训练结束时输出
-        self._latest_expert_weights = expert_weights
+            self._latest_expert_weights = expert_weights.detach().clone()
         
         # ========== MLP最终融合层调用：专家输出融合 ==========
         final_feature = self.final_fusion(fused_feature)  # [B, feat_dim]
@@ -626,50 +605,30 @@ class MultiScaleMoE(nn.Module):
     
     def print_final_expert_weights(self):
         """
-        训练结束时输出第一次和最后一次专家权重分布
+        训练结束时输出最终专家权重分布
         """
-        print(f"🎯 训练完成 - 专家权重分布对比:")
-        
-        # 输出第一次权重
-        if hasattr(self, '_first_expert_weights'):
-            first_weights = self._first_expert_weights
-            print(f"📊 第一次专家权重分布:")
-            # 动态打印专家权重，避免索引越界
-            for i in range(len(first_weights)):
-                scale_name = f"{4*(i+1)}x{4*(i+1)}" if i < 3 else f"专家{i+1}"
-                print(f"   {scale_name}专家权重: {first_weights[i]:.4f} ({first_weights[i]*100:.1f}%)")
-            weight_str = ", ".join([f"{first_weights[i]:.4f}" for i in range(len(first_weights))])
-            print(f"   第一次权重分布: [{weight_str}]")
+        if hasattr(self, '_latest_expert_weights') and self._latest_expert_weights is not None:
+            with torch.no_grad():
+                # 计算最终专家权重
+                final_weights = torch.mean(self._latest_expert_weights, dim=0).cpu().numpy()
+                
+                print(f"🎯 训练完成 - 最终专家权重分布:")
+                print(f"📊 专家权重占比:")
+                
+                # 动态打印专家权重，避免索引越界
+                for i in range(len(final_weights)):
+                    scale_name = f"{4*(i+1)}x{4*(i+1)}" if i < 3 else f"专家{i+1}"
+                    percentage = final_weights[i] * 100
+                    print(f"   {scale_name}专家: {final_weights[i]:.4f} ({percentage:.1f}%)")
+                
+                # 打印权重分布数组
+                weight_str = ", ".join([f"{final_weights[i]:.4f}" for i in range(len(final_weights))])
+                print(f"   最终权重分布: [{weight_str}]")
+                
+                return final_weights
         else:
-            print("⚠️ 未找到第一次专家权重信息")
-            first_weights = None
-        
-        # 输出最后一次权重
-        if hasattr(self, '_last_expert_weights'):
-            last_weights = self._last_expert_weights
-            print(f"📊 最后一次专家权重分布:")
-            # 动态打印专家权重，避免索引越界
-            for i in range(len(last_weights)):
-                scale_name = f"{4*(i+1)}x{4*(i+1)}" if i < 3 else f"专家{i+1}"
-                print(f"   {scale_name}专家权重: {last_weights[i]:.4f} ({last_weights[i]*100:.1f}%)")
-            weight_str = ", ".join([f"{last_weights[i]:.4f}" for i in range(len(last_weights))])
-            print(f"   最后一次权重分布: [{weight_str}]")
-        else:
-            print("⚠️ 未找到最后一次专家权重信息")
-            last_weights = None
-        
-        # 计算权重变化
-        if first_weights is not None and last_weights is not None:
-            weight_change = last_weights - first_weights
-            print(f"📈 权重变化分析:")
-            # 动态打印权重变化，避免索引越界
-            for i in range(len(weight_change)):
-                scale_name = f"{4*(i+1)}x{4*(i+1)}" if i < 3 else f"专家{i+1}"
-                print(f"   {scale_name}专家权重变化: {weight_change[i]:+.4f} ({weight_change[i]*100:+.1f}%)")
-            change_str = ", ".join([f"{weight_change[i]:+.4f}" for i in range(len(weight_change))])
-            print(f"   权重变化分布: [{change_str}]")
-        
-        return first_weights, last_weights
+            print("⚠️ 未找到最终专家权重信息")
+            return None
 
 
 class CLIPMultiScaleMoE(nn.Module):

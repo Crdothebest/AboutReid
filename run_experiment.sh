@@ -439,31 +439,10 @@ def parse_training_log(log_file):
         else:
             results['拼接方式'] = '简单拼接'  # 默认
             
-        # 提取第一次和最后一次专家权重占比信息
-        first_weight_match = re.search(r'第一次专家权重分布: \[([\d., ]+)\]', content)
-        last_weight_match = re.search(r'最后一次专家权重分布: \[([\d., ]+)\]', content)
+        # 移除专家权重信息提取
         
-        # 调试：检查日志文件中的权重信息
-        print(f"🔍 调试：检查日志文件中的权重信息")
-        if '第一次专家权重分布' in content:
-            print(f"✅ 找到第一次专家权重分布")
-        else:
-            print(f"❌ 未找到第一次专家权重分布")
-            
-        if '最后一次专家权重分布' in content:
-            print(f"✅ 找到最后一次专家权重分布")
-        else:
-            print(f"❌ 未找到最后一次专家权重分布")
-            
-        if '专家权重分布:' in content:
-            print(f"✅ 找到专家权重分布信息")
-            # 显示找到的权重信息
-            weight_matches = re.findall(r'专家权重分布: \[([\d., ]+)\]', content)
-            print(f"🔍 找到的权重信息: {weight_matches}")
-        else:
-            print(f"❌ 未找到任何专家权重分布信息")
-        
-        if first_weight_match and last_weight_match:
+        # 移除专家权重处理逻辑
+        if false:
             # 提取第一次权重
             first_weights_str = first_weight_match.group(1)
             first_weights = [float(x.strip()) for x in first_weights_str.split(',')]
