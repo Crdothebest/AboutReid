@@ -320,6 +320,7 @@ if [ $TRAIN_EXIT_CODE -eq 0 ]; then
 训练日志: $EXPERIMENT_DIR/logs/train_log.txt
 模型权重: $EXPERIMENT_DIR/models/MambaProbest.pth
 配置文件: $EXPERIMENT_DIR/configs/experiment_config.yml
+原始配置文件: $CONFIG_FILE
 EOF
     
     # 显示成功信息
@@ -340,6 +341,7 @@ else
 状态: 失败
 目录: $EXPERIMENT_DIR
 错误: 训练过程中出现错误
+原始配置文件: $CONFIG_FILE
 EOF
     
     # 显示错误信息
