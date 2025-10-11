@@ -431,16 +431,53 @@ def parse_training_log(log_file):
         else:
             results['拼接方式'] = '简单拼接'  # 默认
             
-        # 提取专家权重占比信息
-        expert_weight_match = re.search(r'专家权重分布: \[([\d., ]+)\]', content)
+        # 提取专家权重占比信息 - 支持多种格式
+        expert_weight_patterns = [
+            r'专家权重分布: \[([\d., ]+)\]',
+            r'expert weights: \[([\d., ]+)\]',
+            r'MoE weights: \[([\d., ]+)\]',
+            r'权重分布: \[([\d., ]+)\]',
+            r'专家权重: \[([\d., ]+)\]',
+            r'权重: \[([\d., ]+)\]',
+            r'专家权重分布: \[([\d.]+), ([\d.]+), ([\d.]+)\]',
+            r'expert weights: \[([\d.]+), ([\d.]+), ([\d.]+)\]',
+            r'MoE weights: \[([\d.]+), ([\d.]+), ([\d.]+)\]'
+        ]
+        
+        expert_weight_match = None
+        for pattern in expert_weight_patterns:
+            expert_weight_match = re.search(pattern, content)
+            if expert_weight_match:
+                break
+        
         if expert_weight_match:
-            weights_str = expert_weight_match.group(1)
-            weights = [float(x.strip()) for x in weights_str.split(',')]
+            if len(expert_weight_match.groups()) == 1:
+                # 格式: [0.3, 0.4, 0.3]
+                weights_str = expert_weight_match.group(1)
+                weights = [float(x.strip()) for x in weights_str.split(',')]
+            else:
+                # 格式: [0.3, 0.4, 0.3] 直接匹配三个数字
+                weights = [float(expert_weight_match.group(i)) for i in range(1, 4)]
+            
             if len(weights) >= 3:
                 results['4x4专家权重'] = weights[0] * 100  # 转换为百分比
                 results['8x8专家权重'] = weights[1] * 100
                 results['16x16专家权重'] = weights[2] * 100
                 results['专家权重占比'] = f"4x4:{weights[0]*100:.1f}%, 8x8:{weights[1]*100:.1f}%, 16x16:{weights[2]*100:.1f}%"
+            else:
+                # 如果权重数量不足，尝试从其他位置提取
+                print(f"警告: 专家权重数量不足，找到 {len(weights)} 个权重")
+        else:
+            # 如果没找到权重信息，尝试从MoE损失中提取
+            moe_loss_match = re.search(r'MoE损失.*?专家权重分布: \[([\d., ]+)\]', content)
+            if moe_loss_match:
+                weights_str = moe_loss_match.group(1)
+                weights = [float(x.strip()) for x in weights_str.split(',')]
+                if len(weights) >= 3:
+                    results['4x4专家权重'] = weights[0] * 100
+                    results['8x8专家权重'] = weights[1] * 100
+                    results['16x16专家权重'] = weights[2] * 100
+                    results['专家权重占比'] = f"4x4:{weights[0]*100:.1f}%, 8x8:{weights[1]*100:.1f}%, 16x16:{weights[2]*100:.1f}%"
             
     except Exception as e:
         print(f"解析日志文件时出错: {e}")
