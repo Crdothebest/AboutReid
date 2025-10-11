@@ -452,93 +452,94 @@ def extract_dataset_info(command_line):
     """从命令行中提取数据集信息"""
     dataset = "Unknown"
     
-    print(f"🔍 调试：开始提取数据集信息")
-    print(f"🔍 调试：命令行: {command_line}")
+    # print(f"🔍 调试：开始提取数据集信息")
+    # print(f"🔍 调试：命令行: {command_line}")
     
     # 从命令行中提取数据集信息（优先从配置文件路径）
     if "configs/RGBNT100/" in command_line:
         dataset = "RGBNT100"
-        print(f"🔍 调试：从命令行路径中提取到 RGBNT100")
+        # print(f"🔍 调试：从命令行路径中提取到 RGBNT100")
     elif "configs/RGBNT201/" in command_line:
         dataset = "RGBNT201"
-        print(f"🔍 调试：从命令行路径中提取到 RGBNT201")
+        # print(f"🔍 调试：从命令行路径中提取到 RGBNT201")
     elif "configs/MSVR310/" in command_line:
         dataset = "MSVR310"
-        print(f"🔍 调试：从命令行路径中提取到 MSVR310")
+        # print(f"🔍 调试：从命令行路径中提取到 MSVR310")
     elif "RGBNT100" in command_line:
         dataset = "RGBNT100"
-        print(f"🔍 调试：从命令行中提取到 RGBNT100")
+        # print(f"🔍 调试：从命令行中提取到 RGBNT100")
     elif "RGBNT201" in command_line:
         dataset = "RGBNT201"
-        print(f"🔍 调试：从命令行中提取到 RGBNT201")
+        # print(f"🔍 调试：从命令行中提取到 RGBNT201")
     elif "MSVR310" in command_line:
         dataset = "MSVR310"
-        print(f"🔍 调试：从命令行中提取到 MSVR310")
+        # print(f"🔍 调试：从命令行中提取到 MSVR310")
     elif "Market1501" in command_line:
         dataset = "Market1501"
-        print(f"🔍 调试：从命令行中提取到 Market1501")
+        # print(f"🔍 调试：从命令行中提取到 Market1501")
     elif "DukeMTMC" in command_line:
         dataset = "DukeMTMC"
-        print(f"🔍 调试：从命令行中提取到 DukeMTMC")
+        # print(f"🔍 调试：从命令行中提取到 DukeMTMC")
     elif "MSMT17" in command_line:
         dataset = "MSMT17"
-        print(f"🔍 调试：从命令行中提取到 MSMT17")
+        # print(f"🔍 调试：从命令行中提取到 MSMT17")
     
     # 如果从命令行中无法提取，尝试从配置文件路径中提取
     if dataset == "Unknown":
-        print(f"🔍 调试：从命令行中无法提取，尝试从配置文件路径中提取")
+        # print(f"🔍 调试：从命令行中无法提取，尝试从配置文件路径中提取")
         # 查找配置文件路径
         import re
         config_match = re.search(r'--config_file\s+([^\s]+)', command_line)
         if config_match:
             config_path = config_match.group(1)
-            print(f"🔍 调试：找到配置文件路径: {config_path}")
+            # print(f"🔍 调试：找到配置文件路径: {config_path}")
             # 检查是否是实验目录下的配置文件
             if "experiment_" in config_path and "configs/experiment_config.yml" in config_path:
-                print(f"🔍 调试：这是实验目录下的配置文件")
+                # print(f"🔍 调试：这是实验目录下的配置文件")
                 # 这是实验目录下的配置文件，需要从原始配置文件路径中提取
                 # 从实验信息文件中读取原始配置文件路径
                 experiment_dir = config_path.replace("/configs/experiment_config.yml", "")
                 info_file = f"{experiment_dir}/experiment_info.txt"
-                print(f"🔍 调试：实验信息文件路径: {info_file}")
+                # print(f"🔍 调试：实验信息文件路径: {info_file}")
                 try:
                     with open(info_file, 'r', encoding='utf-8') as f:
                         info_content = f.read()
-                    print(f"🔍 调试：实验信息文件内容: {info_content}")
+                    # print(f"🔍 调试：实验信息文件内容: {info_content}")
                     # 从实验信息中提取原始配置文件路径
                     original_config_match = re.search(r'原始配置文件: ([^\s]+)', info_content)
                     if original_config_match:
                         original_config_path = original_config_match.group(1)
-                        print(f"🔍 调试：提取到原始配置文件路径: {original_config_path}")
+                        # print(f"🔍 调试：提取到原始配置文件路径: {original_config_path}")
                         if "RGBNT100" in original_config_path:
                             dataset = "RGBNT100"
-                            print(f"🔍 调试：从原始配置文件路径中提取到 RGBNT100")
+                            # print(f"🔍 调试：从原始配置文件路径中提取到 RGBNT100")
                         elif "RGBNT201" in original_config_path:
                             dataset = "RGBNT201"
-                            print(f"🔍 调试：从原始配置文件路径中提取到 RGBNT201")
+                            # print(f"🔍 调试：从原始配置文件路径中提取到 RGBNT201")
                         elif "MSVR310" in original_config_path:
                             dataset = "MSVR310"
-                            print(f"🔍 调试：从原始配置文件路径中提取到 MSVR310")
-                    else:
-                        print(f"🔍 调试：无法从实验信息文件中提取原始配置文件路径")
+                            # print(f"🔍 调试：从原始配置文件路径中提取到 MSVR310")
+                    # else:
+                        # print(f"🔍 调试：无法从实验信息文件中提取原始配置文件路径")
                 except Exception as e:
-                    print(f"🔍 调试：读取实验信息文件时出错: {e}")
+                    # print(f"🔍 调试：读取实验信息文件时出错: {e}")
+                    pass
             else:
-                print(f"🔍 调试：这不是实验目录下的配置文件，直接检查路径")
+                # print(f"🔍 调试：这不是实验目录下的配置文件，直接检查路径")
                 # 直接检查配置文件路径
                 if "RGBNT100" in config_path:
                     dataset = "RGBNT100"
-                    print(f"🔍 调试：从配置文件路径中提取到 RGBNT100")
+                    # print(f"🔍 调试：从配置文件路径中提取到 RGBNT100")
                 elif "RGBNT201" in config_path:
                     dataset = "RGBNT201"
-                    print(f"🔍 调试：从配置文件路径中提取到 RGBNT201")
+                    # print(f"🔍 调试：从配置文件路径中提取到 RGBNT201")
                 elif "MSVR310" in config_path:
                     dataset = "MSVR310"
-                    print(f"🔍 调试：从配置文件路径中提取到 MSVR310")
-        else:
-            print(f"🔍 调试：无法从命令行中提取配置文件路径")
+                    # print(f"🔍 调试：从配置文件路径中提取到 MSVR310")
+        # else:
+            # print(f"🔍 调试：无法从命令行中提取配置文件路径")
     
-    print(f"🔍 调试：最终提取到的数据集: {dataset}")
+    # print(f"🔍 调试：最终提取到的数据集: {dataset}")
     return dataset
 
 def update_excel_results(experiment_dir, command_line, results):
