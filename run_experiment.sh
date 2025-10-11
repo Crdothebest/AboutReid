@@ -42,7 +42,18 @@ echo "🆔 实验ID: $EXPERIMENT_ID"
 # =============================================================================
 
 # 读取原始配置文件路径
-CONFIG_FILE="configs/RGBNT201/MambaPro_moe.yml"
+# 检查是否有--config_file参数
+CONFIG_FILE="configs/RGBNT201/MambaPro_moe.yml"  # 默认配置
+
+# 处理--config_file参数
+if [[ "$1" == "--config_file" ]]; then
+    CONFIG_FILE="$2"
+    shift 2  # 移除--config_file和配置文件路径
+    echo "📋 使用指定配置文件: $CONFIG_FILE"
+else
+    echo "📋 使用默认配置文件: $CONFIG_FILE"
+fi
+
 # 检查配置文件是否存在
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "❌ 配置文件不存在: $CONFIG_FILE"
@@ -68,11 +79,13 @@ ATTENTION_ENABLED=false
 ATTENTION_HEADS=8
 ATTENTION_DROPOUT=0.1
 
-# 检查是否有命令行参数
+# 检查是否有命令行参数（除了--config_file）
 if [ $# -gt 0 ]; then
     echo "🔧 检测到命令行参数，将动态覆盖配置文件参数..."
     echo "📋 原始配置文件: $CONFIG_FILE"
     echo "📝 修改后配置文件: $MODIFIED_CONFIG"
+    echo "🔍 剩余参数数量: $#"
+    echo "🔍 剩余参数: $@"
     
     # 解析并应用参数覆盖
     # 格式：MODEL.MOE_EXPERT_HIDDEN_DIM 640
