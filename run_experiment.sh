@@ -130,6 +130,11 @@ if [ $# -gt 0 ]; then
         elif [[ "$PARAM_NAME" == "MODEL.GATE_DROPOUT" ]]; then
             ATTENTION_DROPOUT="$PARAM_VALUE"
             echo "  🎯 通过MODEL.GATE_DROPOUT设置门控网络Dropout: $ATTENTION_DROPOUT"
+        elif [[ "$PARAM_NAME" == "SOLVER.MAX_EPOCHS" ]]; then
+            echo "  🎯 设置训练轮数: $PARAM_VALUE"
+            # 直接修改配置文件中的MAX_EPOCHS
+            sed -i.bak "s|^  MAX_EPOCHS:.*|  MAX_EPOCHS: $PARAM_VALUE|" "$MODIFIED_CONFIG"
+            echo "  ✅ MAX_EPOCHS已设置为: $PARAM_VALUE"
         elif [ -n "$PARAM_NAME" ] && [ -n "$PARAM_VALUE" ]; then
             echo "  📝 覆盖参数: $PARAM_NAME = $PARAM_VALUE"
             
@@ -181,6 +186,9 @@ if [ $# -gt 0 ]; then
     fi
     if grep -q "MOE_TEMPERATURE:" "$MODIFIED_CONFIG"; then
         echo "  - MOE_TEMPERATURE: $(grep "MOE_TEMPERATURE:" "$MODIFIED_CONFIG" | head -1)"
+    fi
+    if grep -q "MAX_EPOCHS:" "$MODIFIED_CONFIG"; then
+        echo "  - MAX_EPOCHS: $(grep "MAX_EPOCHS:" "$MODIFIED_CONFIG" | head -1)"
     fi
     echo "🔍 调试：关键参数检查完成，继续执行..."
 else
