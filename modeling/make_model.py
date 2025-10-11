@@ -344,14 +344,34 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             NI_cash, NI_score, NI_global = self.BACKBONE(NI, cam_label=cam_label, view_label=view_label, modality='nir')
             TI_cash, TI_score, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
 
-            ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 三模态拼接
-            ori_global = self.bottleneck(ori)  # BNNeck
-            ori_score = self.classifier(ori_global)  # 原始拼接分类
-
-            if self.mamba:
-                fuse = self.AAM(RGB_cash, NI_cash, TI_cash)  # 融合序列（如 Mamba）
-                fuse_global = self.bottleneck_fuse(fuse)  # BNNeck 融合
-                fuse_score = self.classifier_fuse(fuse_global)  # 融合分类
+            # 🔥 关键修改：检测数据集类型，支持双模态和三模态
+            # 通过检查TI特征是否与NI特征相同来判断是否为双模态数据集
+            is_dual_modal = torch.allclose(NI_global, TI_global, atol=1e-6)
+            
+            if is_dual_modal:
+                # 🔥 RGBNT100双模态数据集：只使用RGB和IR（NI），忽略TI
+                print("🔥 检测到双模态数据集（RGBNT100），使用RGB+IR特征融合")
+                ori = torch.cat([RGB_global, NI_global], dim=-1)  # 双模态拼接
+                # 调整bottleneck和classifier的输入维度
+                ori_global = self.bottleneck(ori)  # BNNeck
+                ori_score = self.classifier(ori_global)  # 原始拼接分类
+                
+                if self.mamba:
+                    # 双模态融合：只使用RGB和IR特征
+                    fuse = self.AAM(RGB_cash, NI_cash, None)  # 传入None作为TI
+                    fuse_global = self.bottleneck_fuse(fuse)  # BNNeck 融合
+                    fuse_score = self.classifier_fuse(fuse_global)  # 融合分类
+            else:
+                # 🔥 RGBNT201三模态数据集：使用RGB、NI、TI
+                print("🔥 检测到三模态数据集（RGBNT201），使用RGB+NI+TI特征融合")
+                ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 三模态拼接
+                ori_global = self.bottleneck(ori)  # BNNeck
+                ori_score = self.classifier(ori_global)  # 原始拼接分类
+                
+                if self.mamba:
+                    fuse = self.AAM(RGB_cash, NI_cash, TI_cash)  # 融合序列（如 Mamba）
+                    fuse_global = self.bottleneck_fuse(fuse)  # BNNeck 融合
+                    fuse_score = self.classifier_fuse(fuse_global)  # 融合分类
 
             if self.direct:  # 直接输出拼接/融合用于分类（简化 heads）
                 if self.mamba:
@@ -360,9 +380,19 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                     return ori_score, ori 
             else:
                 if self.mamba: 
-                    return RGB_score, RGB_global, NI_score, NI_global, TI_score, TI_global, fuse_score, fuse  # 多头多尺度损失
+                    if is_dual_modal:
+                        # 双模态：只返回RGB和IR的特征
+                        return RGB_score, RGB_global, NI_score, NI_global, fuse_score, fuse
+                    else:
+                        # 三模态：返回所有特征
+                        return RGB_score, RGB_global, NI_score, NI_global, TI_score, TI_global, fuse_score, fuse
                 else:
-                    return RGB_score, RGB_global, NI_score, NI_global, TI_score, TI_global
+                    if is_dual_modal:
+                        # 双模态：只返回RGB和IR的特征
+                        return RGB_score, RGB_global, NI_score, NI_global
+                    else:
+                        # 三模态：返回所有特征
+                        return RGB_score, RGB_global, NI_score, NI_global, TI_score, TI_global
 
         else:
             RGB = x['RGB']  # 测试路径
@@ -372,12 +402,27 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             NI_cash, NI_global = self.BACKBONE(NI, cam_label=cam_label, view_label=view_label, modality='nir')
             TI_cash, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
 
+            # 🔥 测试时也检测数据集类型
+            is_dual_modal = torch.allclose(NI_global, TI_global, atol=1e-6)
+            
             if self.mamba:
-                fuse = self.AAM(RGB_cash, NI_cash, TI_cash)  # 输出融合特征
-                return fuse
+                if is_dual_modal:
+                    # 双模态融合
+                    fuse = self.AAM(RGB_cash, NI_cash, None)  # 传入None作为TI
+                    return fuse
+                else:
+                    # 三模态融合
+                    fuse = self.AAM(RGB_cash, NI_cash, TI_cash)  # 输出融合特征
+                    return fuse
             else:
-                ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 输出拼接特征
-                return ori
+                if is_dual_modal:
+                    # 双模态拼接
+                    ori = torch.cat([RGB_global, NI_global], dim=-1)  # 输出拼接特征
+                    return ori
+                else:
+                    # 三模态拼接
+                    ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 输出拼接特征
+                    return ori
 
 # 作用：把人类好记的字符串名字，翻译成代码里真正可调用的模型构造函数
 __factory_T_type = {  # 骨干工厂映射

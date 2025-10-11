@@ -27,19 +27,42 @@ class AAM(nn.Module):
     def forward(self, r, n, t):
         cls_r = r[:, 0]
         cls_n = n[:, 0]
-        cls_t = t[:, 0]
         r = r[:, 1:]
         n = n[:, 1:]
-        t = t[:, 1:]
+        
+        # 🔥 关键修改：支持双模态和三模态数据
+        if t is not None:
+            # 🔥 三模态数据集（RGBNT201）：使用RGB、NI、TI
+            cls_t = t[:, 0]
+            t = t[:, 1:]
+            
+            # standard mamba aggregation block
+            for i in range(len(self.ma_block)):
+                r, n, t = self.ma_block[i](r, n, t)
+            patch_r = torch.mean(r, dim=1)
+            patch_n = torch.mean(n, dim=1)
+            patch_t = torch.mean(t, dim=1)
 
-        # # standard mamba aggregation block
-        for i in range(len(self.ma_block)):
-            r, n, t = self.ma_block[i](r, n, t)
-        patch_r = torch.mean(r, dim=1)
-        patch_n = torch.mean(n, dim=1)
-        patch_t = torch.mean(t, dim=1)
+            r_feature = self.linear_reduction_r(torch.cat([cls_r, patch_r], dim=-1))
+            n_feature = self.linear_reduction_n(torch.cat([cls_n, patch_n], dim=-1))
+            t_feature = self.linear_reduction_t(torch.cat([cls_t, patch_t], dim=-1))
+            return torch.cat([r_feature, n_feature, t_feature], dim=-1)
+        else:
+            # 🔥 双模态数据集（RGBNT100）：只使用RGB和IR（NI）
+            print("🔥 AAM双模态融合：使用RGB+IR特征")
+            
+            # 为双模态创建虚拟的TI特征（使用NI特征）
+            t = n.clone()  # 使用NI作为虚拟TI
+            cls_t = cls_n.clone()
+            
+            # standard mamba aggregation block
+            for i in range(len(self.ma_block)):
+                r, n, t = self.ma_block[i](r, n, t)
+            patch_r = torch.mean(r, dim=1)
+            patch_n = torch.mean(n, dim=1)
+            patch_t = torch.mean(t, dim=1)
 
-        r_feature = self.linear_reduction_r(torch.cat([cls_r, patch_r], dim=-1))
-        n_feature = self.linear_reduction_n(torch.cat([cls_n, patch_n], dim=-1))
-        t_feature = self.linear_reduction_t(torch.cat([cls_t, patch_t], dim=-1))
-        return torch.cat([r_feature, n_feature, t_feature], dim=-1)
+            r_feature = self.linear_reduction_r(torch.cat([cls_r, patch_r], dim=-1))
+            n_feature = self.linear_reduction_n(torch.cat([cls_n, patch_n], dim=-1))
+            t_feature = self.linear_reduction_t(torch.cat([cls_t, patch_t], dim=-1))
+            return torch.cat([r_feature, n_feature, t_feature], dim=-1)

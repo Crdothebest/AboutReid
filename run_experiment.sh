@@ -255,24 +255,15 @@ tail -10 "$MODIFIED_CONFIG"
 # 执行训练命令
 # eval 命令用于执行存储在变量中的命令
 echo "🚀 开始执行训练命令..."
-echo "⏰ 设置5分钟超时，如果卡住将显示错误信息..."
+echo "⏰ 无超时限制，让训练自然完成..."
 
-# 使用timeout命令设置超时（增加到5分钟）
-timeout 300s bash -c "$CMD"
-TIMEOUT_EXIT_CODE=$?
+# 🔥 取消超时限制，让RGBNT100数据集正常训练
+bash -c "$CMD"
+TRAIN_EXIT_CODE=$?
 
-if [ $TIMEOUT_EXIT_CODE -eq 124 ]; then
-    echo "❌ 训练命令在5分钟内没有响应，可能卡住了"
-    echo "🔍 可能的原因："
-    echo "  1. 数据加载问题"
-    echo "  2. 模型初始化问题"
-    echo "  3. CUDA设备问题"
-    echo "  4. 配置文件格式问题"
-    echo "💡 建议：直接运行 python train_net.py --config_file $MODIFIED_CONFIG 来调试"
-    exit 1
-elif [ $TIMEOUT_EXIT_CODE -ne 0 ]; then
-    echo "❌ 训练命令执行失败，退出码: $TIMEOUT_EXIT_CODE"
-    exit $TIMEOUT_EXIT_CODE
+if [ $TRAIN_EXIT_CODE -ne 0 ]; then
+    echo "❌ 训练命令执行失败，退出码: $TRAIN_EXIT_CODE"
+    exit $TRAIN_EXIT_CODE
 fi
 
 # =============================================================================

@@ -54,7 +54,24 @@ def read_image(img_list):
             while not got_img: # 如果未成功读取图像             
                 try:
                     img = Image.open(img_path).convert('RGB')
-                    img3.append(img)    # 不切割，直接加入列表
+                    
+                    # 🔥 关键修改：处理RGBNT100双模态数据
+                    # 如果所有路径都相同（RGBNT100情况），说明是双模态数据集
+                    if len(set(img_list)) == 1:  # 所有路径相同
+                        # RGBNT100：RGB-IR双模态，需要从单张图中提取RGB和IR
+                        # 假设图像是水平拼接的：左边RGB，右边IR
+                        width, height = img.size
+                        if width >= 256:  # 确保图像足够宽
+                            RGB = img.crop((0, 0, width//2, height))  # 左半部分作为RGB
+                            IR = img.crop((width//2, 0, width, height))  # 右半部分作为IR
+                            # 为了兼容三模态模型，创建虚拟的TI（使用IR图像）
+                            img3 = [RGB, IR, IR]  # RGB, IR, 虚拟TI
+                        else:
+                            # 如果图像不够宽，直接使用原图作为RGB，IR和TI都使用原图
+                            img3 = [img, img, img]
+                    else:
+                        # RGBNT201：三模态数据集，直接使用三个路径
+                        img3.append(img)    # 不切割，直接加入列表
                     got_img = True
                 except IOError:
                     print(f"IOError incurred when reading '{img_path}'. Will redo. Don't worry. Just chill.")

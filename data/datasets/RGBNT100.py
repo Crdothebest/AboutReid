@@ -101,8 +101,14 @@ class RGBNT100(BaseImageDataset):
             # 如果是训练集，需要把 pid 映射到连续标签
             if relabel:
                 pid = pid2label[pid]
-            # 保存一条数据 (图片路径, 行人ID, 摄像头ID, 轨迹ID)
-            dataset.append((img_path, pid, camid, trackid))
+            
+            # 🔥 关键修改：RGBNT100是RGB-IR双模态数据集
+            # 为了兼容现有的三模态数据加载器，我们创建虚拟的TI模态
+            # 实际使用中，TI模态会被忽略，只使用RGB和IR（NI）模态
+            img_list = [img_path, img_path, img_path]  # RGB, IR, 虚拟TI（使用同一张图）
+            
+            # 保存一条数据 (图像路径列表, 行人ID, 摄像头ID, 轨迹ID)
+            dataset.append((img_list, pid, camid, trackid))
 
         # 返回处理好的数据列表
         return dataset
