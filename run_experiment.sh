@@ -376,7 +376,7 @@ def parse_training_log(log_file):
         'Best_Rank-10': 0.0,
         '滑动窗口尺度': '',
         '拼接方式': '',
-        '专家权重占比': '',
+        # 移除专家权重占比
         '4x4专家权重': 0.0,
         '8x8专家权重': 0.0,
         '16x16专家权重': 0.0
@@ -442,78 +442,6 @@ def parse_training_log(log_file):
         # 移除专家权重信息提取
         
         # 移除专家权重处理逻辑
-        if false:
-            # 提取第一次权重
-            first_weights_str = first_weight_match.group(1)
-            first_weights = [float(x.strip()) for x in first_weights_str.split(',')]
-            
-            # 提取最后一次权重
-            last_weights_str = last_weight_match.group(1)
-            last_weights = [float(x.strip()) for x in last_weights_str.split(',')]
-            
-            if len(first_weights) >= 3 and len(last_weights) >= 3:
-                # 记录最后一次权重（用于Excel）
-                results['4x4专家权重'] = last_weights[0] * 100  # 转换为百分比
-                results['8x8专家权重'] = last_weights[1] * 100
-                results['16x16专家权重'] = last_weights[2] * 100
-                results['专家权重占比'] = f"4x4:{last_weights[0]*100:.1f}%, 8x8:{last_weights[1]*100:.1f}%, 16x16:{last_weights[2]*100:.1f}%"
-                
-                # 记录首次和末次权重占比
-                results['首次专家权重占比'] = f"4x4:{first_weights[0]*100:.1f}%, 8x8:{first_weights[1]*100:.1f}%, 16x16:{first_weights[2]*100:.1f}%"
-                results['末次专家权重占比'] = f"4x4:{last_weights[0]*100:.1f}%, 8x8:{last_weights[1]*100:.1f}%, 16x16:{last_weights[2]*100:.1f}%"
-                
-                # 计算权重变化
-                weight_change = [last_weights[i] - first_weights[i] for i in range(3)]
-                results['权重变化'] = f"4x4:{weight_change[0]*100:+.1f}%, 8x8:{weight_change[1]*100:+.1f}%, 16x16:{weight_change[2]*100:+.1f}%"
-                
-                print(f"📊 第一次专家权重: [{first_weights[0]:.4f}, {first_weights[1]:.4f}, {first_weights[2]:.4f}]")
-                print(f"📊 最后一次专家权重: [{last_weights[0]:.4f}, {last_weights[1]:.4f}, {last_weights[2]:.4f}]")
-                print(f"📈 权重变化: [{weight_change[0]:+.4f}, {weight_change[1]:+.4f}, {weight_change[2]:+.4f}]")
-            else:
-                print("警告: 权重数量不足")
-        else:
-            # 备用方案：提取任何权重信息
-            print(f"🔍 调试：使用备用方案提取权重信息")
-            expert_weight_patterns = [
-                r'专家权重分布: \[([\d., ]+)\]',
-                r'expert weights: \[([\d., ]+)\]',
-                r'MoE weights: \[([\d., ]+)\]',
-                r'权重分布: \[([\d., ]+)\]',
-                r'专家权重: \[([\d., ]+)\]',
-                r'权重: \[([\d., ]+)\]'
-            ]
-            
-            expert_weight_match = None
-            for i, pattern in enumerate(expert_weight_patterns):
-                expert_weight_match = re.search(pattern, content)
-                if expert_weight_match:
-                    print(f"✅ 使用模式 {i+1} 找到权重信息: {expert_weight_match.group(1)}")
-                    break
-                else:
-                    print(f"❌ 模式 {i+1} 未匹配")
-            
-            if expert_weight_match:
-                weights_str = expert_weight_match.group(1)
-                weights = [float(x.strip()) for x in weights_str.split(',')]
-                if len(weights) >= 3:
-                    results['4x4专家权重'] = weights[0] * 100
-                    results['8x8专家权重'] = weights[1] * 100
-                    results['16x16专家权重'] = weights[2] * 100
-                    results['专家权重占比'] = f"4x4:{weights[0]*100:.1f}%, 8x8:{weights[1]*100:.1f}%, 16x16:{weights[2]*100:.1f}%"
-                    print(f"📊 备用方案 - 专家权重: [{weights[0]:.4f}, {weights[1]:.4f}, {weights[2]:.4f}]")
-                else:
-                    print(f"警告: 权重数量不足，找到 {len(weights)} 个权重")
-            else:
-                print("警告: 未找到专家权重信息")
-                # 显示日志文件的前几行和后几行，帮助调试
-                print(f"🔍 日志文件前5行:")
-                for i, line in enumerate(content.split('\n')[:5]):
-                    print(f"  {i+1}: {line}")
-                print(f"🔍 日志文件后5行:")
-                lines = content.split('\n')
-                for i, line in enumerate(lines[-5:]):
-                    line_num = len(lines) - 5 + i + 1
-                    print(f"  {line_num}: {line}")
             
     except Exception as e:
         print(f"解析日志文件时出错: {e}")
@@ -555,13 +483,7 @@ def update_excel_results(experiment_dir, command_line, results):
         '命令行': command_line,
         '滑动窗口尺度': results['滑动窗口尺度'],
         '拼接方式': results['拼接方式'],
-        '专家权重占比': results['专家权重占比'],
-        '4x4专家权重': results['4x4专家权重'],
-        '8x8专家权重': results['8x8专家权重'],
-        '16x16专家权重': results['16x16专家权重'],
-        '首次专家权重占比': results.get('首次专家权重占比', ''),
-        '末次专家权重占比': results.get('末次专家权重占比', ''),
-        '权重变化': results.get('权重变化', ''),
+        # 移除专家权重相关列
         'mAP': results['mAP'],
         'Rank-1': results['Rank-1'],
         'Rank-5': results['Rank-5'],
@@ -579,8 +501,7 @@ def update_excel_results(experiment_dir, command_line, results):
         else:
             # 创建新的DataFrame
             df = pd.DataFrame(columns=[
-                '实验时间', '数据集', '实验目录', '命令行', '滑动窗口尺度', '拼接方式', '专家权重占比',
-                '4x4专家权重', '8x8专家权重', '16x16专家权重', '首次专家权重占比', '末次专家权重占比', '权重变化',
+                '实验时间', '数据集', '实验目录', '命令行', '滑动窗口尺度', '拼接方式',
                 'mAP', 'Rank-1', 'Rank-5', 'Rank-10', 'Best_mAP', 'Best_Rank-1', 'Best_Rank-5', 'Best_Rank-10'
             ])
         
@@ -617,7 +538,7 @@ if __name__ == "__main__":
     print(f"📊 实验结果摘要:")
     print(f"   滑动窗口尺度: {results['滑动窗口尺度']}")
     print(f"   拼接方式: {results['拼接方式']}")
-    print(f"   专家权重占比: {results['专家权重占比']}")
+    # 移除专家权重占比输出
     print(f"   mAP: {results['mAP']:.1f}%")
     print(f"   Rank-1: {results['Rank-1']:.1f}%")
     print(f"   Rank-5: {results['Rank-5']:.1f}%")
