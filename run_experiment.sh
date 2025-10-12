@@ -382,43 +382,22 @@ def parse_training_log(log_file):
         with open(log_file, 'r', encoding='utf-8') as f:
             content = f.read()
             
-        # 只提取最佳结果 - 支持带时间戳的日志格式
-        best_mAP_match = re.search(r'Best mAP: ([\d.]+)%', content)
-        if best_mAP_match:
-            results['Best_mAP'] = float(best_mAP_match.group(1))
+        # 获取所有匹配，取最后一个（最终结果）
+        all_mAP_matches = re.findall(r'Best mAP: ([\d.]+)%', content)
+        if all_mAP_matches:
+            results['Best_mAP'] = float(all_mAP_matches[-1])  # 取最后一个匹配
             
-        best_rank1_match = re.search(r'Best Rank-1: ([\d.]+)%', content)
-        if best_rank1_match:
-            results['Best_Rank-1'] = float(best_rank1_match.group(1))
+        all_rank1_matches = re.findall(r'Best Rank-1: ([\d.]+)%', content)
+        if all_rank1_matches:
+            results['Best_Rank-1'] = float(all_rank1_matches[-1])  # 取最后一个匹配
             
-        best_rank5_match = re.search(r'Best Rank-5: ([\d.]+)%', content)
-        if best_rank5_match:
-            results['Best_Rank-5'] = float(best_rank5_match.group(1))
+        all_rank5_matches = re.findall(r'Best Rank-5: ([\d.]+)%', content)
+        if all_rank5_matches:
+            results['Best_Rank-5'] = float(all_rank5_matches[-1])  # 取最后一个匹配
             
-        best_rank10_match = re.search(r'Best Rank-10: ([\d.]+)%', content)
-        if best_rank10_match:
-            results['Best_Rank-10'] = float(best_rank10_match.group(1))
-            
-        # 如果上面的匹配失败，尝试匹配带时间戳的格式
-        if results['Best_mAP'] == 0.0:
-            timestamp_mAP_match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}.*Best mAP: ([\d.]+)%', content)
-            if timestamp_mAP_match:
-                results['Best_mAP'] = float(timestamp_mAP_match.group(1))
-                
-        if results['Best_Rank-1'] == 0.0:
-            timestamp_rank1_match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}.*Best Rank-1: ([\d.]+)%', content)
-            if timestamp_rank1_match:
-                results['Best_Rank-1'] = float(timestamp_rank1_match.group(1))
-                
-        if results['Best_Rank-5'] == 0.0:
-            timestamp_rank5_match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}.*Best Rank-5: ([\d.]+)%', content)
-            if timestamp_rank5_match:
-                results['Best_Rank-5'] = float(timestamp_rank5_match.group(1))
-                
-        if results['Best_Rank-10'] == 0.0:
-            timestamp_rank10_match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}.*Best Rank-10: ([\d.]+)%', content)
-            if timestamp_rank10_match:
-                results['Best_Rank-10'] = float(timestamp_rank10_match.group(1))
+        all_rank10_matches = re.findall(r'Best Rank-10: ([\d.]+)%', content)
+        if all_rank10_matches:
+            results['Best_Rank-10'] = float(all_rank10_matches[-1])  # 取最后一个匹配
             
         # 提取滑动窗口尺度信息
         window_scale_match = re.search(r'滑动窗口尺度: \[([\d, ]+)\]', content)
