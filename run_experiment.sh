@@ -380,25 +380,52 @@ def parse_training_log(log_file):
     }
     
     try:
-        with open(log_file, 'r', encoding='utf-8') as f:
-            content = f.read()
+        # 🔥 修复编码问题：尝试多种编码方式
+        content = None
+        encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252', 'gbk']
+        
+        for encoding in encodings:
+            try:
+                with open(log_file, 'r', encoding=encoding) as f:
+                    content = f.read()
+                print(f"✅ 成功使用 {encoding} 编码读取日志文件")
+                break
+            except UnicodeDecodeError:
+                continue
+        
+        if content is None:
+            print(f"❌ 无法读取日志文件，尝试了所有编码方式")
+            return results
             
+        # 🔥 调试：显示日志文件内容片段
+        print(f"🔍 调试：日志文件内容长度: {len(content)}")
+        print(f"🔍 调试：日志文件最后500字符:")
+        print(content[-500:])
+        
         # 获取所有匹配，取最后一个（最终结果）
         all_mAP_matches = re.findall(r'Best mAP: ([\d.]+)%', content)
+        print(f"🔍 调试：找到 {len(all_mAP_matches)} 个Best mAP匹配: {all_mAP_matches}")
         if all_mAP_matches:
             results['Best_mAP'] = float(all_mAP_matches[-1])  # 取最后一个匹配
+            print(f"🔍 调试：设置Best_mAP为: {results['Best_mAP']}")
             
         all_rank1_matches = re.findall(r'Best Rank-1: ([\d.]+)%', content)
+        print(f"🔍 调试：找到 {len(all_rank1_matches)} 个Best Rank-1匹配: {all_rank1_matches}")
         if all_rank1_matches:
             results['Best_Rank-1'] = float(all_rank1_matches[-1])  # 取最后一个匹配
+            print(f"🔍 调试：设置Best_Rank-1为: {results['Best_Rank-1']}")
             
         all_rank5_matches = re.findall(r'Best Rank-5: ([\d.]+)%', content)
+        print(f"🔍 调试：找到 {len(all_rank5_matches)} 个Best Rank-5匹配: {all_rank5_matches}")
         if all_rank5_matches:
             results['Best_Rank-5'] = float(all_rank5_matches[-1])  # 取最后一个匹配
+            print(f"🔍 调试：设置Best_Rank-5为: {results['Best_Rank-5']}")
             
         all_rank10_matches = re.findall(r'Best Rank-10: ([\d.]+)%', content)
+        print(f"🔍 调试：找到 {len(all_rank10_matches)} 个Best Rank-10匹配: {all_rank10_matches}")
         if all_rank10_matches:
             results['Best_Rank-10'] = float(all_rank10_matches[-1])  # 取最后一个匹配
+            print(f"🔍 调试：设置Best_Rank-10为: {results['Best_Rank-10']}")
             
         # 提取滑动窗口尺度信息
         window_scale_match = re.search(r'滑动窗口尺度: \[([\d, ]+)\]', content)
