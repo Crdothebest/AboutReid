@@ -238,7 +238,8 @@ fi
 # 构建训练命令 - 使用修改后的配置文件
 # 这里直接写明，命令行的运行是走 train_net.py 文件
 # 由于参数已经在配置文件中动态修改，这里只需要使用配置文件
-CMD="python train_net.py --config_file $MODIFIED_CONFIG"
+# 🔥 重要：添加日志重定向，确保训练输出保存到日志文件
+CMD="python train_net.py --config_file $MODIFIED_CONFIG 2>&1 | tee $EXPERIMENT_DIR/logs/train_log.txt"
 
 # 显示将要执行的完整命令
 echo "🔧 执行命令: $CMD"
