@@ -3,6 +3,7 @@ MODEL:
   TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
   STRIDE_SIZE: [ 16, 16 ] # 步长
   SIE_CAMERA: True # 是否使用相机嵌入
+  SIE_VIEW: False # 是否使用视角嵌入
   DIRECT: 1 # 直接
   SIE_COE: 1.0 # 相机嵌入系数
   ID_LOSS_WEIGHT: 0.25 # 分类损失权重
