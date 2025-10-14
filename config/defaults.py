@@ -8,7 +8,7 @@ _C.MODEL = CN()
 # Using cuda or cpu for training
 _C.MODEL.DEVICE = "cuda"
 # ID number of GPU
-_C.MODEL.DEVICE_ID = '0'
+_C.MODEL.DEVICE_ID = 0
 # Name of backbone
 _C.MODEL.NAME = 'MambaPro'
 # The layer where we extract feature from the ViT backbone
