@@ -14,7 +14,7 @@ MODEL:
   
   # ========== 模型测试配置 ==========
   FLOPS_TEST: False             # FLOPs测试标志（默认关闭）
-  DEVICE_ID: '0'                # 设备ID
+  DEVICE_ID: 0                  # 设备ID
   DIST_TRAIN: False             # 分布式训练标志
   NECK: 'bnneck'                # 颈部结构类型
   ID_LOSS_TYPE: 'softmax'       # 分类损失类型
@@ -89,7 +89,7 @@ MODEL:
   
   # ========== 模型测试配置 ==========
   FLOPS_TEST: False             # FLOPs测试标志（默认关闭）
-  DEVICE_ID: '0'                # 设备ID
+  DEVICE_ID: 0                  # 设备ID
   DIST_TRAIN: False             # 分布式训练标志
   NECK: 'bnneck'                # 颈部结构类型
   ID_LOSS_TYPE: 'softmax'       # 分类损失类型
