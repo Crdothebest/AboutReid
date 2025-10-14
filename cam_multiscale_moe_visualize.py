@@ -147,12 +147,12 @@ def visualize_multiscale_features(model, input_tensor, scales=[4, 8, 16]):
                 # 获取多尺度特征
                 with torch.no_grad():
                     # 通过模型前向传播获取特征
-                    # 注意：需要添加相机嵌入和模态信息
+                    # 注意：需要添加相机标签和视角标签
                     batch_size = input_tensor.shape[0]
-                    cv_embed = torch.zeros(batch_size, 768).to(input_tensor.device)  # 相机嵌入
-                    modality = torch.zeros(batch_size, 1).to(input_tensor.device)   # 模态信息
+                    cam_label = torch.zeros(batch_size, dtype=torch.long).to(input_tensor.device)  # 相机标签
+                    view_label = torch.zeros(batch_size, dtype=torch.long).to(input_tensor.device)  # 视角标签
                     
-                    _, patch_tokens = model.BACKBONE(input_tensor, cv_embed, modality)
+                    _, patch_tokens = model.BACKBONE(input_tensor, cam_label, view_label)
                     print(f"🔍 Patch tokens形状: {patch_tokens.shape}")
                     
                     if hasattr(moe_module, '_extract_multi_scale_features'):
@@ -183,6 +183,33 @@ def visualize_multiscale_features(model, input_tensor, scales=[4, 8, 16]):
     return multiscale_features
 
 
+class ModelWrapper(torch.nn.Module):
+    """
+    模型包装器，用于Grad-CAM分析
+    简化模型结构，只保留必要的部分
+    """
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.backbone = model.BACKBONE
+        
+    def forward(self, x):
+        """简化的前向传播，只返回backbone输出"""
+        if isinstance(x, dict):
+            rgb_input = x['RGB']
+            cam_label = x.get('cam_label', torch.zeros(rgb_input.shape[0], dtype=torch.long).to(rgb_input.device))
+            view_label = x.get('view_label', torch.zeros(rgb_input.shape[0], dtype=torch.long).to(rgb_input.device))
+        else:
+            rgb_input = x
+            cam_label = torch.zeros(rgb_input.shape[0], dtype=torch.long).to(rgb_input.device)
+            view_label = torch.zeros(rgb_input.shape[0], dtype=torch.long).to(rgb_input.device)
+        
+        # 只返回backbone的输出
+        with torch.no_grad():
+            _, patch_tokens = self.backbone(rgb_input, cam_label, view_label)
+        return patch_tokens
+
+
 def visualize_moe_expert_weights(model, input_tensor):
     """
     可视化MoE专家网络权重分布
@@ -206,12 +233,12 @@ def visualize_moe_expert_weights(model, input_tensor):
                 print(f"🔍 找到MoE融合器: {type(moe_module.moe_fusion)}")
                 with torch.no_grad():
                     # 通过模型前向传播获取专家权重
-                    # 注意：需要添加相机嵌入和模态信息
+                    # 注意：需要添加相机标签和视角标签
                     batch_size = input_tensor.shape[0]
-                    cv_embed = torch.zeros(batch_size, 768).to(input_tensor.device)  # 相机嵌入
-                    modality = torch.zeros(batch_size, 1).to(input_tensor.device)   # 模态信息
+                    cam_label = torch.zeros(batch_size, dtype=torch.long).to(input_tensor.device)  # 相机标签
+                    view_label = torch.zeros(batch_size, dtype=torch.long).to(input_tensor.device)  # 视角标签
                     
-                    _, patch_tokens = model.BACKBONE(input_tensor, cv_embed, modality)
+                    _, patch_tokens = model.BACKBONE(input_tensor, cam_label, view_label)
                     print(f"🔍 Patch tokens形状: {patch_tokens.shape}")
                     
                     # 获取专家权重
@@ -391,18 +418,22 @@ def main():
     # ========== Grad-CAM 分析 ==========
     print("🔥 执行Grad-CAM分析...")
     try:
-        target_layer = get_target_layer(model, args.target_layer)
+        # 创建模型包装器
+        wrapped_model = ModelWrapper(model)
+        wrapped_model.eval()
+        
+        # 获取目标层
+        target_layer = get_target_layer(wrapped_model, args.target_layer)
         print(f"🔍 目标层类型: {type(target_layer)}")
         
         # 创建GradCAM实例
-        cam = GradCAM(model=model, target_layers=[target_layer])
+        cam = GradCAM(model=wrapped_model, target_layers=[target_layer])
         
-        # 准备输入数据 - 确保输入格式正确
-        input_tensor_for_cam = input_tensor.clone()
-        print(f"🔍 输入张量形状: {input_tensor_for_cam.shape}")
+        # 准备输入数据
+        print(f"🔍 输入张量形状: {input_tensor.shape}")
         
         # 执行Grad-CAM分析
-        grayscale_cam = cam(input_tensor=input_tensor_for_cam)[0]
+        grayscale_cam = cam(input_tensor=input_tensor)[0]
         print(f"✅ Grad-CAM计算完成，激活图形状: {grayscale_cam.shape}")
         
         # 生成热力图可视化
