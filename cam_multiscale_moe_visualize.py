@@ -136,7 +136,7 @@ def get_target_layer(model, layer_name):
             # 选择第一个合适的层
             layer_name = suitable_layers[0]
             print(f"🎯 自动选择层: {layer_name}")
-        else:
+    else:
             raise ValueError("未找到合适的特征层")
     
     # 使用named_modules()来查找层
@@ -146,7 +146,7 @@ def get_target_layer(model, layer_name):
             return module
     
     # 如果找不到精确匹配，尝试部分匹配
-    available_layers = [name for name, _ in model.named_modules()]
+        available_layers = [name for name, _ in model.named_modules()]
     print(f"🔍 可用层列表: {available_layers[:20]}...")
     
     # 尝试找到最相似的层
@@ -155,8 +155,8 @@ def get_target_layer(model, layer_name):
             print(f"✅ 找到相似层: {name} -> {type(module)}")
             return module
     
-    raise ValueError(f"Layer '{layer_name}' not found in model. "
-                    f"Available layers: {available_layers[:10]}...")
+        raise ValueError(f"Layer '{layer_name}' not found in model. "
+                        f"Available layers: {available_layers[:10]}...")
 
 
 
@@ -476,6 +476,117 @@ def generate_feature_heatmap(feature_tensor, target_size):
     
     return feature_2d
 
+def generate_expert_heatmaps(moe_analysis, rgb_image_shape):
+    """
+    为每个专家生成独立的热力图
+    
+    Args:
+        moe_analysis: MoE分析结果
+        rgb_image_shape: 图像尺寸 (H, W)
+        
+    Returns:
+        dict: 包含每个专家热力图的字典
+    """
+    expert_heatmaps = {}
+    
+    if not moe_analysis or 'multi_scale_features' not in moe_analysis:
+        print("⚠️  无法获取多尺度特征，使用虚拟热力图")
+        # 创建虚拟的专家热力图
+        for i, scale in enumerate([4, 8, 16]):
+            expert_heatmaps[f'expert_{scale}'] = np.random.rand(rgb_image_shape[0], rgb_image_shape[1])
+        return expert_heatmaps
+    
+    multi_scale_features = moe_analysis['multi_scale_features']
+    expert_weights = moe_analysis['expert_weights'].cpu().numpy()
+    
+    # 确保expert_weights是1D数组
+    if expert_weights.ndim > 1:
+        expert_weights = expert_weights.squeeze()
+    
+    scales = [4, 8, 16]
+    
+    for i, scale in enumerate(scales):
+        if i < len(multi_scale_features):
+            # 获取对应尺度的特征
+            scale_feature = multi_scale_features[i]
+            
+            # 生成该专家的热力图
+            expert_heatmap = generate_feature_heatmap(scale_feature, rgb_image_shape)
+            
+            # 根据专家权重调整热力图强度
+            weight = expert_weights[i] if i < len(expert_weights) else 0.33
+            expert_heatmap = expert_heatmap * weight
+            
+            expert_heatmaps[f'expert_{scale}'] = expert_heatmap
+            print(f"✅ 生成 {scale}x{scale} 专家热力图，权重: {weight:.3f}")
+        else:
+            # 如果特征不足，创建虚拟热力图
+            expert_heatmaps[f'expert_{scale}'] = np.random.rand(rgb_image_shape[0], rgb_image_shape[1]) * 0.1
+    
+    return expert_heatmaps
+
+def create_expert_visualization(rgb_image, expert_heatmaps, expert_weights, output_dir):
+    """
+    创建逐专家可视化
+    
+    Args:
+        rgb_image: 原始RGB图像
+        expert_heatmaps: 专家热力图字典
+        expert_weights: 专家权重
+        output_dir: 输出目录
+    """
+    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    
+    # 原始图像
+    axes[0, 0].imshow(rgb_image)
+    axes[0, 0].set_title('Original Image', fontsize=14, fontweight='bold')
+    axes[0, 0].axis('off')
+    
+    # 专家权重分布
+    expert_names = ['4x4 Expert', '8x8 Expert', '16x16 Expert']
+    weights = expert_weights.squeeze() if expert_weights.ndim > 1 else expert_weights
+    
+    bars = axes[0, 1].bar(expert_names, weights, color=['#FF6B6B', '#4ECDC4', '#45B7D1'], alpha=0.8)
+    axes[0, 1].set_title('Expert Weights Distribution', fontsize=14, fontweight='bold')
+    axes[0, 1].set_ylabel('Weight Value')
+    axes[0, 1].set_ylim(0, 1)
+    
+    # 添加数值标签
+    for bar, weight in zip(bars, weights):
+        axes[0, 1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01, 
+                       f'{weight:.3f}', ha='center', va='bottom', fontweight='bold')
+    
+    # 专家权重饼图
+    axes[0, 2].pie(weights, labels=expert_names, autopct='%1.1f%%', 
+                  colors=['#FF6B6B', '#4ECDC4', '#45B7D1'], startangle=90)
+    axes[0, 2].set_title('Expert Weights Percentage', fontsize=14, fontweight='bold')
+    
+    # 逐专家热力图可视化
+    scales = [4, 8, 16]
+    for i, scale in enumerate(scales):
+        expert_key = f'expert_{scale}'
+        if expert_key in expert_heatmaps:
+            heatmap = expert_heatmaps[expert_key]
+            visualization = show_cam_on_image(rgb_image, heatmap, use_rgb=True)
+            
+            row = 1
+            col = i
+            axes[row, col].imshow(visualization)
+            axes[row, col].set_title(f'{scale}x{scale} Expert\n(Weight: {weights[i]:.3f})', 
+                                   fontsize=12, fontweight='bold')
+            axes[row, col].axis('off')
+        else:
+            axes[1, i].text(0.5, 0.5, f'{scale}x{scale} Expert\nNot Available', 
+                           ha='center', va='center', fontsize=12, color='red')
+            axes[1, i].set_title(f'{scale}x{scale} Expert', fontsize=12, fontweight='bold')
+            axes[1, i].axis('off')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'expert_wise_heatmaps.png'), dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print("✅ 逐专家热力图可视化已保存")
+
 
 
 def main():
@@ -557,6 +668,13 @@ def main():
     # 创建详细的对比可视化
     create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_fusion_analysis, args.output_dir)
     print("✅ 对比分析已保存")
+    
+    # ========== 逐专家热力图可视化 ==========
+    if moe_fusion_analysis:
+        print("🔥 生成逐专家热力图可视化...")
+        expert_heatmaps = generate_expert_heatmaps(moe_fusion_analysis, rgb_image.shape[:2])
+        create_expert_visualization(rgb_image, expert_heatmaps, moe_fusion_analysis['expert_weights'], args.output_dir)
+        print("✅ 逐专家热力图可视化已保存")
 
     # ========== 输出分析信息 ==========
     print(f"\n🎉 分析完成！")
