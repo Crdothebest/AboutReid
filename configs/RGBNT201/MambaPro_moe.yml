@@ -86,6 +86,21 @@ MODEL:
   # 原理：1.0保持完整的残差连接，确保梯度流动
   # 经验：0.5梯度流动不足，1.0梯度流动最佳
   MOE_RESIDUAL_WEIGHT: 1.0      # 🏆 残差连接权重（经验最优：1.0）
+  
+  # ========== 模型测试配置 ==========
+  FLOPS_TEST: False             # FLOPs测试标志（默认关闭）
+  DEVICE_ID: '0'                # 设备ID
+  DIST_TRAIN: False             # 分布式训练标志
+  NECK: 'bnneck'                # 颈部结构类型
+  ID_LOSS_TYPE: 'softmax'       # 分类损失类型
+  DROP_PATH: 0.1                # DropPath比例
+  DROP_OUT: 0.1                 # Dropout比例
+  ATT_DROP_RATE: 0.1            # 注意力Dropout比例
+  DROP_RATE: 0.1                # 通用Dropout比例
+  SIE_VIEW: False               # 视角嵌入标志
+  
+  # ========== Mamba配置 ==========
+  MAMBA_BI: 1.0                 # Mamba偏置参数
 
 INPUT:
   SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
