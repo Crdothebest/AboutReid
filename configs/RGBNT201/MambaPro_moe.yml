@@ -83,6 +83,9 @@ MODEL:
   ATT_DROP_RATE: 0.1            # 注意力Dropout比例
   DROP_RATE: 0.1                # 通用Dropout比例
   SIE_VIEW: False               # 视角嵌入标志
+  
+  # ========== Mamba配置 ==========
+  MAMBA_BI: 1.0                 # Mamba偏置参数
 
 INPUT:
   SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
