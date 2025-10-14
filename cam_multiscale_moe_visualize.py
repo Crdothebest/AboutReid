@@ -497,7 +497,13 @@ def generate_expert_heatmaps(moe_analysis, rgb_image_shape):
         return expert_heatmaps
     
     multi_scale_features = moe_analysis['multi_scale_features']
-    expert_weights = moe_analysis['expert_weights'].cpu().numpy()
+    expert_weights = moe_analysis['expert_weights']
+    
+    # 确保权重在CPU上并转换为numpy数组
+    if hasattr(expert_weights, 'cpu'):
+        expert_weights = expert_weights.cpu().numpy()
+    elif hasattr(expert_weights, 'numpy'):
+        expert_weights = expert_weights.numpy()
     
     # 确保expert_weights是1D数组
     if expert_weights.ndim > 1:
@@ -545,6 +551,11 @@ def create_expert_visualization(rgb_image, expert_heatmaps, expert_weights, outp
     # 专家权重分布
     expert_names = ['4x4 Expert', '8x8 Expert', '16x16 Expert']
     weights = expert_weights.squeeze() if expert_weights.ndim > 1 else expert_weights
+    # 确保权重在CPU上并转换为numpy数组
+    if hasattr(weights, 'cpu'):
+        weights = weights.cpu().numpy()
+    elif hasattr(weights, 'numpy'):
+        weights = weights.numpy()
     
     bars = axes[0, 1].bar(expert_names, weights, color=['#FF6B6B', '#4ECDC4', '#45B7D1'], alpha=0.8)
     axes[0, 1].set_title('Expert Weights Distribution', fontsize=14, fontweight='bold')
