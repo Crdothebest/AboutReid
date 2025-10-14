@@ -12,6 +12,21 @@ MODEL:
   MAMBA: True # 是否使用Mamba
   FROZEN: True # 是否冻结
   
+  # ========== 模型测试配置 ==========
+  FLOPS_TEST: False             # FLOPs测试标志（默认关闭）
+  DEVICE_ID: '0'                # 设备ID
+  DIST_TRAIN: False             # 分布式训练标志
+  NECK: 'bnneck'                # 颈部结构类型
+  ID_LOSS_TYPE: 'softmax'       # 分类损失类型
+  DROP_PATH: 0.1                # DropPath比例
+  DROP_OUT: 0.1                 # Dropout比例
+  ATT_DROP_RATE: 0.1            # 注意力Dropout比例
+  DROP_RATE: 0.1                # 通用Dropout比例
+  SIE_VIEW: False               # 视角嵌入标志
+  
+  # ========== Mamba配置 ==========
+  MAMBA_BI: 1.0                 # Mamba偏置参数
+  
   # ========== 多尺度滑动窗口配置：启用多尺度特征提取 ==========
   # 实验目的：启用多尺度滑动窗口，为MoE提供多尺度特征输入
   # 功能：基于CLIP的多尺度特征提取机制
