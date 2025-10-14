@@ -7,6 +7,7 @@ MODEL:
   DIRECT: 1 # 直接
   SIE_COE: 1.0 # 相机嵌入系数
   ID_LOSS_WEIGHT: 0.25 # 分类损失权重
+  ID_LOSS_TYPE: 'softmax' # 分类损失类型
   TRIPLET_LOSS_WEIGHT: 1.0 # 三元组损失权重
   PROMPT: True # 是否使用提示
   ADAPTER: True # 是否使用适配器
@@ -21,6 +22,19 @@ MODEL:
   # 用途：作为baseline对比实验
   USE_CLIP_MULTI_SCALE: False   # 禁用CLIP多尺度滑动窗口特征提取
   CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度（不使用）
+  
+  # ========== MoE相关参数 ==========
+  USE_GATE_FUSION: False        # 是否使用门控融合
+  MOE_TEMPERATURE: 0.7          # MoE温度参数
+  MOE_EXPERT_HIDDEN_DIM: 1024   # MoE专家隐藏维度
+  MOE_EXPERT_LAYERS: 2          # MoE专家层数
+  MOE_EXPERT_DROPOUT: 0.1       # MoE专家dropout
+  MOE_EXPERT_THRESHOLD: 0.1     # MoE专家阈值
+  MOE_GATE_DROPOUT: 0.1         # MoE门控dropout
+  MOE_GATE_LAYERS: 2            # MoE门控层数
+  MOE_RESIDUAL_WEIGHT: 1.0      # MoE残差权重
+  MOE_SCALES: [4, 8, 16]        # MoE尺度
+  USE_MULTI_SCALE_MOE: False    # 是否使用多尺度MoE
 
 INPUT:
   SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
@@ -67,6 +81,11 @@ SOLVER:
   CHECKPOINT_PERIOD: 10 # 检查点保存周期
   LOG_PERIOD: 10 # 日志打印周期
   EVAL_PERIOD: 5 # 验证周期
+  
+  # ========== MoE损失函数参数 ==========
+  MOE_BALANCE_LOSS_WEIGHT: 0.005    # MoE平衡损失权重
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0001   # MoE稀疏性损失权重
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.001   # MoE多样性损失权重
 
 TEST:
   IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
