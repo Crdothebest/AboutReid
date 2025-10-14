@@ -81,6 +81,29 @@ def load_image(image_path, input_size):
     return input_tensor, rgb_image
 
 
+def find_suitable_layers(model):
+    """
+    自动找到适合热力图分析的特征层
+    
+    Args:
+        model: 训练好的模型对象
+        
+    Returns:
+        list: 适合的层名称列表
+    """
+    suitable_layers = []
+    
+    for name, module in model.named_modules():
+        # 寻找包含空间信息的层
+        if any(keyword in name.lower() for keyword in ['conv', 'resblock', 'transformer', 'attention']):
+            # 检查层类型
+            if hasattr(module, 'weight') and hasattr(module, 'forward'):
+                # 确保是卷积层或transformer层
+                if 'conv' in str(type(module)).lower() or 'transformer' in str(type(module)).lower():
+                    suitable_layers.append(name)
+    
+    return suitable_layers
+
 def get_target_layer(model, layer_name):
     """
     从模型中获取指定的目标层，用于Grad-CAM分析
@@ -100,6 +123,20 @@ def get_target_layer(model, layer_name):
         layer_name = str(layer_name)
     
     print(f"🔍 查找目标层: {layer_name}")
+    
+    # 如果用户没有指定层，自动推荐合适的层
+    if layer_name == "auto" or layer_name == "":
+        suitable_layers = find_suitable_layers(model)
+        print(f"🔍 找到 {len(suitable_layers)} 个合适的层:")
+        for i, layer in enumerate(suitable_layers[:10]):  # 只显示前10个
+            print(f"  {i+1}. {layer}")
+        
+        if suitable_layers:
+            # 选择第一个合适的层
+            layer_name = suitable_layers[0]
+            print(f"🎯 自动选择层: {layer_name}")
+        else:
+            raise ValueError("未找到合适的特征层")
     
     # 使用named_modules()来查找层
     for name, module in model.named_modules():
@@ -463,35 +500,76 @@ def main():
     # ========== Grad-CAM 分析 ==========
     print("🔥 执行Grad-CAM分析...")
     try:
-        # 由于模型结构复杂，我们创建一个简化的热力图生成方法
-        print("🔍 使用简化的热力图生成方法...")
+        # 自动找到合适的特征层
+        print("🔍 自动寻找合适的特征层...")
+        suitable_layers = find_suitable_layers(model)
         
-        # 生成一个简单的热力图（基于输入图像的梯度）
-        input_tensor.requires_grad_(True)
+        if suitable_layers:
+            print(f"🔍 找到 {len(suitable_layers)} 个合适的层:")
+            for i, layer in enumerate(suitable_layers[:5]):  # 显示前5个
+                print(f"  {i+1}. {layer}")
+            
+            # 选择第一个合适的层
+            target_layer_name = suitable_layers[0]
+            print(f"🎯 选择目标层: {target_layer_name}")
+        else:
+            print("⚠️  未找到合适的特征层，使用简化方法")
+            target_layer_name = None
         
-        # 计算简单的梯度
-        if input_tensor.grad is not None:
-            input_tensor.grad.zero_()
+        if target_layer_name:
+            try:
+                # 尝试使用真实的Grad-CAM
+                target_layer = get_target_layer(model, target_layer_name)
+                print(f"🔍 目标层类型: {type(target_layer)}")
+                
+                # 创建GradCAM实例
+                cam = GradCAM(model=model, target_layers=[target_layer])
+                
+                # 执行Grad-CAM分析
+                grayscale_cam = cam(input_tensor=input_tensor)[0]
+                print(f"✅ Grad-CAM计算完成，激活图形状: {grayscale_cam.shape}")
+                
+                # 生成热力图可视化
+                visualization = show_cam_on_image(rgb_image, grayscale_cam, use_rgb=True)
+                cv2.imwrite(os.path.join(args.output_dir, 'gradcam_heatmap.jpg'), 
+                           cv2.cvtColor(visualization, cv2.COLOR_RGB2BGR))
+                print("✅ Grad-CAM热力图已保存")
+                
+            except Exception as e:
+                print(f"⚠️  真实Grad-CAM失败: {e}")
+                print("🔍 使用简化的热力图生成方法...")
+                target_layer_name = None
         
-        # 创建一个简单的损失函数
-        simple_loss = torch.mean(input_tensor)
-        simple_loss.backward()
-        
-        # 获取梯度并生成热力图
-        grad_cam = input_tensor.grad.abs().mean(dim=1, keepdim=True)
-        grad_cam = torch.nn.functional.interpolate(grad_cam, size=(rgb_image.shape[0], rgb_image.shape[1]), mode='bilinear', align_corners=False)
-        grad_cam = grad_cam.squeeze().cpu().numpy()
-        
-        # 归一化
-        grad_cam = (grad_cam - grad_cam.min()) / (grad_cam.max() - grad_cam.min() + 1e-8)
-        
-        print(f"✅ 简化Grad-CAM计算完成，激活图形状: {grad_cam.shape}")
-        
-        # 生成热力图可视化
-        visualization = show_cam_on_image(rgb_image, grad_cam, use_rgb=True)
-        cv2.imwrite(os.path.join(args.output_dir, 'gradcam_heatmap.jpg'), 
-                   cv2.cvtColor(visualization, cv2.COLOR_RGB2BGR))
-        print("✅ Grad-CAM热力图已保存")
+        if not target_layer_name:
+            # 使用简化的热力图生成方法
+            print("🔍 使用简化的热力图生成方法...")
+            
+            # 生成一个简单的热力图（基于输入图像的梯度）
+            input_tensor.requires_grad_(True)
+            
+            # 计算简单的梯度
+            if input_tensor.grad is not None:
+                input_tensor.grad.zero_()
+            
+            # 创建一个简单的损失函数
+            simple_loss = torch.mean(input_tensor)
+            simple_loss.backward()
+            
+            # 获取梯度并生成热力图
+            grad_cam = input_tensor.grad.abs().mean(dim=1, keepdim=True)
+            grad_cam = torch.nn.functional.interpolate(grad_cam, size=(rgb_image.shape[0], rgb_image.shape[1]), mode='bilinear', align_corners=False)
+            grad_cam = grad_cam.squeeze().cpu().numpy()
+            
+            # 归一化
+            grad_cam = (grad_cam - grad_cam.min()) / (grad_cam.max() - grad_cam.min() + 1e-8)
+            
+            print(f"✅ 简化Grad-CAM计算完成，激活图形状: {grad_cam.shape}")
+            
+            # 生成热力图可视化
+            visualization = show_cam_on_image(rgb_image, grad_cam, use_rgb=True)
+            cv2.imwrite(os.path.join(args.output_dir, 'gradcam_heatmap.jpg'), 
+                       cv2.cvtColor(visualization, cv2.COLOR_RGB2BGR))
+            print("✅ Grad-CAM热力图已保存")
         
     except Exception as e:
         print(f"⚠️  Grad-CAM分析失败: {e}")
