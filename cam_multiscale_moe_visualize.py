@@ -126,25 +126,40 @@ def visualize_multiscale_features(model, input_tensor, scales=[4, 8, 16]):
         # 检查模型是否有CLIP多尺度MoE模块
         if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'clip_multi_scale_moe'):
             moe_module = model.BACKBONE.clip_multi_scale_moe
+            print(f"🔍 找到MoE模块: {type(moe_module)}")
+            
             if hasattr(moe_module, 'multi_scale_extractor'):
+                print(f"🔍 找到多尺度提取器: {type(moe_module.multi_scale_extractor)}")
                 # 获取多尺度特征
                 with torch.no_grad():
                     # 通过模型前向传播获取特征
                     _, patch_tokens = model.BACKBONE(input_tensor)
+                    print(f"🔍 Patch tokens形状: {patch_tokens.shape}")
+                    
                     if hasattr(moe_module, '_extract_multi_scale_features'):
                         features = moe_module._extract_multi_scale_features(patch_tokens)
+                        print(f"🔍 多尺度特征数量: {len(features)}")
+                        
                         for i, scale in enumerate(scales):
                             if i < len(features):
                                 multiscale_features[f'scale_{scale}'] = features[i].cpu().numpy()
+                                print(f"✅ 尺度 {scale} 特征形状: {features[i].shape}")
+                            else:
+                                print(f"⚠️  模型不支持尺度 {scale} 的特征提取")
                     else:
                         print("⚠️  MoE模块没有多尺度特征提取方法")
+                        print(f"🔍 MoE模块方法: {[m for m in dir(moe_module) if 'extract' in m.lower()]}")
             else:
                 print("⚠️  MoE模块没有多尺度特征提取器")
+                print(f"🔍 MoE模块属性: {dir(moe_module)}")
         else:
             print("⚠️  模型没有CLIP多尺度MoE模块")
+            print(f"🔍 BACKBONE属性: {dir(model.BACKBONE) if hasattr(model, 'BACKBONE') else 'No BACKBONE'}")
             
     except Exception as e:
         print(f"⚠️  多尺度特征提取失败: {e}")
+        import traceback
+        traceback.print_exc()
     
     return multiscale_features
 
@@ -166,26 +181,35 @@ def visualize_moe_expert_weights(model, input_tensor):
         # 检查模型是否有CLIP多尺度MoE模块
         if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'clip_multi_scale_moe'):
             moe_module = model.BACKBONE.clip_multi_scale_moe
+            print(f"🔍 找到MoE模块: {type(moe_module)}")
+            
             if hasattr(moe_module, 'moe_fusion'):
+                print(f"🔍 找到MoE融合器: {type(moe_module.moe_fusion)}")
                 with torch.no_grad():
                     # 通过模型前向传播获取专家权重
                     _, patch_tokens = model.BACKBONE(input_tensor)
-                    if hasattr(moe_module, 'moe_fusion'):
-                        # 获取专家权重
-                        _, expert_weights = moe_module(patch_tokens)
-                        return {
-                            'expert_weights': expert_weights,
-                            'expert_names': ['4x4 Expert', '8x8 Expert', '16x16 Expert']
-                        }
-                    else:
-                        print("⚠️  MoE模块没有融合器")
+                    print(f"🔍 Patch tokens形状: {patch_tokens.shape}")
+                    
+                    # 获取专家权重
+                    _, expert_weights = moe_module(patch_tokens)
+                    print(f"🔍 专家权重形状: {expert_weights.shape}")
+                    print(f"🔍 专家权重值: {expert_weights}")
+                    
+                    return {
+                        'expert_weights': expert_weights,
+                        'expert_names': ['4x4 Expert', '8x8 Expert', '16x16 Expert']
+                    }
             else:
                 print("⚠️  MoE模块没有融合器")
+                print(f"🔍 MoE模块属性: {dir(moe_module)}")
         else:
             print("⚠️  模型没有CLIP多尺度MoE模块")
+            print(f"🔍 BACKBONE属性: {dir(model.BACKBONE) if hasattr(model, 'BACKBONE') else 'No BACKBONE'}")
             
     except Exception as e:
         print(f"⚠️  MoE专家权重提取失败: {e}")
+        import traceback
+        traceback.print_exc()
     
     return None
 
@@ -344,7 +368,7 @@ def main():
     print("🔥 执行Grad-CAM分析...")
     try:
         target_layer = get_target_layer(model, args.target_layer)
-        cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=True)
+        cam = GradCAM(model=model, target_layers=[target_layer])
         grayscale_cam = cam(input_tensor=input_tensor)[0]
         print(f"✅ Grad-CAM计算完成，激活图形状: {grayscale_cam.shape}")
         
