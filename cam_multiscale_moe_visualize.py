@@ -95,14 +95,16 @@ def get_target_layer(model, layer_name):
     Raises:
         ValueError: 当指定层不存在时抛出异常
     """
-    # 检查模型是否包含指定的层
-    if hasattr(model, layer_name):
-        return getattr(model, layer_name)
-    else:
-        # 如果层不存在，提供详细的错误信息
-        available_layers = [name for name, _ in model.named_modules()]
-        raise ValueError(f"Layer '{layer_name}' not found in model. "
-                        f"Available layers: {available_layers[:10]}...")
+    # 使用named_modules()来查找层
+    for name, module in model.named_modules():
+        if name == layer_name:
+            return module
+    
+    # 如果层不存在，提供详细的错误信息
+    available_layers = [name for name, _ in model.named_modules()]
+    print(f"🔍 可用层列表: {available_layers[:20]}...")
+    raise ValueError(f"Layer '{layer_name}' not found in model. "
+                    f"Available layers: {available_layers[:10]}...")
 
 
 def visualize_multiscale_features(model, input_tensor, scales=[4, 8, 16]):
@@ -118,18 +120,31 @@ def visualize_multiscale_features(model, input_tensor, scales=[4, 8, 16]):
         dict: 包含各尺度特征图的字典
     """
     model.eval()
-    with torch.no_grad():
-        # 获取多尺度特征
-        multiscale_features = {}
-        
-        for scale in scales:
-            # 这里需要根据实际模型结构调整
-            # 假设模型有多尺度特征提取方法
-            if hasattr(model, 'extract_multiscale_features'):
-                features = model.extract_multiscale_features(input_tensor, scale)
-                multiscale_features[f'scale_{scale}'] = features
+    multiscale_features = {}
+    
+    try:
+        # 检查模型是否有CLIP多尺度MoE模块
+        if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'clip_multi_scale_moe'):
+            moe_module = model.BACKBONE.clip_multi_scale_moe
+            if hasattr(moe_module, 'multi_scale_extractor'):
+                # 获取多尺度特征
+                with torch.no_grad():
+                    # 通过模型前向传播获取特征
+                    _, patch_tokens = model.BACKBONE(input_tensor)
+                    if hasattr(moe_module, '_extract_multi_scale_features'):
+                        features = moe_module._extract_multi_scale_features(patch_tokens)
+                        for i, scale in enumerate(scales):
+                            if i < len(features):
+                                multiscale_features[f'scale_{scale}'] = features[i].cpu().numpy()
+                    else:
+                        print("⚠️  MoE模块没有多尺度特征提取方法")
             else:
-                print(f"⚠️  模型不支持尺度 {scale} 的特征提取")
+                print("⚠️  MoE模块没有多尺度特征提取器")
+        else:
+            print("⚠️  模型没有CLIP多尺度MoE模块")
+            
+    except Exception as e:
+        print(f"⚠️  多尺度特征提取失败: {e}")
     
     return multiscale_features
 
@@ -146,17 +161,31 @@ def visualize_moe_expert_weights(model, input_tensor):
         dict: 包含专家权重信息的字典
     """
     model.eval()
-    with torch.no_grad():
-        # 获取MoE专家权重
-        if hasattr(model, 'clip_multi_scale_moe'):
-            moe_module = model.clip_multi_scale_moe
+    
+    try:
+        # 检查模型是否有CLIP多尺度MoE模块
+        if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'clip_multi_scale_moe'):
+            moe_module = model.BACKBONE.clip_multi_scale_moe
             if hasattr(moe_module, 'moe_fusion'):
-                # 获取专家权重
-                expert_weights = moe_module.moe_fusion.get_expert_weights(input_tensor)
-                return {
-                    'expert_weights': expert_weights,
-                    'expert_names': ['4x4 Expert', '8x8 Expert', '16x16 Expert']
-                }
+                with torch.no_grad():
+                    # 通过模型前向传播获取专家权重
+                    _, patch_tokens = model.BACKBONE(input_tensor)
+                    if hasattr(moe_module, 'moe_fusion'):
+                        # 获取专家权重
+                        _, expert_weights = moe_module(patch_tokens)
+                        return {
+                            'expert_weights': expert_weights,
+                            'expert_names': ['4x4 Expert', '8x8 Expert', '16x16 Expert']
+                        }
+                    else:
+                        print("⚠️  MoE模块没有融合器")
+            else:
+                print("⚠️  MoE模块没有融合器")
+        else:
+            print("⚠️  模型没有CLIP多尺度MoE模块")
+            
+    except Exception as e:
+        print(f"⚠️  MoE专家权重提取失败: {e}")
     
     return None
 
