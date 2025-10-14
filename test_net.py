@@ -34,7 +34,7 @@ if __name__ == "__main__":# 测试主函数
             logger.info(config_str) # 打印配置文件
     logger.info("Running with config:\n{}".format(cfg)) # 打印配置
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID # 设置可见设备
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(cfg.MODEL.DEVICE_ID) # 设置可见设备
 
     train_loader, train_loader_normal, val_loader, num_query, num_classes, camera_num, view_num = make_dataloader(cfg) # 加载数据
 

@@ -207,7 +207,7 @@ if __name__ == '__main__':
     if cfg.MODEL.DIST_TRAIN: # 如果使用分布式训练
         torch.distributed.init_process_group(backend='nccl', init_method='env://') # 初始化分布式训练
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID # 设置可见设备
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(cfg.MODEL.DEVICE_ID) # 设置可见设备
     train_loader, train_loader_normal, val_loader, num_query, num_classes, camera_num, view_num = make_dataloader(cfg) # 加载数据
     print("data is ready") # 打印数据加载完成
     model = make_model(cfg, num_class=num_classes, camera_num=camera_num, view_num=view_num) # 加载模型
