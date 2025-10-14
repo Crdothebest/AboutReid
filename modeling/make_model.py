@@ -55,7 +55,11 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
         model_path = cfg.MODEL.PRETRAIN_PATH_T  # 预训练权重路径（ImageNet/自定义）
         self.in_planes = feat_dim  # 特征维度（线性分类器/BNNeck输入）
         self.cv_embed_sign = cfg.MODEL.SIE_CAMERA  # 是否启用相机/视角嵌入
-        self.neck = cfg.MODEL.NECK  # 颈部结构类型（如 bnneck）
+        # 原代码：
+        # self.neck = cfg.MODEL.NECK  # 颈部结构类型（如 bnneck）
+
+        # 修改为：
+        self.neck = getattr(cfg.MODEL, 'NECK', 'bnneck')  # 默认使用bnneck
         self.neck_feat = cfg.TEST.NECK_FEAT  # 测试阶段返回 neck 前/后特征
         self.model_name = cfg.MODEL.TRANSFORMER_TYPE  # 骨干类型名
         self.trans_type = cfg.MODEL.TRANSFORMER_TYPE  # 同上

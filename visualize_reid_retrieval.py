@@ -18,8 +18,6 @@ import os
 import torch
 import numpy as np
 import argparse
-import matplotlib.pyplot as plt
-import seaborn as sns
 from PIL import Image
 from tqdm import tqdm
 from torchvision import transforms
