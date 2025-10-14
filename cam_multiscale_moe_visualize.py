@@ -95,14 +95,28 @@ def get_target_layer(model, layer_name):
     Raises:
         ValueError: 当指定层不存在时抛出异常
     """
+    # 确保layer_name是字符串
+    if not isinstance(layer_name, str):
+        layer_name = str(layer_name)
+    
+    print(f"🔍 查找目标层: {layer_name}")
+    
     # 使用named_modules()来查找层
     for name, module in model.named_modules():
         if name == layer_name:
+            print(f"✅ 找到目标层: {name} -> {type(module)}")
             return module
     
-    # 如果层不存在，提供详细的错误信息
+    # 如果找不到精确匹配，尝试部分匹配
     available_layers = [name for name, _ in model.named_modules()]
     print(f"🔍 可用层列表: {available_layers[:20]}...")
+    
+    # 尝试找到最相似的层
+    for name, module in model.named_modules():
+        if layer_name in name or name.endswith(layer_name.split('.')[-1]):
+            print(f"✅ 找到相似层: {name} -> {type(module)}")
+            return module
+    
     raise ValueError(f"Layer '{layer_name}' not found in model. "
                     f"Available layers: {available_layers[:10]}...")
 
@@ -133,7 +147,12 @@ def visualize_multiscale_features(model, input_tensor, scales=[4, 8, 16]):
                 # 获取多尺度特征
                 with torch.no_grad():
                     # 通过模型前向传播获取特征
-                    _, patch_tokens = model.BACKBONE(input_tensor)
+                    # 注意：需要添加相机嵌入和模态信息
+                    batch_size = input_tensor.shape[0]
+                    cv_embed = torch.zeros(batch_size, 768).to(input_tensor.device)  # 相机嵌入
+                    modality = torch.zeros(batch_size, 1).to(input_tensor.device)   # 模态信息
+                    
+                    _, patch_tokens = model.BACKBONE(input_tensor, cv_embed, modality)
                     print(f"🔍 Patch tokens形状: {patch_tokens.shape}")
                     
                     if hasattr(moe_module, '_extract_multi_scale_features'):
@@ -187,7 +206,12 @@ def visualize_moe_expert_weights(model, input_tensor):
                 print(f"🔍 找到MoE融合器: {type(moe_module.moe_fusion)}")
                 with torch.no_grad():
                     # 通过模型前向传播获取专家权重
-                    _, patch_tokens = model.BACKBONE(input_tensor)
+                    # 注意：需要添加相机嵌入和模态信息
+                    batch_size = input_tensor.shape[0]
+                    cv_embed = torch.zeros(batch_size, 768).to(input_tensor.device)  # 相机嵌入
+                    modality = torch.zeros(batch_size, 1).to(input_tensor.device)   # 模态信息
+                    
+                    _, patch_tokens = model.BACKBONE(input_tensor, cv_embed, modality)
                     print(f"🔍 Patch tokens形状: {patch_tokens.shape}")
                     
                     # 获取专家权重
@@ -368,8 +392,17 @@ def main():
     print("🔥 执行Grad-CAM分析...")
     try:
         target_layer = get_target_layer(model, args.target_layer)
+        print(f"🔍 目标层类型: {type(target_layer)}")
+        
+        # 创建GradCAM实例
         cam = GradCAM(model=model, target_layers=[target_layer])
-        grayscale_cam = cam(input_tensor=input_tensor)[0]
+        
+        # 准备输入数据 - 确保输入格式正确
+        input_tensor_for_cam = input_tensor.clone()
+        print(f"🔍 输入张量形状: {input_tensor_for_cam.shape}")
+        
+        # 执行Grad-CAM分析
+        grayscale_cam = cam(input_tensor=input_tensor_for_cam)[0]
         print(f"✅ Grad-CAM计算完成，激活图形状: {grayscale_cam.shape}")
         
         # 生成热力图可视化
@@ -380,6 +413,8 @@ def main():
         
     except Exception as e:
         print(f"⚠️  Grad-CAM分析失败: {e}")
+        import traceback
+        traceback.print_exc()
 
     # ========== 生成可视化结果 ==========
     print("🎨 生成可视化结果...")
