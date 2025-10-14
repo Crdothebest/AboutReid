@@ -498,6 +498,9 @@ def main():
     parser.add_argument("--output-dir", type=str, 
                        default="baseline_vs_moe_analysis", 
                        help="Directory to save visualization results")
+    parser.add_argument("--weight-path", type=str, 
+                       default=None, 
+                       help="Path to model weights (overrides config file)")
     args = parser.parse_args()
 
     # 创建输出目录
@@ -522,12 +525,16 @@ def main():
 
     # ========== 加载预训练权重 ==========
     print("📥 加载模型权重...")
-    if os.path.exists(cfg.TEST.WEIGHT):
-        print(f"Loading weights from {cfg.TEST.WEIGHT}")
-        model.load_param(cfg.TEST.WEIGHT)
+    
+    # 确定权重路径（命令行参数优先）
+    weight_path = args.weight_path if args.weight_path else cfg.TEST.WEIGHT
+    
+    if os.path.exists(weight_path):
+        print(f"Loading weights from {weight_path}")
+        model.load_param(weight_path)
         print("✅ 模型权重加载完成")
     else:
-        raise FileNotFoundError(f"Weight file not found: {cfg.TEST.WEIGHT}")
+        raise FileNotFoundError(f"Weight file not found: {weight_path}")
 
     # ========== 图像预处理 ==========
     print("🖼️  加载和预处理图像...")
