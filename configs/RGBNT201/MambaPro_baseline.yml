@@ -12,6 +12,9 @@ MODEL:
   PROMPT: True # 是否使用提示
   ADAPTER: True # 是否使用适配器
   MAMBA: True # 是否使用Mamba
+  MAMBA_BI: 0.0 # Mamba偏置参数
+  MAMBA_DT_RANK: 16 # Mamba时间步长秩
+  MAMBA_D_STATE: 16 # Mamba状态维度
   FROZEN: True # 是否冻结
   FLOPS_TEST: False # FLOPs测试标志
   NECK: 'bnneck' # 颈部网络类型
