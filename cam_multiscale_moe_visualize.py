@@ -326,6 +326,9 @@ def create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_analys
     # 第二行：专家权重分析
     if moe_analysis and 'expert_weights' in moe_analysis:
         expert_weights = moe_analysis['expert_weights'].cpu().numpy()
+        # 确保expert_weights是1D数组
+        if expert_weights.ndim > 1:
+            expert_weights = expert_weights.squeeze()
         expert_names = ['4x4 Expert', '8x8 Expert', '16x16 Expert']
         
         # 专家权重柱状图
@@ -554,6 +557,9 @@ def main():
     
     if moe_fusion_analysis:
         weights = moe_fusion_analysis['expert_weights'].cpu().numpy()
+        # 确保weights是1D数组
+        if weights.ndim > 1:
+            weights = weights.squeeze()
         expert_names = ['4x4 Expert', '8x8 Expert', '16x16 Expert']
         print(f"⚖️  专家权重分布:")
         for i, (name, weight) in enumerate(zip(expert_names, weights)):
