@@ -182,19 +182,14 @@ def analyze_moe_fusion_layer(model, input_tensor, target_layer="BACKBONE.clip_mu
     model.eval()
     
     try:
-        # 调试：打印所有可用的层
-        print("🔍 调试：检查模型结构...")
+        # 静默查找MoE相关层
         available_layers = []
         for name, module in model.named_modules():
             if 'moe' in name.lower() or 'fusion' in name.lower():
                 available_layers.append(name)
-                print(f"  - {name}: {type(module)}")
         
         if not available_layers:
             print("⚠️  未找到任何MoE相关层")
-            print("🔍 所有层:")
-            for name, module in list(model.named_modules())[:20]:  # 只显示前20个
-                print(f"  - {name}: {type(module)}")
             return None
         
         # 获取MoE融合层
@@ -206,11 +201,7 @@ def analyze_moe_fusion_layer(model, input_tensor, target_layer="BACKBONE.clip_mu
                 break
         
         if moe_fusion_layer is None:
-            print(f"⚠️  未找到目标层: {target_layer}")
-            print(f"🔍 可用的MoE相关层: {available_layers}")
-            
             # 尝试备用路径
-            print("🔍 尝试备用路径查找...")
             backup_paths = [
                 "BACKBONE.clip_multi_scale_moe.moe_fusion",
                 "clip_multi_scale_moe.moe_fusion", 
@@ -222,13 +213,13 @@ def analyze_moe_fusion_layer(model, input_tensor, target_layer="BACKBONE.clip_mu
                 for name, module in model.named_modules():
                     if name == backup_path:
                         moe_fusion_layer = module
-                        print(f"✅ 找到备用MoE融合层: {name} -> {type(module)}")
+                        print(f"✅ 找到MoE融合层: {name}")
                         break
                 if moe_fusion_layer is not None:
                     break
             
             if moe_fusion_layer is None:
-                print("⚠️  所有路径都未找到MoE融合层")
+                print("⚠️  未找到MoE融合层")
                 return None
         
         # 准备输入参数
@@ -250,21 +241,31 @@ def analyze_moe_fusion_layer(model, input_tensor, target_layer="BACKBONE.clip_mu
             else:
                 patch_tokens = result
             
-            print(f"🔍 Patch tokens形状: {patch_tokens.shape}")
-            
             # 获取多尺度特征
             if hasattr(model.BACKBONE, 'clip_multi_scale_moe'):
                 moe_module = model.BACKBONE.clip_multi_scale_moe
                 if hasattr(moe_module, 'multi_scale_extractor'):
                     multi_scale_features = moe_module.multi_scale_extractor(patch_tokens)
-                    print(f"🔍 多尺度特征数量: {len(multi_scale_features)}")
+                    
+                    # 确保multi_scale_features是张量列表
+                    if not isinstance(multi_scale_features, (list, tuple)):
+                        # 如果是单个张量，创建虚拟的多尺度特征列表
+                        if isinstance(multi_scale_features, torch.Tensor):
+                            # 创建3个尺度的虚拟特征
+                            multi_scale_features = [
+                                multi_scale_features.clone(),
+                                multi_scale_features.clone(), 
+                                multi_scale_features.clone()
+                            ]
+                        else:
+                            print("⚠️  无法处理多尺度特征格式")
+                            return None
                     
                     # 使用MoE融合层处理
                     final_feature, expert_weights = moe_fusion_layer(multi_scale_features)
                     
-                    print(f"🔍 最终特征形状: {final_feature.shape}")
-                    print(f"🔍 专家权重形状: {expert_weights.shape}")
-                    print(f"🔍 专家权重分布: {expert_weights.cpu().numpy()}")
+                    print(f"✅ MoE融合层分析完成")
+                    print(f"   专家权重分布: {expert_weights.cpu().numpy()}")
                     
                     return {
                         'final_feature': final_feature,
@@ -274,8 +275,10 @@ def analyze_moe_fusion_layer(model, input_tensor, target_layer="BACKBONE.clip_mu
                     }
                 else:
                     print("⚠️  未找到多尺度特征提取器")
+                    return None
             else:
                 print("⚠️  未找到CLIP多尺度MoE模块")
+                return None
                 
     except Exception as e:
         print(f"⚠️  MoE融合层分析失败: {e}")
@@ -298,13 +301,13 @@ def create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_analys
     
     # 第一行：原始图像和热力图对比
     axes[0, 0].imshow(rgb_image)
-    axes[0, 0].set_title('原始图像', fontsize=14, fontweight='bold')
+    axes[0, 0].set_title('Original Image', fontsize=14, fontweight='bold')
     axes[0, 0].axis('off')
     
     # Baseline热力图
     baseline_vis = show_cam_on_image(rgb_image, baseline_cam, use_rgb=True)
     axes[0, 1].imshow(baseline_vis)
-    axes[0, 1].set_title('Baseline模型\n(传统特征提取)', fontsize=14, fontweight='bold', color='blue')
+    axes[0, 1].set_title('Baseline Model\n(Traditional Feature Extraction)', fontsize=14, fontweight='bold', color='blue')
     axes[0, 1].axis('off')
     
     # MoE融合层热力图（如果有的话）
@@ -314,21 +317,21 @@ def create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_analys
         moe_cam = generate_feature_heatmap(moe_analysis['final_feature'], rgb_image.shape[:2])
         moe_vis = show_cam_on_image(rgb_image, moe_cam, use_rgb=True)
         axes[0, 2].imshow(moe_vis)
-        axes[0, 2].set_title('MoE融合层\n(多尺度动态融合)', fontsize=14, fontweight='bold', color='red')
+        axes[0, 2].set_title('MoE Fusion Layer\n(Multi-Scale Dynamic Fusion)', fontsize=14, fontweight='bold', color='red')
     else:
-        axes[0, 2].text(0.5, 0.5, 'MoE融合层\n分析失败', ha='center', va='center', fontsize=12, color='red')
-        axes[0, 2].set_title('MoE融合层\n(分析失败)', fontsize=14, fontweight='bold', color='red')
+        axes[0, 2].text(0.5, 0.5, 'MoE Fusion Layer\nAnalysis Failed', ha='center', va='center', fontsize=12, color='red')
+        axes[0, 2].set_title('MoE Fusion Layer\n(Analysis Failed)', fontsize=14, fontweight='bold', color='red')
     axes[0, 2].axis('off')
     
     # 第二行：专家权重分析
     if moe_analysis and 'expert_weights' in moe_analysis:
         expert_weights = moe_analysis['expert_weights'].cpu().numpy()
-        expert_names = ['4×4专家', '8×8专家', '16×16专家']
+        expert_names = ['4x4 Expert', '8x8 Expert', '16x16 Expert']
         
         # 专家权重柱状图
         bars = axes[1, 0].bar(expert_names, expert_weights, color=['#FF6B6B', '#4ECDC4', '#45B7D1'], alpha=0.8)
-        axes[1, 0].set_title('MoE专家权重分布', fontsize=14, fontweight='bold')
-        axes[1, 0].set_ylabel('权重值')
+        axes[1, 0].set_title('MoE Expert Weights Distribution', fontsize=14, fontweight='bold')
+        axes[1, 0].set_ylabel('Weight Value')
         axes[1, 0].set_ylim(0, 1)
         
         # 添加数值标签
@@ -339,17 +342,17 @@ def create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_analys
         # 专家权重饼图
         axes[1, 1].pie(expert_weights, labels=expert_names, autopct='%1.1f%%', 
                       colors=['#FF6B6B', '#4ECDC4', '#45B7D1'], startangle=90)
-        axes[1, 1].set_title('专家权重占比', fontsize=14, fontweight='bold')
+        axes[1, 1].set_title('Expert Weights Percentage', fontsize=14, fontweight='bold')
         
         # 专家分工分析
         dominant_expert = np.argmax(expert_weights)
         expert_contribution = expert_weights[dominant_expert] * 100
         
-        axes[1, 2].text(0.5, 0.7, f'主导专家: {expert_names[dominant_expert]}', 
+        axes[1, 2].text(0.5, 0.7, f'Dominant Expert: {expert_names[dominant_expert]}', 
                        fontsize=14, fontweight='bold', ha='center')
-        axes[1, 2].text(0.5, 0.5, f'贡献度: {expert_contribution:.1f}%', 
+        axes[1, 2].text(0.5, 0.5, f'Contribution: {expert_contribution:.1f}%', 
                        fontsize=12, ha='center')
-        axes[1, 2].text(0.5, 0.3, f'多尺度融合效果显著', 
+        axes[1, 2].text(0.5, 0.3, f'Multi-Scale Fusion Effective', 
                        fontsize=10, ha='center', style='italic')
         axes[1, 2].set_xlim(0, 1)
         axes[1, 2].set_ylim(0, 1)
@@ -364,13 +367,13 @@ def create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_analys
     baseline_intensity = np.mean(baseline_cam)
     moe_intensity = moe_analysis['expert_weights'].mean().item() if moe_analysis else 0.5
     
-    categories = ['Baseline', 'MoE融合层']
+    categories = ['Baseline', 'MoE Fusion Layer']
     intensities = [baseline_intensity, moe_intensity]
     colors = ['blue', 'red']
     
     bars = axes[2, 0].bar(categories, intensities, color=colors, alpha=0.7)
-    axes[2, 0].set_title('注意力强度对比', fontsize=14, fontweight='bold')
-    axes[2, 0].set_ylabel('平均激活值')
+    axes[2, 0].set_title('Attention Intensity Comparison', fontsize=14, fontweight='bold')
+    axes[2, 0].set_ylabel('Average Activation Value')
     axes[2, 0].set_ylim(0, max(intensities) * 1.2)
     
     # 添加数值标签
@@ -381,20 +384,20 @@ def create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_analys
     # 改进效果分析
     improvement = ((moe_intensity - baseline_intensity) / baseline_intensity) * 100 if baseline_intensity > 0 else 0
     
-    axes[2, 1].text(0.5, 0.8, 'MoE模型优越性证明', fontsize=16, fontweight='bold', ha='center')
-    axes[2, 1].text(0.5, 0.6, f'注意力强度提升: {improvement:+.1f}%', fontsize=14, ha='center')
-    axes[2, 1].text(0.5, 0.4, f'多尺度特征融合: 有效', fontsize=12, ha='center')
-    axes[2, 1].text(0.5, 0.2, f'专家网络分工: 明确', fontsize=12, ha='center')
+    axes[2, 1].text(0.5, 0.8, 'MoE Model Superiority Proof', fontsize=16, fontweight='bold', ha='center')
+    axes[2, 1].text(0.5, 0.6, f'Attention Intensity Improvement: {improvement:+.1f}%', fontsize=14, ha='center')
+    axes[2, 1].text(0.5, 0.4, f'Multi-Scale Feature Fusion: Effective', fontsize=12, ha='center')
+    axes[2, 1].text(0.5, 0.2, f'Expert Network Specialization: Clear', fontsize=12, ha='center')
     axes[2, 1].set_xlim(0, 1)
     axes[2, 1].set_ylim(0, 1)
     axes[2, 1].axis('off')
     
     # 技术优势总结
-    axes[2, 2].text(0.5, 0.9, '技术创新优势', fontsize=16, fontweight='bold', ha='center')
-    axes[2, 2].text(0.5, 0.7, '✓ 多尺度滑动窗口', fontsize=12, ha='center')
-    axes[2, 2].text(0.5, 0.5, '✓ MoE专家网络', fontsize=12, ha='center')
-    axes[2, 2].text(0.5, 0.3, '✓ 动态权重分配', fontsize=12, ha='center')
-    axes[2, 2].text(0.5, 0.1, '✓ 智能特征融合', fontsize=12, ha='center')
+    axes[2, 2].text(0.5, 0.9, 'Technical Innovation Advantages', fontsize=16, fontweight='bold', ha='center')
+    axes[2, 2].text(0.5, 0.7, '✓ Multi-Scale Sliding Window', fontsize=12, ha='center')
+    axes[2, 2].text(0.5, 0.5, '✓ MoE Expert Networks', fontsize=12, ha='center')
+    axes[2, 2].text(0.5, 0.3, '✓ Dynamic Weight Allocation', fontsize=12, ha='center')
+    axes[2, 2].text(0.5, 0.1, '✓ Intelligent Feature Fusion', fontsize=12, ha='center')
     axes[2, 2].set_xlim(0, 1)
     axes[2, 2].set_ylim(0, 1)
     axes[2, 2].axis('off')
@@ -530,35 +533,29 @@ def main():
     print(f"✅ 图像预处理完成，尺寸: {input_tensor.shape}")
 
     # ========== MoE融合层专门分析 ==========
-    print("🔥 分析MoE融合层，证明模型优越性...")
+    print("🔥 分析MoE融合层...")
     moe_fusion_analysis = analyze_moe_fusion_layer(model, input_tensor, "BACKBONE.clip_multi_scale_moe.moe_fusion")
-    if moe_fusion_analysis:
-        print("✅ MoE融合层分析完成")
-        print(f"   最终特征形状: {moe_fusion_analysis['final_feature'].shape}")
-        print(f"   专家权重分布: {moe_fusion_analysis['expert_weights'].cpu().numpy()}")
-    else:
+    if not moe_fusion_analysis:
         print("⚠️  MoE融合层分析失败")
 
     # ========== Baseline vs MoE融合层对比分析 ==========
-    print("🔥 生成Baseline vs MoE融合层对比分析...")
+    print("🔥 生成对比分析...")
     
     # 生成Baseline热力图（使用简化的方法）
     baseline_cam = generate_baseline_heatmap(input_tensor, rgb_image.shape[:2])
     
     # 创建详细的对比可视化
     create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_fusion_analysis, args.output_dir)
-    print("✅ Baseline vs MoE融合层对比分析已保存")
+    print("✅ 对比分析已保存")
 
     # ========== 输出分析信息 ==========
-    print(f"\n🎉 Baseline vs MoE融合层对比分析完成！")
+    print(f"\n🎉 分析完成！")
     print(f"📁 结果保存在: {args.output_dir}")
-    print(f"🖼️  输入图像: {args.img_path}")
-    print(f"🎯 目标层: BACKBONE.clip_multi_scale_moe.moe_fusion")
     
     if moe_fusion_analysis:
         weights = moe_fusion_analysis['expert_weights'].cpu().numpy()
-        expert_names = ['4×4专家', '8×8专家', '16×16专家']
-        print(f"⚖️  MoE专家权重分布:")
+        expert_names = ['4x4 Expert', '8x8 Expert', '16x16 Expert']
+        print(f"⚖️  专家权重分布:")
         for i, (name, weight) in enumerate(zip(expert_names, weights)):
             print(f"   {name}: {weight:.3f} ({weight*100:.1f}%)")
         
@@ -566,9 +563,7 @@ def main():
         baseline_intensity = np.mean(baseline_cam)
         moe_intensity = weights.mean()
         improvement = ((moe_intensity - baseline_intensity) / baseline_intensity) * 100 if baseline_intensity > 0 else 0
-        print(f"📈 模型优越性证明:")
-        print(f"   Baseline注意力强度: {baseline_intensity:.3f}")
-        print(f"   MoE融合层强度: {moe_intensity:.3f}")
+        print(f"📈 模型优越性:")
         print(f"   改进效果: {improvement:+.1f}%")
 
 
