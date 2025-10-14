@@ -32,7 +32,7 @@ _C.MODEL.METRIC_LOSS_TYPE = 'triplet'
 _C.MODEL.DIST_TRAIN = False
 _C.MODEL.PROMPT = True  # Whether use the prompt tuning
 _C.MODEL.MAMBA = True # whether use the mamba
-_C.MODEL.MAMBA_BI = False # whether use the bidirectional mamba
+_C.MODEL.MAMBA_BI = 1.0 # Mamba偏置参数
 _C.MODEL.ADAPTER = True # whether use the adapter
 _C.MODEL.FROZEN = True # whether freeze the backbone
 
