@@ -11,6 +11,9 @@ MODEL:
   ADAPTER: True # 是否使用适配器
   MAMBA: True # 是否使用Mamba
   FROZEN: True # 是否冻结
+  FLOPS_TEST: False # FLOPs测试标志
+  NECK: 'bnneck' # 颈部网络类型
+  FEAT_DIM: 512 # 特征维度
   
   # ========== 原始CLIP配置（不加多尺度滑动窗口）==========
   # 功能：使用原始CLIP分支，不添加多尺度滑动窗口处理
