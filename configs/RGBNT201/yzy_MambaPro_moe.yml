@@ -1,3 +1,5 @@
+# 文件说明：该部分是我们的创新点实验的配置文件    
+
 MODEL:
   PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
   TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
@@ -76,7 +78,7 @@ INPUT:
 
 DATALOADER:
   SAMPLER: 'softmax_triplet' # 采样器
-  NUM_INSTANCE: 8 # 每个批次实例数 (提高采样多样性)
+  NUM_INSTANCE: 4 # 每个批次实例数
   NUM_WORKERS: 8 # 工作线程数
 
 DATASETS:
@@ -84,54 +86,30 @@ DATASETS:
   ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
 
 SOLVER:
-  # 优化器设置
-  OPTIMIZER_NAME: 'Adam' # 优化器名称
-  BASE_LR: 0.0005 # 基础学习率 (论文baseline推荐值)
-  WEIGHT_DECAY: 0.0005 # 权重衰减
-  WEIGHT_DECAY_BIAS: 0.0005 # 偏置权重衰减
-  MOMENTUM: 0.9 # 动量
+  BASE_LR: 0.00035
+  WARMUP_ITERS: 10
+  MAX_EPOCHS: 60
+  OPTIMIZER_NAME: 'Adam'
+  GAMMA: 0.1
+  IMS_PER_BATCH: 64
   
-  # 训练设置
-  MAX_EPOCHS: 60 # 最大迭代数 (论文标准设置)
-  IMS_PER_BATCH: 32 # 每个批次图像数 (提高训练稳定性)
-  WARMUP_ITERS: 20 # 预热迭代数 (充分预热)
-  WARMUP_METHOD: 'linear' # 预热方法
-  WARMUP_FACTOR: 0.01 # 预热因子
-  
-  # 损失函数设置
-  MARGIN: 0.3 # 三元组损失边界
-  CENTER_LOSS_WEIGHT: 0.0005 # 中心损失权重
-  CENTER_LR: 0.5 # 中心学习率
-  
-  # ========== 最优MoE损失权重：基于经验的精心调优 ==========
-  # 🏆 专家平衡损失权重：0.01
+  # ========== MoE损失权重：基于经验的精心调优 ==========
+  # 🏆 专家平衡损失权重：0.001
   MOE_BALANCE_LOSS_WEIGHT: 0.001 # 🔧 MoE专家平衡损失权重（调优：从0.01降低到0.001，减少对主要任务干扰）
   
-  # 🏆 稀疏性损失权重：0.001
+  # 🏆 稀疏性损失权重：0.0001
   MOE_SPARSITY_LOSS_WEIGHT: 0.0001 # 🔧 MoE稀疏性损失权重（调优：从0.001降低到0.0001，减少训练不稳定）
   
-  # 🏆 多样性损失权重：0.01
+  # 🏆 多样性损失权重：0.001
   MOE_DIVERSITY_LOSS_WEIGHT: 0.001 # 🔧 MoE多样性损失权重（调优：从0.01降低到0.001，减少专家分工过度严格）
-  
-  # 学习率调度
-  GAMMA: 0.1 # 衰减率
-  STEPS: (30, 50) # 学习率衰减步数
-  
-  # 其他设置
-  SEED: 42 # 随机种子 (确保可复现性)
-  CHECKPOINT_PERIOD: 10 # 检查点保存周期
-  LOG_PERIOD: 10 # 日志打印周期
-  EVAL_PERIOD: 5 # 验证周期
 
 TEST:
   IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
   RE_RANKING: 'no' # 是否重新排序
-  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251013_110028/models/MambaProbest.pth' # 权重路径
-  NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  NECK_FEAT: 'before' # 颈部特征
   FEAT_NORM: 'yes' # 特征归一化
   MISS: "nothing" # 缺失
 
-# ========== MoE实验输出目录 ==========
-# 实验目的：为MoE实验设置专门的输出目录
-OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/moe_optimized_experiment' # MoE优化实验输出目录
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/jzb_base_optimize'
 
