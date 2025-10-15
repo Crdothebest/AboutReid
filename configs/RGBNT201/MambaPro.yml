@@ -88,30 +88,6 @@ TEST:
 # 🔥 注意：可通过命令行参数--output_dir覆盖此设置
 OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/innovation_experiment' # 创新点实验输出目录
 
-# ========== 创新点使用说明 ==========
-# 用户修改：添加详细的使用说明，方便进行消融实验
-# 
-# 🔥 四种实验组合：
-# 1. 基线方法（无创新点）：
-#    python tools/train.py --config_file configs/RGBNT201/MambaPro.yml --disable_moe
-# 
-# 2. 仅多尺度滑动窗口：
-#    python tools/train.py --config_file configs/RGBNT201/MambaPro.yml --disable_moe MODEL.USE_CLIP_MULTI_SCALE True
-# 
-# 3. 多尺度滑动窗口 + MoE融合：
-#    python tools/train.py --config_file configs/RGBNT201/MambaPro.yml --use_moe
-# 
-# 4. 仅MoE融合（不推荐）：
-#    python tools/train.py --config_file configs/RGBNT201/MambaPro.yml --use_moe MODEL.USE_CLIP_MULTI_SCALE False
-# 
-# 🔥 命令行参数优先级：
-#    --disable_moe > --use_moe > 配置文件设置
-# 
-# 🔥 配置文件直接修改：
-#    修改 USE_CLIP_MULTI_SCALE: True/False 控制多尺度滑动窗口
-#    修改 USE_MULTI_SCALE_MOE: True/False 控制MoE融合
-# 
-# 🔥 消融实验建议：
-#    建议按顺序进行：基线 → 多尺度 → MoE，分析每个创新点的贡献度
+
 
 
