@@ -18,10 +18,13 @@ MODEL:
   DIST_TRAIN: False             # 分布式训练标志
   NECK: 'bnneck'                # 颈部结构类型
   ID_LOSS_TYPE: 'softmax'       # 分类损失类型
+  IF_LABELSMOOTH: 'on'          # 标签平滑
+  IF_WITH_CENTER: 'no'          # 是否使用中心损失
+  NO_MARGIN: True               # 无边界
   DROP_PATH: 0.1                # DropPath比例
-  DROP_OUT: 0.1                 # Dropout比例
-  ATT_DROP_RATE: 0.0            # 注意力Dropout比例
-  DROP_RATE: 0.0                # 通用Dropout比例
+  DROP_OUT: 0.0                 # Dropout比例（最优：0.0）
+  ATT_DROP_RATE: 0.0            # 注意力Dropout比例（最优：0.0）
+  DROP_RATE: 0.0                # 通用Dropout比例（最优：0.0）
   SIE_VIEW: False               # 视角嵌入标志
   
   # ========== Mamba配置 ==========
@@ -42,9 +45,9 @@ MODEL:
   MOE_SCALES: [4, 8, 16]       # MoE滑动窗口尺度（与多尺度滑动窗口保持一致）
   
   # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
-  USE_GATE_FUSION: False       # 默认禁用门控融合机制（使用传统MLP融合）
-  GATE_NUM_HEADS: 8            # 门控网络头数（默认值，不使用）
-  GATE_DROPOUT: 0.1            # 门控网络Dropout比例（默认值，不使用）
+  USE_GATE_FUSION: False
+  GATE_NUM_HEADS: 8
+  GATE_DROPOUT: 0.1
   
   # ========== 最优MoE参数：基于经验的精心调优组合 ==========
   # 🏆 专家网络隐藏层维度：1024维（经验最优值）
@@ -86,21 +89,6 @@ MODEL:
   # 原理：1.0保持完整的残差连接，确保梯度流动
   # 经验：0.5梯度流动不足，1.0梯度流动最佳
   MOE_RESIDUAL_WEIGHT: 1.0      # 🏆 残差连接权重（经验最优：1.0）
-  
-  # ========== 模型测试配置 ==========
-  FLOPS_TEST: False             # FLOPs测试标志（默认关闭）
-  DEVICE_ID: 0                  # 设备ID
-  DIST_TRAIN: False             # 分布式训练标志
-  NECK: 'bnneck'                # 颈部结构类型
-  ID_LOSS_TYPE: 'softmax'       # 分类损失类型
-  DROP_PATH: 0.1                # DropPath比例
-  DROP_OUT: 0.1                 # Dropout比例
-  ATT_DROP_RATE: 0.0            # 注意力Dropout比例（最优：0.0）
-  DROP_RATE: 0.0                # 通用Dropout比例（最优：0.0）
-  SIE_VIEW: False               # 视角嵌入标志
-  
-  # ========== Mamba配置 ==========
-  MAMBA_BI: False                 # Mamba偏置参数
 
 INPUT:
   SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
@@ -167,7 +155,7 @@ SOLVER:
 TEST:
   IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
   RE_RANKING: 'no' # 是否重新排序
-  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251013_110028/models/MambaProbest.pth' # 权重路径
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
   NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
   FEAT_NORM: 'yes' # 特征归一化
   MISS: "nothing" # 缺失
@@ -176,7 +164,7 @@ TEST:
 # 实验目的：为MoE实验设置专门的输出目录
 # 功能：便于对比MoE与基线方法的性能差异
 # 🔥 MoE实验：多尺度滑动窗口 + 优化MoE融合
-OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/moe_optimized_experiment' # MoE优化实验输出目录
+OUTPUT_DIR: 'results/everyExperiments/experiment_20251015_132633/logs'
 
 # ========== MoE实验使用说明 ==========
 # 实验目的：验证优化MoE模块的有效性
