@@ -280,7 +280,13 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
             return None
         
         # 生成Grad-CAM
-        cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=True)
+        try:
+            # 尝试新版本API（无use_cuda参数）
+            cam = GradCAM(model=model, target_layers=[target_layer])
+        except TypeError:
+            # 尝试旧版本API（有use_cuda参数）
+            cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=True)
+        
         grayscale_cam = cam(input_tensor=input_tensor)[0]
         
         return grayscale_cam

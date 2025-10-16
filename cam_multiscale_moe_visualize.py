@@ -455,7 +455,12 @@ def main():
     print("🔥 执行Grad-CAM分析...")
     try:
         target_layer = get_target_layer(model, args.target_layer)
-        cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=True)
+        try:
+            # 尝试新版本API（无use_cuda参数）
+            cam = GradCAM(model=model, target_layers=[target_layer])
+        except TypeError:
+            # 尝试旧版本API（有use_cuda参数）
+            cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=True)
         grayscale_cam = cam(input_tensor=input_tensor)[0]
         print(f"✅ Grad-CAM计算完成，激活图形状: {grayscale_cam.shape}")
         
