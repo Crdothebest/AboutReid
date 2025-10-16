@@ -414,6 +414,7 @@ def calculate_attention_quality(heatmap):
 
 def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, output_dir):
     """创建对比可视化"""
+    print("🎨 开始创建对比可视化...")
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
     
     # 原始图像
@@ -496,8 +497,11 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
     axes[1, 2].axis('off')
     
     plt.tight_layout()
+    print(f"🖼️  正在保存模型对比图到: {os.path.join(output_dir, 'model_comparison.png')}")
     plt.savefig(os.path.join(output_dir, 'model_comparison.png'), dpi=300, bbox_inches='tight')
-    plt.close()
+    plt.close(fig)  # 明确关闭图形对象
+    plt.clf()  # 清除当前图形
+    print("✅ 模型对比图保存完成")
 
 
 def create_multiscale_visualization(rgb_image, multiscale_features, output_dir):
@@ -560,8 +564,11 @@ def create_multiscale_visualization(rgb_image, multiscale_features, output_dir):
     axes[1, 2].axis('off')
     
     plt.tight_layout()
+    print(f"🖼️  正在保存多尺度特征图到: {os.path.join(output_dir, 'multiscale_features.png')}")
     plt.savefig(os.path.join(output_dir, 'multiscale_features.png'), dpi=300, bbox_inches='tight')
-    plt.close()
+    plt.close(fig)  # 明确关闭图形对象
+    plt.clf()  # 清除当前图形
+    print("✅ 多尺度特征图保存完成")
 
 
 def create_moe_visualization(expert_analysis, output_dir):
@@ -611,8 +618,11 @@ def create_moe_visualization(expert_analysis, output_dir):
     axes[1, 1].axis('off')
     
     plt.tight_layout()
+    print(f"🖼️  正在保存MoE专家网络图到: {os.path.join(output_dir, 'moe_experts.png')}")
     plt.savefig(os.path.join(output_dir, 'moe_experts.png'), dpi=300, bbox_inches='tight')
-    plt.close()
+    plt.close(fig)  # 明确关闭图形对象
+    plt.clf()  # 清除当前图形
+    print("✅ MoE专家网络图保存完成")
 
 
 def generate_comparison_report(baseline_quality, your_model_quality, expert_analysis, output_dir):
