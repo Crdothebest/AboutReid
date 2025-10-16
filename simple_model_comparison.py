@@ -345,9 +345,9 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
                     del cam
                 except:
                     pass
-            else:
-                print("⚠️  找不到model.base")
-                return None
+                else:
+                    print("⚠️  找不到model.base")
+                    return None
             
     except Exception as e:
         print(f"⚠️  Grad-CAM生成失败: {e}")
