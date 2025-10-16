@@ -248,6 +248,8 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                     return generate_simulated_heatmap(input_tensor, complexity=0.8)
             except Exception as e:
                 print(f"⚠️  MoE梯度计算失败: {e}")
+                import traceback
+                traceback.print_exc()
                 return generate_simulated_heatmap(input_tensor, complexity=0.8)
         else:
             print("🔄 生成baseline热力图...")
@@ -284,6 +286,8 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                     return generate_simulated_heatmap(input_tensor, complexity=0.3)
             except Exception as e:
                 print(f"⚠️  Baseline梯度计算失败: {e}")
+                import traceback
+                traceback.print_exc()
                 return generate_simulated_heatmap(input_tensor, complexity=0.3)
                 
     except Exception as e:
