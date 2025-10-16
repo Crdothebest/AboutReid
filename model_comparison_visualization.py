@@ -262,10 +262,11 @@ class ModelWrapper(torch.nn.Module):
             return self.model(x)
         # 如果输入是张量，包装为字典，包含所有必需的键
         else:
-            # 创建完整的输入字典，包含RGB和NI
+            # 创建完整的输入字典，包含RGB、NI和TI
             model_input = {
                 'RGB': x,
-                'NI': x  # 使用相同的RGB数据作为NI的占位符
+                'NI': x,   # 使用相同的RGB数据作为NI的占位符
+                'TI': x    # 使用相同的RGB数据作为TI的占位符
             }
             return self.model(model_input)
 
