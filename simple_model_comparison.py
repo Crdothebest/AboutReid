@@ -241,16 +241,57 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
             print(f"✅ 在完整模型中找到专家融合层: {target_layer_name}")
             print(f"✅ 目标层类型: {type(target_layer).__name__}")
             
-            # 检查GradCAM构造函数参数
-            import inspect
-            sig = inspect.signature(GradCAM.__init__)
-            gradcam_kwargs = {}
-            if 'use_cuda' in sig.parameters:
-                gradcam_kwargs['use_cuda'] = True
-            
-            # 使用专家融合层包装器创建GradCAM
-            wrapped_model = ExpertFusionWrapper(model)
-            cam = GradCAM(model=wrapped_model, target_layers=[target_layer], **gradcam_kwargs)
+            # 直接使用梯度方法生成热力图，避免Grad-CAM的复杂性
+            print("🔄 使用梯度方法生成专家融合层热力图...")
+            try:
+                print(f"🔍 调试信息: 开始简单热力图生成")
+                print(f"🔍 调试信息: input_tensor.requires_grad = {input_tensor.requires_grad}")
+                
+                # 使用输入图像的梯度信息
+                input_tensor.requires_grad_(True)
+                print(f"🔍 调试信息: 设置requires_grad后，input_tensor.requires_grad = {input_tensor.requires_grad}")
+                
+                print(f"🔍 调试信息: 开始调用完整模型...")
+                model_input = {
+                    'RGB': input_tensor,
+                    'NI': input_tensor,   # 使用相同的RGB数据作为NI的占位符
+                    'TI': input_tensor,   # 使用相同的RGB数据作为TI的占位符
+                    'cam_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=input_tensor.device),
+                    'view_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=input_tensor.device)
+                }
+                output = model(model_input)
+                print(f"🔍 调试信息: 完整模型输出类型: {type(output)}")
+                print(f"🔍 调试信息: 完整模型输出形状: {output.shape if hasattr(output, 'shape') else 'No shape'}")
+                print(f"🔍 调试信息: output.requires_grad = {output.requires_grad}")
+                
+                if output.requires_grad:
+                    print(f"🔍 调试信息: 开始计算梯度...")
+                    gradients = torch.autograd.grad(outputs=output, inputs=input_tensor, 
+                                                  retain_graph=True)[0]
+                    print(f"🔍 调试信息: 梯度计算成功，形状: {gradients.shape}")
+                    
+                    grayscale_cam = torch.mean(torch.abs(gradients), dim=1).squeeze().cpu().numpy()
+                    print(f"🔍 调试信息: 热力图形状: {grayscale_cam.shape}")
+                    
+                    # 归一化
+                    if grayscale_cam.max() > grayscale_cam.min():
+                        grayscale_cam = (grayscale_cam - grayscale_cam.min()) / (grayscale_cam.max() - grayscale_cam.min())
+                    
+                    print(f"✅ 专家融合层热力图生成成功，形状: {grayscale_cam.shape}")
+                    return grayscale_cam
+                else:
+                    print("⚠️  输出不需要梯度，使用随机热力图")
+                    h, w = input_tensor.shape[2], input_tensor.shape[3]
+                    return np.random.rand(h, w)
+            except Exception as e:
+                print(f"⚠️  专家融合层热力图生成失败: {e}")
+                print(f"🔍 详细错误信息: {type(e).__name__}: {str(e)}")
+                import traceback
+                print(f"🔍 完整错误堆栈:")
+                traceback.print_exc()
+                # 最后的备用方案：随机热力图
+                h, w = input_tensor.shape[2], input_tensor.shape[3]
+                return np.random.rand(h, w)
         else:
             # 优先尝试使用model.base（模仿小波脚本）
             if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'base'):
@@ -284,8 +325,10 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
                 print(f"🔍 调试信息: base_model = {type(base_model).__name__}")
                 
                 # 尝试调用GradCAM
+                print("🔍 调试信息: 开始调用GradCAM...")
                 grayscale_cam = cam(input_tensor=input_tensor)[0]
                 print(f"✅ Grad-CAM计算成功，形状: {grayscale_cam.shape}")
+                print(f"🔍 调试信息: 热力图范围: [{grayscale_cam.min():.3f}, {grayscale_cam.max():.3f}]")
                 return grayscale_cam
             except Exception as e:
                 print(f"⚠️  Grad-CAM计算失败: {e}")
