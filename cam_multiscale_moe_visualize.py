@@ -462,15 +462,19 @@ def main():
         sig = inspect.signature(GradCAM.__init__)
         params = list(sig.parameters.keys())
         
-        # 获取实际的层对象而不是字符串
-        layer_obj = target_layer
+        # 确保target_layer是层对象
+        if isinstance(target_layer, str):
+            print(f"⚠️  目标层是字符串，需要转换为层对象: {target_layer}")
+            return None
+        
+        print(f"✅ 目标层类型: {type(target_layer)}")
         
         if 'use_cuda' in params:
             # 旧版本，使用use_cuda参数
-            cam = GradCAM(model=model, target_layers=[layer_obj], use_cuda=torch.cuda.is_available())
+            cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=torch.cuda.is_available())
         else:
             # 新版本，不使用use_cuda参数
-            cam = GradCAM(model=model, target_layers=[layer_obj])
+            cam = GradCAM(model=model, target_layers=[target_layer])
         
         try:
             grayscale_cam = cam(input_tensor=input_tensor)[0]
