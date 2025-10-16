@@ -128,6 +128,16 @@ def load_models(baseline_cfg, your_model_cfg, baseline_weight, your_model_weight
         if not hasattr(cfg.MODEL, 'MAMBA_BI_DIM'):
             cfg.MODEL.MAMBA_BI_DIM = 768
         
+        # 添加更多可能缺失的参数
+        if not hasattr(cfg.MODEL, 'FEAT_DIM'):
+            cfg.MODEL.FEAT_DIM = 2048
+        if not hasattr(cfg.MODEL, 'NUM_CLASSES'):
+            cfg.MODEL.NUM_CLASSES = 171
+        if not hasattr(cfg.MODEL, 'CAMERA_NUM'):
+            cfg.MODEL.CAMERA_NUM = 4
+        if not hasattr(cfg.MODEL, 'VIEW_NUM'):
+            cfg.MODEL.VIEW_NUM = 1
+        
         # 关键参数：根据模型类型设置
         if not hasattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE'):
             cfg.MODEL.USE_CLIP_MULTI_SCALE = is_your_model  # 您的模型启用，Baseline禁用
@@ -144,7 +154,12 @@ def load_models(baseline_cfg, your_model_cfg, baseline_weight, your_model_weight
     
     print("🔄 加载Baseline模型...")
     try:
-        baseline_model = make_model(baseline_cfg, num_class=171, camera_num=4)
+        # 使用配置文件中的参数
+        num_classes = getattr(baseline_cfg.MODEL, 'NUM_CLASSES', 171)
+        camera_num = getattr(baseline_cfg.MODEL, 'CAMERA_NUM', 4)
+        view_num = getattr(baseline_cfg.MODEL, 'VIEW_NUM', 1)
+        
+        baseline_model = make_model(baseline_cfg, num_class=num_classes, camera_num=camera_num, view_num=view_num)
         baseline_model.eval()
         baseline_model.cuda()
         
@@ -156,11 +171,18 @@ def load_models(baseline_cfg, your_model_cfg, baseline_weight, your_model_weight
             return None, None
     except Exception as e:
         print(f"❌ Baseline模型加载失败: {e}")
+        import traceback
+        traceback.print_exc()
         return None, None
     
     print("🔄 加载您的多尺度MoE模型...")
     try:
-        your_model = make_model(your_model_cfg, num_class=171, camera_num=4)
+        # 使用配置文件中的参数
+        num_classes = getattr(your_model_cfg.MODEL, 'NUM_CLASSES', 171)
+        camera_num = getattr(your_model_cfg.MODEL, 'CAMERA_NUM', 4)
+        view_num = getattr(your_model_cfg.MODEL, 'VIEW_NUM', 1)
+        
+        your_model = make_model(your_model_cfg, num_class=num_classes, camera_num=camera_num, view_num=view_num)
         your_model.eval()
         your_model.cuda()
         
@@ -172,6 +194,8 @@ def load_models(baseline_cfg, your_model_cfg, baseline_weight, your_model_weight
             return baseline_model, None
     except Exception as e:
         print(f"❌ 您的模型加载失败: {e}")
+        import traceback
+        traceback.print_exc()
         return baseline_model, None
     
     return baseline_model, your_model
