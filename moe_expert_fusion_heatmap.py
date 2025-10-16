@@ -209,6 +209,7 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
     try:
         if is_moe_model:
             print("🔄 生成MoE专家融合层热力图...")
+            print("🎯 目标：展示MoE专家融合的注意力分布（多尺度+专家网络融合）")
             
             # 尝试使用梯度方法生成热力图
             try:
@@ -219,7 +220,8 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                 device = input_tensor.device
                 model = model.to(device)
                 
-                # 调用MoE模型
+                # 直接调用MoE模型，关注专家融合层
+                print("🔄 调用MoE模型，关注专家融合层...")
                 model_input = {
                     'RGB': input_tensor,
                     'NI': input_tensor,
@@ -227,7 +229,13 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                     'cam_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=device),
                     'view_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=device)
                 }
-                output = model(model_input)
+                try:
+                    output = model(model_input)
+                    print(f"🔍 MoE模型输出: {type(output)}, 形状: {output.shape if hasattr(output, 'shape') else 'No shape'}")
+                except Exception as e:
+                    print(f"🔍 MoE模型调用失败: {e}")
+                    print("⚠️  MoE模型调用失败，无法生成热力图")
+                    return None
                 
                 if output is not None and output.requires_grad:
                     # 计算梯度
@@ -244,15 +252,16 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                     print(f"✅ MoE热力图生成成功，形状: {grayscale_cam.shape}")
                     return grayscale_cam
                 else:
-                    print("⚠️  输出不需要梯度或为None，使用模拟热力图")
-                    return generate_simulated_heatmap(input_tensor, complexity=0.8)
+                    print("⚠️  输出不需要梯度或为None，无法生成热力图")
+                    return None
             except Exception as e:
                 print(f"⚠️  MoE梯度计算失败: {e}")
                 import traceback
                 traceback.print_exc()
-                return generate_simulated_heatmap(input_tensor, complexity=0.8)
+                return None
         else:
             print("🔄 生成baseline热力图...")
+            print("🎯 目标：展示传统CLIP模型的注意力分布（单一尺度特征提取）")
             
             # 使用baseline模型
             try:
@@ -262,14 +271,22 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                 device = input_tensor.device
                 model = model.to(device)
                 
-                # 尝试不同的baseline模型调用方式
-                if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'base'):
-                    output = model.BACKBONE.base(input_tensor)
-                elif hasattr(model, 'base'):
-                    output = model.base(input_tensor)
-                else:
-                    print("⚠️  找不到baseline模型，使用模拟热力图")
-                    return generate_simulated_heatmap(input_tensor, complexity=0.3)
+                # 调用baseline模型，关注CLIP backbone层
+                print("🔄 调用baseline模型，关注CLIP backbone层...")
+                try:
+                    if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'base'):
+                        output = model.BACKBONE.base(input_tensor)
+                    elif hasattr(model, 'base'):
+                        output = model.base(input_tensor)
+                    else:
+                        print("⚠️  找不到baseline模型的backbone，无法生成热力图")
+                        return None
+                    
+                    print(f"🔍 Baseline模型输出: {type(output)}, 形状: {output.shape if hasattr(output, 'shape') else 'No shape'}")
+                except Exception as e:
+                    print(f"🔍 Baseline模型调用失败: {e}")
+                    print("⚠️  Baseline模型调用失败，无法生成热力图")
+                    return None
                 
                 if output is not None and output.requires_grad:
                     gradients = torch.autograd.grad(outputs=output, inputs=input_tensor, 
@@ -282,17 +299,17 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                     print(f"✅ Baseline热力图生成成功，形状: {grayscale_cam.shape}")
                     return grayscale_cam
                 else:
-                    print("⚠️  输出不需要梯度或为None，使用模拟热力图")
-                    return generate_simulated_heatmap(input_tensor, complexity=0.3)
+                    print("⚠️  输出不需要梯度或为None，无法生成热力图")
+                    return None
             except Exception as e:
                 print(f"⚠️  Baseline梯度计算失败: {e}")
                 import traceback
                 traceback.print_exc()
-                return generate_simulated_heatmap(input_tensor, complexity=0.3)
+                return None
                 
     except Exception as e:
         print(f"⚠️  热力图生成失败: {e}")
-        return generate_simulated_heatmap(input_tensor, complexity=0.5)
+        return None
 
 
 def generate_simulated_heatmap(input_tensor, complexity=0.5):
@@ -329,7 +346,7 @@ def create_moe_comparison_visualization(rgb_image, baseline_cam, moe_cam, output
     
     # 创建2x2的子图
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-    fig.suptitle('MoE Expert Fusion Layer Comparison', fontsize=16, fontweight='bold')
+    fig.suptitle('CLIP Backbone vs MoE Expert Fusion Layer Comparison', fontsize=16, fontweight='bold')
     
     # 原始图像
     axes[0, 0].imshow(rgb_image)
@@ -344,7 +361,7 @@ def create_moe_comparison_visualization(rgb_image, baseline_cam, moe_cam, output
             
             baseline_vis = show_cam_on_image(rgb_image, baseline_cam, use_rgb=True)
             axes[0, 1].imshow(baseline_vis)
-            axes[0, 1].set_title('Baseline Model Attention', fontsize=14, fontweight='bold')
+            axes[0, 1].set_title('CLIP Backbone Attention\n(Single-scale Feature)', fontsize=14, fontweight='bold')
             axes[0, 1].axis('off')
         except Exception as e:
             print(f"⚠️  Baseline热力图处理失败: {e}")
@@ -364,7 +381,7 @@ def create_moe_comparison_visualization(rgb_image, baseline_cam, moe_cam, output
             
             moe_vis = show_cam_on_image(rgb_image, moe_cam, use_rgb=True)
             axes[1, 0].imshow(moe_vis)
-            axes[1, 0].set_title('MoE Expert Fusion Attention', fontsize=14, fontweight='bold')
+            axes[1, 0].set_title('MoE Expert Fusion Attention\n(Multi-scale + Expert Network)', fontsize=14, fontweight='bold')
             axes[1, 0].axis('off')
         except Exception as e:
             print(f"⚠️  MoE热力图处理失败: {e}")
@@ -388,7 +405,7 @@ def create_moe_comparison_visualization(rgb_image, baseline_cam, moe_cam, output
             diff_cam = moe_cam - baseline_cam
             diff_vis = show_cam_on_image(rgb_image, diff_cam, use_rgb=True)
             axes[1, 1].imshow(diff_vis)
-            axes[1, 1].set_title('Attention Difference\n(MoE - Baseline)', fontsize=14, fontweight='bold')
+            axes[1, 1].set_title('Attention Difference\n(MoE Expert Fusion - CLIP Backbone)', fontsize=14, fontweight='bold')
             axes[1, 1].axis('off')
         except Exception as e:
             print(f"⚠️  注意力差异图处理失败: {e}")
@@ -485,10 +502,12 @@ def main():
     # 创建对比可视化
     create_moe_comparison_visualization(rgb_image, baseline_cam, moe_cam, args.output_dir)
     
-    print("🎉 MoE专家融合层热力图分析完成！")
+    print("🎉 CLIP Backbone vs MoE Expert Fusion Layer 热力图分析完成！")
     print(f"📁 结果保存在: {args.output_dir}")
     print(f"🖼️  测试图像: {args.img_path}")
-    print(f"🎯 目标层: MoE专家融合层")
+    print(f"🎯 对比目标:")
+    print(f"   - Baseline: CLIP Backbone (单一尺度特征提取)")
+    print(f"   - 您的模型: MoE Expert Fusion (多尺度+专家网络融合)")
 
 
 if __name__ == "__main__":
