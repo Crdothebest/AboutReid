@@ -98,7 +98,7 @@ def get_target_layer(model, layer_name):
     """从模型中获取指定的目标层"""
     try:
         print(f"🔍 调试信息: 开始查找目标层: {layer_name}")
-        print(f"🔍 调试信息: 模型类型: {type(model)}")
+        print(f"🔍 调试信息: 模型类型: {type(model).__name__}")
         
         parts = layer_name.split('.')
         print(f"🔍 调试信息: 层路径: {parts}")
@@ -106,18 +106,18 @@ def get_target_layer(model, layer_name):
         current = model
         for i, part in enumerate(parts):
             print(f"🔍 调试信息: 步骤 {i+1}: 查找 {part}")
-            print(f"🔍 调试信息: 当前对象类型: {type(current)}")
-            print(f"🔍 调试信息: 当前对象属性: {dir(current)[:10]}...")  # 只显示前10个属性
+        print(f"🔍 调试信息: 当前对象类型: {type(current).__name__}")
+        # 不输出详细的属性列表，避免冗长的网络结构信息
             
             if hasattr(current, part):
                 current = getattr(current, part)
-                print(f"🔍 调试信息: 找到 {part}, 类型: {type(current)}")
+                print(f"🔍 调试信息: 找到 {part}, 类型: {type(current).__name__}")
             else:
                 print(f"🔍 调试信息: 未找到属性 {part}")
                 print(f"🔍 调试信息: 可用属性: {[attr for attr in dir(current) if not attr.startswith('_')]}")
                 raise AttributeError(f"未找到属性: {part}")
         
-        print(f"🔍 调试信息: 目标层查找成功: {type(current)}")
+        print(f"🔍 调试信息: 目标层查找成功: {type(current).__name__}")
         return current
     except AttributeError as e:
         print(f"⚠️  未找到目标层: {layer_name}")
@@ -157,7 +157,7 @@ def load_model(cfg_path, weight_path, is_your_model=False):
     print(f"📥 加载模型权重: {weight_path}")
     try:
         print(f"🔍 调试信息: 开始加载模型权重...")
-        print(f"🔍 调试信息: 模型类型: {type(model)}")
+        print(f"🔍 调试信息: 模型类型: {type(model).__name__}")
         print(f"🔍 调试信息: 模型设备: {next(model.parameters()).device}")
         
         model.load_param(weight_path)
@@ -208,7 +208,7 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
                 print("🔄 正在计算Grad-CAM...")
                 print(f"🔍 调试信息: input_tensor.shape = {input_tensor.shape}")
                 print(f"🔍 调试信息: target_layer = {target_layer}")
-                print(f"🔍 调试信息: base_model = {type(base_model)}")
+                print(f"🔍 调试信息: base_model = {type(base_model).__name__}")
                 
                 # 尝试调用GradCAM
                 grayscale_cam = cam(input_tensor=input_tensor)[0]
