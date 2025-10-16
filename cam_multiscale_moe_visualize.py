@@ -38,6 +38,11 @@ import os
 import torch
 import cv2
 import numpy as np
+
+# 设置matplotlib环境变量
+os.environ['MPLBACKEND'] = 'Agg'
+import matplotlib
+matplotlib.use('Agg')  # 设置非交互式后端
 import matplotlib.pyplot as plt
 from PIL import Image
 from torchvision import transforms
