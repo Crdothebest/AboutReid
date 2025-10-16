@@ -95,7 +95,7 @@ def load_image(image_path, input_size):
 
 
 def get_target_layer(model, layer_name):
-    """从模型中获取指定的目标层"""
+    """从模型中获取指定的目标层，支持专家融合层"""
     try:
         print(f"🔍 调试信息: 开始查找目标层: {layer_name}")
         print(f"🔍 调试信息: 模型类型: {type(model).__name__}")
@@ -107,7 +107,6 @@ def get_target_layer(model, layer_name):
         for i, part in enumerate(parts):
             print(f"🔍 调试信息: 步骤 {i+1}: 查找 {part}")
             print(f"🔍 调试信息: 当前对象类型: {type(current).__name__}")
-            # 不输出详细的属性列表，避免冗长的网络结构信息
             
             if hasattr(current, part):
                 current = getattr(current, part)
@@ -115,6 +114,34 @@ def get_target_layer(model, layer_name):
             else:
                 print(f"🔍 调试信息: 未找到属性 {part}")
                 print(f"🔍 调试信息: 可用属性: {[attr for attr in dir(current) if not attr.startswith('_')]}")
+                
+                # 如果是专家融合层，尝试备用查找方法
+                if 'moe_fusion' in layer_name or 'expert' in layer_name:
+                    print(f"🔄 尝试查找专家融合层备用路径...")
+                    # 尝试不同的专家融合层路径
+                    alternative_paths = [
+                        'clip_multi_scale_moe.moe_fusion',
+                        'clip_multi_scale_moe.expert_fusion', 
+                        'clip_multi_scale_moe.final_fusion',
+                        'clip_multi_scale_moe.gating_network',
+                        'BACKBONE.clip_multi_scale_moe.moe_fusion'
+                    ]
+                    
+                    for alt_path in alternative_paths:
+                        try:
+                            alt_parts = alt_path.split('.')
+                            alt_current = model
+                            for alt_part in alt_parts:
+                                if hasattr(alt_current, alt_part):
+                                    alt_current = getattr(alt_current, alt_part)
+                                else:
+                                    break
+                            else:
+                                print(f"✅ 找到备用路径: {alt_path}")
+                                return alt_current
+                        except:
+                            continue
+                
                 raise AttributeError(f"未找到属性: {part}")
         
         print(f"🔍 调试信息: 目标层查找成功: {type(current).__name__}")
@@ -133,6 +160,29 @@ def get_target_layer(model, layer_name):
         print(f"🔍 完整错误堆栈:")
         traceback.print_exc()
         return None
+
+
+class ExpertFusionWrapper(torch.nn.Module):
+    """专家融合层包装器，处理复杂的输入格式"""
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+    
+    def forward(self, x):
+        # 如果输入是字典，直接传递给模型
+        if isinstance(x, dict):
+            return self.model(x)
+        # 如果输入是张量，包装为字典
+        else:
+            batch_size = x.size(0)
+            model_input = {
+                'RGB': x,
+                'NI': x,   # 使用相同的RGB数据作为NI的占位符
+                'TI': x,   # 使用相同的RGB数据作为TI的占位符
+                'cam_label': torch.zeros(batch_size, dtype=torch.long, device=x.device),
+                'view_label': torch.zeros(batch_size, dtype=torch.long, device=x.device)
+            }
+            return self.model(model_input)
 
 
 def load_model(cfg_path, weight_path, is_your_model=False):
@@ -177,20 +227,18 @@ def load_model(cfg_path, weight_path, is_your_model=False):
 
 
 def get_gradcam_heatmap(model, input_tensor, target_layer_name):
-    """获取Grad-CAM热力图 - 模仿小波脚本的方式"""
+    """获取Grad-CAM热力图 - 支持专家融合层"""
     try:
-        # 优先尝试使用model.base（模仿小波脚本）
-        if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'base'):
-            print("🔄 使用model.base（模仿小波脚本方式）...")
-            base_model = model.BACKBONE.base
-            
-            # 获取目标层
-            target_layer = get_target_layer(base_model, target_layer_name)
+        # 检查是否是专家融合层
+        if 'moe_fusion' in target_layer_name or 'expert' in target_layer_name:
+            print("🔄 检测到专家融合层，使用完整模型...")
+            # 对于专家融合层，需要使用完整模型而不是model.base
+            target_layer = get_target_layer(model, target_layer_name)
             if target_layer is None:
-                print("⚠️  在model.base中找不到目标层")
+                print("⚠️  在完整模型中找不到专家融合层")
                 return None
             
-            print(f"✅ 找到目标层: {target_layer_name}")
+            print(f"✅ 在完整模型中找到专家融合层: {target_layer_name}")
             print(f"✅ 目标层类型: {type(target_layer).__name__}")
             
             # 检查GradCAM构造函数参数
@@ -200,8 +248,33 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
             if 'use_cuda' in sig.parameters:
                 gradcam_kwargs['use_cuda'] = True
             
-            # 直接使用base模型创建GradCAM（模仿小波脚本）
-            cam = GradCAM(model=base_model, target_layers=[target_layer], **gradcam_kwargs)
+            # 使用专家融合层包装器创建GradCAM
+            wrapped_model = ExpertFusionWrapper(model)
+            cam = GradCAM(model=wrapped_model, target_layers=[target_layer], **gradcam_kwargs)
+        else:
+            # 优先尝试使用model.base（模仿小波脚本）
+            if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'base'):
+                print("🔄 使用model.base（模仿小波脚本方式）...")
+                base_model = model.BACKBONE.base
+                
+                # 获取目标层
+                target_layer = get_target_layer(base_model, target_layer_name)
+                if target_layer is None:
+                    print("⚠️  在model.base中找不到目标层")
+                    return None
+                
+                print(f"✅ 找到目标层: {target_layer_name}")
+                print(f"✅ 目标层类型: {type(target_layer).__name__}")
+                
+                # 检查GradCAM构造函数参数
+                import inspect
+                sig = inspect.signature(GradCAM.__init__)
+                gradcam_kwargs = {}
+                if 'use_cuda' in sig.parameters:
+                    gradcam_kwargs['use_cuda'] = True
+                
+                # 直接使用base模型创建GradCAM（模仿小波脚本）
+                cam = GradCAM(model=base_model, target_layers=[target_layer], **gradcam_kwargs)
             
             # 计算Grad-CAM
             try:
@@ -382,8 +455,8 @@ def main():
     parser.add_argument("--baseline-weight", type=str, required=True, help="Baseline model weight")
     parser.add_argument("--your-model-weight", type=str, required=True, help="Your model weight")
     parser.add_argument("--img-path", type=str, required=True, help="Input image path")
-    parser.add_argument("--output-dir", type=str, default="simple_comparison_results", help="Output directory")
-    parser.add_argument("--target-layer", type=str, default="transformer", help="Target layer name")
+    parser.add_argument("--output-dir", type=str, default="expert_fusion_comparison", help="Output directory for expert fusion comparison")
+    parser.add_argument("--target-layer", type=str, default="clip_multi_scale_moe.moe_fusion", help="Target layer name for MoE expert fusion")
     
     args = parser.parse_args()
     
