@@ -279,17 +279,30 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
             print(f"可用层: {available_layers[:10]}...")
             return None
         
-        # 生成Grad-CAM
-        # 直接使用新版本API，不使用use_cuda参数
-        cam = GradCAM(model=model, target_layers=[target_layer])
+        # 生成Grad-CAM - 使用兼容性更好的方法
+        import inspect
+        
+        # 检查GradCAM构造函数的参数
+        sig = inspect.signature(GradCAM.__init__)
+        params = list(sig.parameters.keys())
+        
+        if 'use_cuda' in params:
+            # 旧版本，使用use_cuda参数
+            cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=torch.cuda.is_available())
+        else:
+            # 新版本，不使用use_cuda参数
+            cam = GradCAM(model=model, target_layers=[target_layer])
         
         try:
             grayscale_cam = cam(input_tensor=input_tensor)[0]
             return grayscale_cam
         finally:
             # 确保正确清理GradCAM对象
-            if hasattr(cam, 'activations_and_grads'):
-                cam.activations_and_grads.release()
+            try:
+                if hasattr(cam, 'activations_and_grads'):
+                    cam.activations_and_grads.release()
+            except:
+                pass
             del cam
     except Exception as e:
         print(f"⚠️  Grad-CAM生成失败: {e}")
