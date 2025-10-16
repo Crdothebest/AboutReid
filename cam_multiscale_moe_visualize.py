@@ -88,6 +88,20 @@ import yaml
 # 导入自定义的模型结构
 from modeling.make_model import make_model
 
+class ModelWrapper(torch.nn.Module):
+    """模型包装器，处理字典输入"""
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+    
+    def forward(self, x):
+        # 如果输入是字典，直接传递给模型
+        if isinstance(x, dict):
+            return self.model(x)
+        # 如果输入是张量，包装为字典
+        else:
+            return self.model({'RGB': x})
+
 
 def load_config(cfg_path):
     """
@@ -454,26 +468,28 @@ def main():
     # ========== Grad-CAM 分析 ==========
     print("🔥 执行Grad-CAM分析...")
     try:
-        target_layer = get_target_layer(model, args.target_layer)
+        # 创建模型包装器
+        wrapped_model = ModelWrapper(model)
+        target_layer = get_target_layer(wrapped_model.model, args.target_layer)
+        
         # 使用最简化的方法
         print(f"✅ 目标层类型: {type(target_layer)}")
         
-        # 使用最基础的GradCAM配置
+        # 使用包装后的模型和GradCAM配置
         try:
-            cam = GradCAM(model=model, target_layers=[target_layer])
+            cam = GradCAM(model=wrapped_model, target_layers=[target_layer])
         except Exception as e:
             print(f"⚠️  GradCAM初始化失败: {e}")
             # 尝试使用不同的初始化方法
             try:
-                cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=False)
+                cam = GradCAM(model=wrapped_model, target_layers=[target_layer], use_cuda=False)
             except Exception as e2:
                 print(f"⚠️  备用GradCAM初始化也失败: {e2}")
                 return None
         
         try:
-            # 模型期望字典输入，需要包装输入
-            model_input = {'RGB': input_tensor}
-            grayscale_cam = cam(input_tensor=model_input)[0]
+            # 直接传递张量，包装器会处理字典转换
+            grayscale_cam = cam(input_tensor=input_tensor)[0]
             print(f"✅ Grad-CAM计算完成，激活图形状: {grayscale_cam.shape}")
         finally:
             # 确保正确清理GradCAM对象
