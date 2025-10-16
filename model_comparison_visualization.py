@@ -263,10 +263,13 @@ class ModelWrapper(torch.nn.Module):
         # 如果输入是张量，包装为字典，包含所有必需的键
         else:
             # 创建完整的输入字典，包含RGB、NI和TI
+            # 同时提供必要的标签信息
             model_input = {
                 'RGB': x,
                 'NI': x,   # 使用相同的RGB数据作为NI的占位符
-                'TI': x    # 使用相同的RGB数据作为TI的占位符
+                'TI': x,   # 使用相同的RGB数据作为TI的占位符
+                'cam_label': torch.zeros(x.size(0), dtype=torch.long, device=x.device),  # 相机标签
+                'view_label': torch.zeros(x.size(0), dtype=torch.long, device=x.device)   # 视角标签
             }
             return self.model(model_input)
 
