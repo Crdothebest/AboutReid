@@ -210,31 +210,32 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
         if is_moe_model:
             print("🔄 生成MoE专家融合层热力图...")
             
-            # 使用MoE模型包装器
-            wrapped_model = MoEModelWrapper(model)
-            
             # 尝试使用梯度方法生成热力图
             try:
                 print("🔄 使用梯度方法生成MoE热力图...")
                 input_tensor.requires_grad_(True)
+                
+                # 确保所有张量在同一设备上
+                device = input_tensor.device
+                model = model.to(device)
                 
                 # 调用MoE模型
                 model_input = {
                     'RGB': input_tensor,
                     'NI': input_tensor,
                     'TI': input_tensor,
-                    'cam_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=input_tensor.device),
-                    'view_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=input_tensor.device)
+                    'cam_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=device),
+                    'view_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=device)
                 }
                 output = model(model_input)
                 
-                if output.requires_grad:
+                if output is not None and output.requires_grad:
                     # 计算梯度
                     gradients = torch.autograd.grad(outputs=output, inputs=input_tensor, 
                                                   retain_graph=True)[0]
                     
                     # 生成热力图
-                    grayscale_cam = torch.mean(torch.abs(gradients), dim=1).squeeze().cpu().numpy()
+                    grayscale_cam = torch.mean(torch.abs(gradients), dim=1).squeeze().detach().cpu().numpy()
                     
                     # 归一化
                     if grayscale_cam.max() > grayscale_cam.min():
@@ -243,7 +244,7 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                     print(f"✅ MoE热力图生成成功，形状: {grayscale_cam.shape}")
                     return grayscale_cam
                 else:
-                    print("⚠️  输出不需要梯度，使用模拟热力图")
+                    print("⚠️  输出不需要梯度或为None，使用模拟热力图")
                     return generate_simulated_heatmap(input_tensor, complexity=0.8)
             except Exception as e:
                 print(f"⚠️  MoE梯度计算失败: {e}")
@@ -254,12 +255,24 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
             # 使用baseline模型
             try:
                 input_tensor.requires_grad_(True)
-                output = model.BACKBONE.base(input_tensor)
                 
-                if output.requires_grad:
+                # 确保模型在正确设备上
+                device = input_tensor.device
+                model = model.to(device)
+                
+                # 尝试不同的baseline模型调用方式
+                if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'base'):
+                    output = model.BACKBONE.base(input_tensor)
+                elif hasattr(model, 'base'):
+                    output = model.base(input_tensor)
+                else:
+                    print("⚠️  找不到baseline模型，使用模拟热力图")
+                    return generate_simulated_heatmap(input_tensor, complexity=0.3)
+                
+                if output is not None and output.requires_grad:
                     gradients = torch.autograd.grad(outputs=output, inputs=input_tensor, 
                                                   retain_graph=True)[0]
-                    grayscale_cam = torch.mean(torch.abs(gradients), dim=1).squeeze().cpu().numpy()
+                    grayscale_cam = torch.mean(torch.abs(gradients), dim=1).squeeze().detach().cpu().numpy()
                     
                     if grayscale_cam.max() > grayscale_cam.min():
                         grayscale_cam = (grayscale_cam - grayscale_cam.min()) / (grayscale_cam.max() - grayscale_cam.min())
@@ -267,7 +280,7 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                     print(f"✅ Baseline热力图生成成功，形状: {grayscale_cam.shape}")
                     return grayscale_cam
                 else:
-                    print("⚠️  输出不需要梯度，使用模拟热力图")
+                    print("⚠️  输出不需要梯度或为None，使用模拟热力图")
                     return generate_simulated_heatmap(input_tensor, complexity=0.3)
             except Exception as e:
                 print(f"⚠️  Baseline梯度计算失败: {e}")
@@ -284,7 +297,8 @@ def generate_simulated_heatmap(input_tensor, complexity=0.5):
         h, w = input_tensor.shape[2], input_tensor.shape[3]
         
         # 使用输入图像的RGB通道信息生成热力图
-        rgb_data = input_tensor.squeeze(0).cpu().numpy()  # [3, H, W]
+        # 使用detach()来避免梯度问题
+        rgb_data = input_tensor.squeeze(0).detach().cpu().numpy()  # [3, H, W]
         
         # 计算每个像素的强度
         intensity = np.mean(np.abs(rgb_data), axis=0)  # [H, W]
