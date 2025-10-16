@@ -558,31 +558,90 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
     
     # Baseline热力图
     if baseline_cam is not None:
-        baseline_vis = show_cam_on_image(rgb_image, baseline_cam, use_rgb=True)
-        axes[0, 1].imshow(baseline_vis)
-        axes[0, 1].set_title('Baseline Model Attention', fontsize=14, fontweight='bold')
-        axes[0, 1].axis('off')
+        try:
+            # 确保热力图是numpy数组且维度正确
+            if isinstance(baseline_cam, torch.Tensor):
+                baseline_cam_np = baseline_cam.cpu().numpy()
+            else:
+                baseline_cam_np = baseline_cam
+            
+            # 调整热力图尺寸以匹配图像
+            if baseline_cam_np.shape != rgb_image.shape[:2]:
+                import cv2
+                baseline_cam_np = cv2.resize(baseline_cam_np, (rgb_image.shape[1], rgb_image.shape[0]))
+            
+            baseline_vis = show_cam_on_image(rgb_image, baseline_cam_np, use_rgb=True)
+            axes[0, 1].imshow(baseline_vis)
+            axes[0, 1].set_title('Baseline Model Attention', fontsize=14, fontweight='bold')
+            axes[0, 1].axis('off')
+        except Exception as e:
+            print(f"⚠️  Baseline热力图处理失败: {e}")
+            axes[0, 1].text(0.5, 0.5, 'Baseline CAM\nProcessing Error', 
+                           ha='center', va='center', transform=axes[0, 1].transAxes)
+            axes[0, 1].axis('off')
     else:
         axes[0, 1].text(0.5, 0.5, 'Baseline热力图\n生成失败', ha='center', va='center', fontsize=12)
         axes[0, 1].axis('off')
     
     # 您的模型热力图
     if your_model_cam is not None:
-        your_model_vis = show_cam_on_image(rgb_image, your_model_cam, use_rgb=True)
-        axes[0, 2].imshow(your_model_vis)
-        axes[0, 2].set_title('Your Model Attention', fontsize=14, fontweight='bold')
-        axes[0, 2].axis('off')
+        try:
+            # 确保热力图是numpy数组且维度正确
+            if isinstance(your_model_cam, torch.Tensor):
+                your_model_cam_np = your_model_cam.cpu().numpy()
+            else:
+                your_model_cam_np = your_model_cam
+            
+            # 调整热力图尺寸以匹配图像
+            if your_model_cam_np.shape != rgb_image.shape[:2]:
+                import cv2
+                your_model_cam_np = cv2.resize(your_model_cam_np, (rgb_image.shape[1], rgb_image.shape[0]))
+            
+            your_model_vis = show_cam_on_image(rgb_image, your_model_cam_np, use_rgb=True)
+            axes[0, 2].imshow(your_model_vis)
+            axes[0, 2].set_title('Your Model Attention', fontsize=14, fontweight='bold')
+            axes[0, 2].axis('off')
+        except Exception as e:
+            print(f"⚠️  您的模型热力图处理失败: {e}")
+            axes[0, 2].text(0.5, 0.5, 'Your Model CAM\nProcessing Error', 
+                           ha='center', va='center', transform=axes[0, 2].transAxes)
+            axes[0, 2].axis('off')
     else:
         axes[0, 2].text(0.5, 0.5, '您的模型热力图\n生成失败', ha='center', va='center', fontsize=12)
         axes[0, 2].axis('off')
     
     # 注意力差异图
     if baseline_cam is not None and your_model_cam is not None:
-        diff_cam = your_model_cam - baseline_cam
-        diff_vis = show_cam_on_image(rgb_image, diff_cam, use_rgb=True)
-        axes[1, 0].imshow(diff_vis)
-        axes[1, 0].set_title('Attention Difference\n(Your Model - Baseline)', fontsize=14, fontweight='bold')
-        axes[1, 0].axis('off')
+        try:
+            # 确保两个热力图都是numpy数组
+            if isinstance(baseline_cam, torch.Tensor):
+                baseline_cam_np = baseline_cam.cpu().numpy()
+            else:
+                baseline_cam_np = baseline_cam
+                
+            if isinstance(your_model_cam, torch.Tensor):
+                your_model_cam_np = your_model_cam.cpu().numpy()
+            else:
+                your_model_cam_np = your_model_cam
+            
+            # 调整热力图尺寸以匹配图像
+            if baseline_cam_np.shape != rgb_image.shape[:2]:
+                import cv2
+                baseline_cam_np = cv2.resize(baseline_cam_np, (rgb_image.shape[1], rgb_image.shape[0]))
+            if your_model_cam_np.shape != rgb_image.shape[:2]:
+                import cv2
+                your_model_cam_np = cv2.resize(your_model_cam_np, (rgb_image.shape[1], rgb_image.shape[0]))
+            
+            diff_cam = your_model_cam_np - baseline_cam_np
+            diff_vis = show_cam_on_image(rgb_image, diff_cam, use_rgb=True)
+            axes[1, 0].imshow(diff_vis)
+            axes[1, 0].set_title('Attention Difference\n(Your Model - Baseline)', fontsize=14, fontweight='bold')
+            axes[1, 0].axis('off')
+        except Exception as e:
+            print(f"⚠️  注意力差异图处理失败: {e}")
+            axes[1, 0].text(0.5, 0.5, 'Attention Difference\nProcessing Error', 
+                           ha='center', va='center', transform=axes[1, 0].transAxes)
+            axes[1, 0].axis('off')
     else:
         axes[1, 0].text(0.5, 0.5, '注意力差异图\n无法生成', ha='center', va='center', fontsize=12)
         axes[1, 0].axis('off')
@@ -908,8 +967,10 @@ def main():
         # 如果所有方法都失败，使用占位符
         if baseline_cam is None or your_model_cam is None:
             print("⚠️  所有目标层都失败，使用随机热力图作为占位符")
-            baseline_cam = torch.rand(256, 128)
-            your_model_cam = torch.rand(256, 128)
+            # 创建与图像尺寸匹配的热力图
+            h, w = rgb_image.shape[:2]
+            baseline_cam = torch.rand(h, w)
+            your_model_cam = torch.rand(h, w)
     else:
         print(f"✅ 成功使用您指定的目标层: {args.target_layer}")
     
