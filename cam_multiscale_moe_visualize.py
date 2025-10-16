@@ -323,6 +323,8 @@ def main():
             cfg.MODEL.ID_LOSS_WEIGHT = 0.25
         if not hasattr(cfg.MODEL, 'TRIPLET_LOSS_WEIGHT'):
             cfg.MODEL.TRIPLET_LOSS_WEIGHT = 1.0
+        if not hasattr(cfg.MODEL, 'ID_LOSS_TYPE'):
+            cfg.MODEL.ID_LOSS_TYPE = 'softmax'
         if not hasattr(cfg.MODEL, 'PROMPT'):
             cfg.MODEL.PROMPT = True
         if not hasattr(cfg.MODEL, 'ADAPTER'):
@@ -331,6 +333,14 @@ def main():
             cfg.MODEL.MAMBA = True
         if not hasattr(cfg.MODEL, 'FROZEN'):
             cfg.MODEL.FROZEN = True
+        
+        # 添加更多可能缺失的参数
+        if not hasattr(cfg.MODEL, 'TRANSFORMER_TYPE'):
+            cfg.MODEL.TRANSFORMER_TYPE = 'ViT-B-16'
+        if not hasattr(cfg.MODEL, 'STRIDE_SIZE'):
+            cfg.MODEL.STRIDE_SIZE = [16, 16]
+        if not hasattr(cfg.MODEL, 'PRETRAIN_PATH_T'):
+            cfg.MODEL.PRETRAIN_PATH_T = '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
         
         # 关键参数：根据您的模型设置
         if not hasattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE'):
