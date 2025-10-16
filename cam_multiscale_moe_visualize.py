@@ -349,6 +349,12 @@ def main():
             cfg.MODEL.JPM = False
         if not hasattr(cfg.MODEL, 'LAST_STRIDE'):
             cfg.MODEL.LAST_STRIDE = 1
+        if not hasattr(cfg.MODEL, 'MAMBA_BI'):
+            cfg.MODEL.MAMBA_BI = False
+        if not hasattr(cfg.MODEL, 'MAMBA_BI_LAYER'):
+            cfg.MODEL.MAMBA_BI_LAYER = 0
+        if not hasattr(cfg.MODEL, 'MAMBA_BI_DIM'):
+            cfg.MODEL.MAMBA_BI_DIM = 768
         
         # 关键参数：根据您的模型设置
         if not hasattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE'):
