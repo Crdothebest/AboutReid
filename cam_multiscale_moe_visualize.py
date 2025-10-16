@@ -15,6 +15,24 @@
 日期：2024
 """
 
+# 关于路径设置：
+# 1. 模型权重路径：/home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251013_110028/models/MambaProbest.pth
+# 2. 输入图像路径：data/RGBNT201/test/RGB/000001_cam1_0_01.jpg
+# 3. 配置文件路径：configs/RGBNT201/MambaPro_moe.yml
+# 4. 输出目录：visualization_results/
+# 5. 目标层名称：clip_multi_scale_moe.moe_fusion
+# 6. 滑动窗口尺度：4, 8, 16
+
+# 关于命令行参数：
+# 使用您的配置文件和具体测试图像
+# # 使用您的配置文件和具体测试图像
+# python cam_multiscale_moe_visualize.py \
+  # --cfg /home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251015_132633/configs/experiment_config.yml \
+  #--img-path /home/zubuntu/workspace/yzy/MambaPro/data/RGBNT201/test/RGB/000258_cam1_0_00.jpg \
+  #--output-dir your_model_heatmaps \
+  #--target-layer clip_multi_scale_moe.moe_fusion
+
+
 import argparse
 import os
 import torch
