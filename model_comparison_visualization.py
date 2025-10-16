@@ -113,6 +113,14 @@ def load_models(baseline_cfg, your_model_cfg, baseline_weight, your_model_weight
             cfg.MODEL.STRIDE_SIZE = [16, 16]
         if not hasattr(cfg.MODEL, 'PRETRAIN_PATH_T'):
             cfg.MODEL.PRETRAIN_PATH_T = '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
+        if not hasattr(cfg.MODEL, 'NECK'):
+            cfg.MODEL.NECK = 'bnneck'
+        if not hasattr(cfg.MODEL, 'NECK_FEAT'):
+            cfg.MODEL.NECK_FEAT = 'after'
+        if not hasattr(cfg.MODEL, 'JPM'):
+            cfg.MODEL.JPM = False
+        if not hasattr(cfg.MODEL, 'LAST_STRIDE'):
+            cfg.MODEL.LAST_STRIDE = 1
         
         # 关键参数：根据模型类型设置
         if not hasattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE'):
