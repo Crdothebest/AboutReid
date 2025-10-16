@@ -455,26 +455,20 @@ def main():
     print("🔥 执行Grad-CAM分析...")
     try:
         target_layer = get_target_layer(model, args.target_layer)
-        # 使用兼容性更好的方法
-        import inspect
-        
-        # 检查GradCAM构造函数的参数
-        sig = inspect.signature(GradCAM.__init__)
-        params = list(sig.parameters.keys())
-        
-        # 确保target_layer是层对象
-        if isinstance(target_layer, str):
-            print(f"⚠️  目标层是字符串，需要转换为层对象: {target_layer}")
-            return None
-        
+        # 使用最简化的方法
         print(f"✅ 目标层类型: {type(target_layer)}")
         
-        if 'use_cuda' in params:
-            # 旧版本，使用use_cuda参数
-            cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=torch.cuda.is_available())
-        else:
-            # 新版本，不使用use_cuda参数
+        # 使用最基础的GradCAM配置
+        try:
             cam = GradCAM(model=model, target_layers=[target_layer])
+        except Exception as e:
+            print(f"⚠️  GradCAM初始化失败: {e}")
+            # 尝试使用不同的初始化方法
+            try:
+                cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=False)
+            except Exception as e2:
+                print(f"⚠️  备用GradCAM初始化也失败: {e2}")
+                return None
         
         try:
             grayscale_cam = cam(input_tensor=input_tensor)[0]
