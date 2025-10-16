@@ -2,13 +2,13 @@
 模型优越性证明：Baseline vs 您的多尺度MoE模型对比可视化
 
 该脚本用于生成Baseline模型与您的多尺度MoE模型的对比热力图，
-通过可视化证明您的模型在注意力分布、多尺度特征提取和MoE专家分工方面的优越性。
+通过可视化证明您的模型在注意力分布、多Scale Features提取和MoE专家分工方面的优越性。
 
 主要功能：
 1. 同时加载Baseline和您的模型
 2. 生成对比Grad-CAM热力图
-3. 可视化多尺度特征提取
-4. 分析MoE专家权重分布
+3. 可视化多Scale Features提取
+4. 分析MoE Expert Weight Distribution
 5. 计算注意力质量指标
 6. 生成对比分析报告
 
@@ -32,12 +32,17 @@ import matplotlib.pyplot as plt
 def setup_chinese_font():
     """设置中文字体支持"""
     import matplotlib.font_manager as fm
+    import warnings
+    
+    # 清除字体缓存
+    fm._rebuild()
     
     # 尝试多种中文字体
     chinese_fonts = [
         'SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 
         'DejaVu Sans', 'Arial Unicode MS', 'Noto Sans CJK SC',
-        'Source Han Sans SC', 'PingFang SC', 'Hiragino Sans GB'
+        'Source Han Sans SC', 'PingFang SC', 'Hiragino Sans GB',
+        'Liberation Sans', 'FreeSans'
     ]
     
     # 检查系统可用字体
@@ -58,10 +63,40 @@ def setup_chinese_font():
         plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
         print("⚠️  未找到中文字体，将使用英文标签")
     
+    # 设置字体相关参数
     plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+    plt.rcParams['font.size'] = 12
+    plt.rcParams['figure.dpi'] = 100
+    
+    # 禁用字体警告
+    warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
+    warnings.filterwarnings('ignore', message='.*Glyph.*missing from current font.*')
+    warnings.filterwarnings('ignore', message='.*missing from current font.*')
 
 # 初始化中文字体
 setup_chinese_font()
+
+# 定义英文标签映射
+LABELS = {
+    'Original Image': 'Original Image',
+    'Baseline Model Attention': 'Baseline Model Attention',
+    'Your Model Attention': 'Your Model Attention', 
+    'Attention Difference\n(Your Model - Baseline)': 'Attention Difference\n(Your Model - Baseline)',
+    'Attention Quality Comparison': 'Attention Quality Comparison',
+    'Multi-scale Feature Comparison': 'Multi-scale Feature Comparison',
+    'MoE Expert Weight Distribution': 'MoE Expert Weight Distribution',
+    'MoE Expert Weight Pie Chart': 'MoE Expert Weight Pie Chart',
+    'Scale Features': 'Scale Features',
+    '特征图': 'Feature Map',
+    '专家网络': 'Expert Network',
+    '权重': 'Weight',
+    '激活值': 'Activation',
+    '注意力': 'Attention',
+    '质量': 'Quality',
+    '对比': 'Comparison',
+    '分布': 'Distribution',
+    '饼图': 'Pie Chart'
+}
 from PIL import Image
 from torchvision import transforms
 from pytorch_grad_cam import GradCAM
@@ -281,7 +316,7 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
 
 
 def extract_multiscale_features(model, input_tensor):
-    """提取多尺度特征（仅对您的模型有效）"""
+    """提取多Scale Features（仅对您的模型有效）"""
     if not hasattr(model, 'clip_multi_scale_moe'):
         print("⚠️  模型没有clip_multi_scale_moe模块")
         return None
@@ -293,7 +328,7 @@ def extract_multiscale_features(model, input_tensor):
         
         for scale in scales:
             try:
-                # 方法1：尝试特定的尺度特征提取方法
+                # 方法1：尝试特定的Scale Features提取方法
                 if hasattr(model.clip_multi_scale_moe, f'extract_scale_{scale}_features'):
                     features = getattr(model.clip_multi_scale_moe, f'extract_scale_{scale}_features')(input_tensor)
                     multiscale_features[f'scale_{scale}'] = features
@@ -452,16 +487,16 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
     print("🎨 开始创建对比可视化...")
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
     
-    # 原始图像
+    # Original Image
     axes[0, 0].imshow(rgb_image)
-    axes[0, 0].set_title('原始图像', fontsize=14, fontweight='bold')
+    axes[0, 0].set_title('Original Image', fontsize=14, fontweight='bold')
     axes[0, 0].axis('off')
     
     # Baseline热力图
     if baseline_cam is not None:
         baseline_vis = show_cam_on_image(rgb_image, baseline_cam, use_rgb=True)
         axes[0, 1].imshow(baseline_vis)
-        axes[0, 1].set_title('Baseline模型注意力', fontsize=14, fontweight='bold')
+        axes[0, 1].set_title('Baseline Model Attention', fontsize=14, fontweight='bold')
         axes[0, 1].axis('off')
     else:
         axes[0, 1].text(0.5, 0.5, 'Baseline热力图\n生成失败', ha='center', va='center', fontsize=12)
@@ -471,7 +506,7 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
     if your_model_cam is not None:
         your_model_vis = show_cam_on_image(rgb_image, your_model_cam, use_rgb=True)
         axes[0, 2].imshow(your_model_vis)
-        axes[0, 2].set_title('您的模型注意力', fontsize=14, fontweight='bold')
+        axes[0, 2].set_title('Your Model Attention', fontsize=14, fontweight='bold')
         axes[0, 2].axis('off')
     else:
         axes[0, 2].text(0.5, 0.5, '您的模型热力图\n生成失败', ha='center', va='center', fontsize=12)
@@ -482,13 +517,13 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
         diff_cam = your_model_cam - baseline_cam
         diff_vis = show_cam_on_image(rgb_image, diff_cam, use_rgb=True)
         axes[1, 0].imshow(diff_vis)
-        axes[1, 0].set_title('注意力差异图\n(您的模型 - Baseline)', fontsize=14, fontweight='bold')
+        axes[1, 0].set_title('Attention Difference\n(Your Model - Baseline)', fontsize=14, fontweight='bold')
         axes[1, 0].axis('off')
     else:
         axes[1, 0].text(0.5, 0.5, '注意力差异图\n无法生成', ha='center', va='center', fontsize=12)
         axes[1, 0].axis('off')
     
-    # 注意力质量对比
+    # Attention Quality Comparison
     baseline_quality = calculate_attention_quality(baseline_cam)
     your_model_quality = calculate_attention_quality(your_model_cam)
     
@@ -506,7 +541,7 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
         axes[1, 1].bar(x + width/2, your_model_values, width, label='您的模型', alpha=0.8)
         axes[1, 1].set_xlabel('注意力质量指标')
         axes[1, 1].set_ylabel('指标值')
-        axes[1, 1].set_title('注意力质量对比', fontsize=14, fontweight='bold')
+        axes[1, 1].set_title('Attention Quality Comparison', fontsize=14, fontweight='bold')
         axes[1, 1].set_xticks(x)
         axes[1, 1].set_xticklabels(metrics, rotation=45)
         axes[1, 1].legend()
@@ -518,7 +553,7 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
     # 模型优势总结
     axes[1, 2].text(0.1, 0.9, '您的模型优势：', fontsize=16, fontweight='bold', transform=axes[1, 2].transAxes)
     advantages = [
-        '✅ 多尺度特征提取',
+        '✅ 多Scale Features提取',
         '✅ MoE专家网络分工',
         '✅ 动态特征融合',
         '✅ 注意力质量提升',
@@ -540,19 +575,19 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
 
 
 def create_multiscale_visualization(rgb_image, multiscale_features, output_dir):
-    """创建多尺度特征可视化"""
+    """创建多Scale Features可视化"""
     if multiscale_features is None:
-        print("⚠️  无法获取多尺度特征")
+        print("⚠️  无法获取多Scale Features")
         return
     
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
     
-    # 原始图像
+    # Original Image
     axes[0, 0].imshow(rgb_image)
-    axes[0, 0].set_title('原始图像', fontsize=14, fontweight='bold')
+    axes[0, 0].set_title('Original Image', fontsize=14, fontweight='bold')
     axes[0, 0].axis('off')
     
-    # 多尺度特征可视化
+    # 多Scale Features可视化
     scales = [4, 8, 16]
     for i, scale in enumerate(scales):
         if f'scale_{scale}' in multiscale_features and multiscale_features[f'scale_{scale}'] is not None:
@@ -565,7 +600,7 @@ def create_multiscale_visualization(rgb_image, multiscale_features, output_dir):
                     features_np = np.mean(features_np, axis=0)
                 
                 axes[0, i+1].imshow(features_np, cmap='hot')
-                axes[0, i+1].set_title(f'{scale}×{scale}尺度特征', fontsize=14, fontweight='bold')
+                axes[0, i+1].set_title(f'{scale}×{scale}Scale Features', fontsize=14, fontweight='bold')
                 axes[0, i+1].axis('off')
             else:
                 axes[0, i+1].text(0.5, 0.5, f'{scale}×{scale}尺度\n特征提取失败', ha='center', va='center', fontsize=12)
@@ -574,8 +609,8 @@ def create_multiscale_visualization(rgb_image, multiscale_features, output_dir):
             axes[0, i+1].text(0.5, 0.5, f'{scale}×{scale}尺度\n特征不可用', ha='center', va='center', fontsize=12)
             axes[0, i+1].axis('off')
     
-    # 多尺度特征融合效果
-    axes[1, 0].text(0.5, 0.5, '多尺度特征\n融合效果', ha='center', va='center', fontsize=14, fontweight='bold')
+    # 多Scale Features融合效果
+    axes[1, 0].text(0.5, 0.5, '多Scale Features\n融合效果', ha='center', va='center', fontsize=14, fontweight='bold')
     axes[1, 0].axis('off')
     
     # 特征互补性分析
@@ -599,11 +634,11 @@ def create_multiscale_visualization(rgb_image, multiscale_features, output_dir):
     axes[1, 2].axis('off')
     
     plt.tight_layout()
-    print(f"🖼️  正在保存多尺度特征图到: {os.path.join(output_dir, 'multiscale_features.png')}")
+    print(f"🖼️  正在保存多Scale Features图到: {os.path.join(output_dir, 'multiscale_features.png')}")
     plt.savefig(os.path.join(output_dir, 'multiscale_features.png'), dpi=300, bbox_inches='tight')
     plt.close(fig)  # 明确关闭图形对象
     plt.clf()  # 清除当前图形
-    print("✅ 多尺度特征图保存完成")
+    print("✅ 多Scale Features图保存完成")
 
 
 def create_moe_visualization(expert_analysis, output_dir):
@@ -619,7 +654,7 @@ def create_moe_visualization(expert_analysis, output_dir):
     expert_names = expert_analysis['expert_names']
     
     bars = axes[0, 0].bar(expert_names, weights, color=['#FF6B6B', '#4ECDC4', '#45B7D1'])
-    axes[0, 0].set_title('MoE专家权重分布', fontsize=14, fontweight='bold')
+    axes[0, 0].set_title('MoE Expert Weight Distribution', fontsize=14, fontweight='bold')
     axes[0, 0].set_ylabel('权重值')
     axes[0, 0].set_ylim(0, 1)
     
@@ -630,7 +665,7 @@ def create_moe_visualization(expert_analysis, output_dir):
     # 专家权重饼图
     axes[0, 1].pie(weights, labels=expert_names, autopct='%1.1f%%', 
                    colors=['#FF6B6B', '#4ECDC4', '#45B7D1'])
-    axes[0, 1].set_title('MoE专家权重饼图', fontsize=14, fontweight='bold')
+    axes[0, 1].set_title('MoE Expert Weight Pie Chart', fontsize=14, fontweight='bold')
     
     # 专家分工可视化
     axes[1, 0].text(0.5, 0.5, '专家分工可视化\n(需要实际特征图)', ha='center', va='center', fontsize=12)
@@ -667,9 +702,9 @@ def generate_comparison_report(baseline_quality, your_model_quality, expert_anal
     report.append("=" * 50)
     report.append("")
     
-    # 注意力质量对比
+    # Attention Quality Comparison
     if baseline_quality and your_model_quality:
-        report.append("## 注意力质量对比")
+        report.append("## Attention Quality Comparison")
         report.append("")
         report.append("| 指标 | Baseline | 您的模型 | 提升 |")
         report.append("|------|----------|----------|------|")
@@ -705,7 +740,7 @@ def generate_comparison_report(baseline_quality, your_model_quality, expert_anal
     # 模型优势总结
     report.append("## 您的模型优势总结")
     report.append("")
-    report.append("### 1. 多尺度特征提取")
+    report.append("### 1. 多Scale Features提取")
     report.append("- ✅ 4×4尺度：捕获局部细节特征")
     report.append("- ✅ 8×8尺度：捕获结构信息特征")
     report.append("- ✅ 16×16尺度：捕获全局上下文特征")
@@ -714,7 +749,7 @@ def generate_comparison_report(baseline_quality, your_model_quality, expert_anal
     report.append("### 2. MoE专家网络分工")
     report.append("- ✅ 专家专业化：不同专家关注不同特征")
     report.append("- ✅ 动态权重：根据输入自适应调整")
-    report.append("- ✅ 智能融合：多尺度特征的协同作用")
+    report.append("- ✅ 智能融合：多Scale Features的协同作用")
     report.append("")
     
     report.append("### 3. 注意力质量提升")
@@ -782,10 +817,10 @@ def main():
     your_model_cam = get_gradcam_heatmap(your_model, input_tensor, args.target_layer)
     print("✅ Grad-CAM热力图生成完成")
 
-    # 提取多尺度特征（仅对您的模型）
-    print("🔍 提取多尺度特征...")
+    # 提取多Scale Features（仅对您的模型）
+    print("🔍 提取多Scale Features...")
     multiscale_features = extract_multiscale_features(your_model, input_tensor)
-    print("✅ 多尺度特征提取完成")
+    print("✅ 多Scale Features提取完成")
 
     # 分析MoE专家网络
     print("🎯 分析MoE专家网络...")
@@ -801,10 +836,10 @@ def main():
     create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, args.output_dir)
     print("✅ 对比可视化已保存")
 
-    # 生成多尺度特征可视化
-    print("🎨 生成多尺度特征可视化...")
+    # 生成多Scale Features可视化
+    print("🎨 生成多Scale Features可视化...")
     create_multiscale_visualization(rgb_image, multiscale_features, args.output_dir)
-    print("✅ 多尺度特征可视化已保存")
+    print("✅ 多Scale Features可视化已保存")
 
     # 生成MoE专家网络可视化
     print("🎨 生成MoE专家网络可视化...")
@@ -825,7 +860,7 @@ def main():
     print(f"🎯 目标层: {args.target_layer}")
     print(f"📊 生成文件:")
     print(f"   - model_comparison.png: 模型对比可视化")
-    print(f"   - multiscale_features.png: 多尺度特征可视化")
+    print(f"   - multiscale_features.png: 多Scale Features可视化")
     print(f"   - moe_experts.png: MoE专家网络可视化")
     print(f"   - comparison_report.md: 对比分析报告")
 

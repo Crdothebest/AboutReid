@@ -76,9 +76,27 @@ def setup_chinese_font():
         print("⚠️  未找到中文字体，将使用英文标签")
     
     plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+    
+    # 禁用字体警告
+    import warnings
+    warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
+    warnings.filterwarnings('ignore', message='.*Glyph.*missing from current font.*')
+    warnings.filterwarnings('ignore', message='.*missing from current font.*')
 
 # 初始化中文字体
 setup_chinese_font()
+
+# 定义英文标签映射
+LABELS = {
+    '原始图像': 'Original Image',
+    'Grad-CAM热力图': 'Grad-CAM Heatmap',
+    '多尺度特征': 'Multi-scale Features',
+    'MoE专家权重': 'MoE Expert Weights',
+    '尺度': 'Scale',
+    '特征': 'Features',
+    '权重': 'Weights',
+    '激活值': 'Activations'
+}
 from PIL import Image
 from torchvision import transforms
 from pytorch_grad_cam import GradCAM
