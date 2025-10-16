@@ -260,9 +260,14 @@ class ModelWrapper(torch.nn.Module):
         # 如果输入是字典，直接传递给模型
         if isinstance(x, dict):
             return self.model(x)
-        # 如果输入是张量，包装为字典
+        # 如果输入是张量，包装为字典，包含所有必需的键
         else:
-            return self.model({'RGB': x})
+            # 创建完整的输入字典，包含RGB和NI
+            model_input = {
+                'RGB': x,
+                'NI': x  # 使用相同的RGB数据作为NI的占位符
+            }
+            return self.model(model_input)
 
 def get_gradcam_heatmap(model, input_tensor, target_layer_name):
     """获取Grad-CAM热力图"""
