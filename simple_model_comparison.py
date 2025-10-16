@@ -97,13 +97,41 @@ def load_image(image_path, input_size):
 def get_target_layer(model, layer_name):
     """从模型中获取指定的目标层"""
     try:
+        print(f"🔍 调试信息: 开始查找目标层: {layer_name}")
+        print(f"🔍 调试信息: 模型类型: {type(model)}")
+        
         parts = layer_name.split('.')
+        print(f"🔍 调试信息: 层路径: {parts}")
+        
         current = model
-        for part in parts:
-            current = getattr(current, part)
+        for i, part in enumerate(parts):
+            print(f"🔍 调试信息: 步骤 {i+1}: 查找 {part}")
+            print(f"🔍 调试信息: 当前对象类型: {type(current)}")
+            print(f"🔍 调试信息: 当前对象属性: {dir(current)[:10]}...")  # 只显示前10个属性
+            
+            if hasattr(current, part):
+                current = getattr(current, part)
+                print(f"🔍 调试信息: 找到 {part}, 类型: {type(current)}")
+            else:
+                print(f"🔍 调试信息: 未找到属性 {part}")
+                print(f"🔍 调试信息: 可用属性: {[attr for attr in dir(current) if not attr.startswith('_')]}")
+                raise AttributeError(f"未找到属性: {part}")
+        
+        print(f"🔍 调试信息: 目标层查找成功: {type(current)}")
         return current
-    except AttributeError:
+    except AttributeError as e:
         print(f"⚠️  未找到目标层: {layer_name}")
+        print(f"🔍 详细错误信息: {type(e).__name__}: {str(e)}")
+        import traceback
+        print(f"🔍 完整错误堆栈:")
+        traceback.print_exc()
+        return None
+    except Exception as e:
+        print(f"⚠️  目标层查找失败: {e}")
+        print(f"🔍 详细错误信息: {type(e).__name__}: {str(e)}")
+        import traceback
+        print(f"🔍 完整错误堆栈:")
+        traceback.print_exc()
         return None
 
 
@@ -128,11 +156,21 @@ def load_model(cfg_path, weight_path, is_your_model=False):
     
     print(f"📥 加载模型权重: {weight_path}")
     try:
+        print(f"🔍 调试信息: 开始加载模型权重...")
+        print(f"🔍 调试信息: 模型类型: {type(model)}")
+        print(f"🔍 调试信息: 模型设备: {next(model.parameters()).device}")
+        
         model.load_param(weight_path)
+        print(f"🔍 调试信息: 权重加载完成")
+        
         model.eval()
         print("✅ 模型权重加载成功")
     except Exception as e:
         print(f"⚠️  模型权重加载失败: {e}")
+        print(f"🔍 详细错误信息: {type(e).__name__}: {str(e)}")
+        import traceback
+        print(f"🔍 完整错误堆栈:")
+        traceback.print_exc()
         print("🔄 尝试继续使用未加载权重的模型...")
     
     return model, cfg
@@ -168,22 +206,45 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
             # 计算Grad-CAM
             try:
                 print("🔄 正在计算Grad-CAM...")
+                print(f"🔍 调试信息: input_tensor.shape = {input_tensor.shape}")
+                print(f"🔍 调试信息: target_layer = {target_layer}")
+                print(f"🔍 调试信息: base_model = {type(base_model)}")
+                
+                # 尝试调用GradCAM
                 grayscale_cam = cam(input_tensor=input_tensor)[0]
                 print(f"✅ Grad-CAM计算成功，形状: {grayscale_cam.shape}")
                 return grayscale_cam
             except Exception as e:
                 print(f"⚠️  Grad-CAM计算失败: {e}")
+                print(f"🔍 详细错误信息: {type(e).__name__}: {str(e)}")
+                import traceback
+                print(f"🔍 完整错误堆栈:")
+                traceback.print_exc()
+                
                 # 尝试生成简单的热力图作为备用
                 print("🔄 尝试生成简单热力图作为备用...")
                 try:
+                    print(f"🔍 调试信息: 开始简单热力图生成")
+                    print(f"🔍 调试信息: input_tensor.requires_grad = {input_tensor.requires_grad}")
+                    
                     # 使用输入图像的梯度信息
                     input_tensor.requires_grad_(True)
+                    print(f"🔍 调试信息: 设置requires_grad后，input_tensor.requires_grad = {input_tensor.requires_grad}")
+                    
+                    print(f"🔍 调试信息: 开始调用base_model...")
                     output = base_model(input_tensor)
+                    print(f"🔍 调试信息: base_model输出类型: {type(output)}")
+                    print(f"🔍 调试信息: base_model输出形状: {output.shape if hasattr(output, 'shape') else 'No shape'}")
+                    print(f"🔍 调试信息: output.requires_grad = {output.requires_grad}")
                     
                     if output.requires_grad:
+                        print(f"🔍 调试信息: 开始计算梯度...")
                         gradients = torch.autograd.grad(outputs=output, inputs=input_tensor, 
                                                       retain_graph=True)[0]
+                        print(f"🔍 调试信息: 梯度计算成功，形状: {gradients.shape}")
+                        
                         grayscale_cam = torch.mean(torch.abs(gradients), dim=1).squeeze().cpu().numpy()
+                        print(f"🔍 调试信息: 热力图形状: {grayscale_cam.shape}")
                         
                         # 归一化
                         if grayscale_cam.max() > grayscale_cam.min():
@@ -197,6 +258,9 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
                         return np.random.rand(h, w)
                 except Exception as e2:
                     print(f"⚠️  简单热力图生成也失败: {e2}")
+                    print(f"🔍 详细错误信息: {type(e2).__name__}: {str(e2)}")
+                    print(f"🔍 完整错误堆栈:")
+                    traceback.print_exc()
                     # 最后的备用方案：随机热力图
                     h, w = input_tensor.shape[2], input_tensor.shape[3]
                     return np.random.rand(h, w)
