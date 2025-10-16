@@ -106,8 +106,8 @@ def get_target_layer(model, layer_name):
         current = model
         for i, part in enumerate(parts):
             print(f"🔍 调试信息: 步骤 {i+1}: 查找 {part}")
-        print(f"🔍 调试信息: 当前对象类型: {type(current).__name__}")
-        # 不输出详细的属性列表，避免冗长的网络结构信息
+            print(f"🔍 调试信息: 当前对象类型: {type(current).__name__}")
+            # 不输出详细的属性列表，避免冗长的网络结构信息
             
             if hasattr(current, part):
                 current = getattr(current, part)
