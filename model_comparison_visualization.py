@@ -442,15 +442,17 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
                 print("🔄 使用最后的备用方案：简单热力图生成...")
                 try:
                     # 使用更简单的方法：直接使用模型输出创建热力图
-                    with torch.no_grad():
-                        # 尝试使用model.base避免复杂的嵌入层
-                        if hasattr(wrapped_model.model, 'BACKBONE') and hasattr(wrapped_model.model.BACKBONE, 'base'):
-                            print("🔄 尝试使用model.base避免嵌入层问题...")
-                            base_model = wrapped_model.model.BACKBONE.base
-                            
-                            # 直接使用base模型
-                            input_tensor.requires_grad_(True)
+                    if hasattr(wrapped_model.model, 'BACKBONE') and hasattr(wrapped_model.model.BACKBONE, 'base'):
+                        print("🔄 尝试使用model.base避免嵌入层问题...")
+                        base_model = wrapped_model.model.BACKBONE.base
+                        
+                        # 直接使用base模型，避免复杂的嵌入层
+                        input_tensor.requires_grad_(True)
+                        
+                        # 尝试直接调用base模型
+                        try:
                             output = base_model(input_tensor)
+                            print(f"✅ base模型调用成功，输出形状: {output.shape}")
                             
                             # 计算梯度
                             if output.requires_grad:
@@ -470,10 +472,15 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
                                 print("⚠️  output不需要梯度，使用随机热力图")
                                 h, w = input_tensor.shape[2], input_tensor.shape[3]
                                 return np.random.rand(h, w)
-                        else:
-                            print("⚠️  找不到model.base，使用随机热力图")
+                        except Exception as base_error:
+                            print(f"⚠️  base模型调用失败: {base_error}")
+                            # 使用随机热力图
                             h, w = input_tensor.shape[2], input_tensor.shape[3]
                             return np.random.rand(h, w)
+                    else:
+                        print("⚠️  找不到model.base，使用随机热力图")
+                        h, w = input_tensor.shape[2], input_tensor.shape[3]
+                        return np.random.rand(h, w)
                 except Exception as e3:
                     print(f"⚠️  简单热力图生成也失败: {e3}")
                     # 最后的最后：返回随机热力图
