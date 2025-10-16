@@ -299,9 +299,10 @@ def get_gradcam_heatmap(model, input_tensor, target_layer_name):
             if torch.cuda.is_available():
                 input_tensor = input_tensor.cuda()
             
-            # 生成Grad-CAM
+            # 模型期望字典输入，需要包装输入
             print("🔄 正在计算Grad-CAM...")
-            grayscale_cam = cam(input_tensor=input_tensor)[0]
+            model_input = {'RGB': input_tensor}
+            grayscale_cam = cam(input_tensor=model_input)[0]
             print(f"✅ Grad-CAM计算成功，形状: {grayscale_cam.shape}")
             return grayscale_cam
         except Exception as e:

@@ -471,7 +471,9 @@ def main():
                 return None
         
         try:
-            grayscale_cam = cam(input_tensor=input_tensor)[0]
+            # 模型期望字典输入，需要包装输入
+            model_input = {'RGB': input_tensor}
+            grayscale_cam = cam(input_tensor=model_input)[0]
             print(f"✅ Grad-CAM计算完成，激活图形状: {grayscale_cam.shape}")
         finally:
             # 确保正确清理GradCAM对象
