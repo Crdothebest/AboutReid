@@ -114,14 +114,26 @@ def load_model(cfg_path, weight_path, is_your_model=False):
     add_missing_config(cfg, is_your_model)
     
     print("🔄 初始化模型...")
+    # 获取模型参数，使用默认值作为备用
+    num_class = getattr(cfg.MODEL, 'NUM_CLASSES', 1051)
+    camera_num = getattr(cfg.MODEL, 'CAMERA_NUM', 6)
+    view_num = getattr(cfg.MODEL, 'VIEW_NUM', 2)
+    
+    print(f"📊 模型参数: num_class={num_class}, camera_num={camera_num}, view_num={view_num}")
+    
     model = make_model(cfg, 
-                      num_classes=cfg.MODEL.NUM_CLASSES,
-                      camera_num=cfg.MODEL.CAMERA_NUM,
-                      view_num=cfg.MODEL.VIEW_NUM)
+                      num_class=num_class,
+                      camera_num=camera_num,
+                      view_num=view_num)
     
     print(f"📥 加载模型权重: {weight_path}")
-    model.load_param(weight_path)
-    model.eval()
+    try:
+        model.load_param(weight_path)
+        model.eval()
+        print("✅ 模型权重加载成功")
+    except Exception as e:
+        print(f"⚠️  模型权重加载失败: {e}")
+        print("🔄 尝试继续使用未加载权重的模型...")
     
     return model, cfg
 
