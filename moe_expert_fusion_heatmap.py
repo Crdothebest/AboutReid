@@ -4,6 +4,21 @@ MoE专家融合层热力图可视化工具
 专门针对「滑动窗口+MoE」模型的专家融合层进行热力图分析，
 展示多尺度特征融合和专家网络选择的注意力分布。
 
+🎯 严格遵循目标层对比原则：
+1. Baseline模型
+   - 关注层：model.BACKBONE.base（CLIP backbone）
+   - 作用：展示传统CLIP模型的注意力分布
+   - 特点：单一尺度特征提取
+
+2. 您的MoE模型
+   - 关注层：完整MoE模型（model(model_input)）
+   - 作用：展示MoE专家融合的注意力分布
+   - 特点：多尺度+专家网络融合
+
+🔒 禁止违反原则：
+- Baseline模型禁止使用完整模型（会包含MoE功能）
+- MoE模型禁止使用model.BACKBONE.base（会变成CLIP backbone）
+
 主要功能：
 1. 加载MoE模型和baseline模型
 2. 对专家融合层进行Grad-CAM分析
@@ -204,12 +219,28 @@ def get_baseline_layer(model, layer_name="transformer"):
         return None
 
 
+def validate_target_layer_principle(is_moe_model, model_type):
+    """验证目标层对比原则是否被正确遵循"""
+    if is_moe_model:
+        print("✅ 验证MoE模型原则：必须使用完整模型（model(model_input)）")
+        print("   - 目的：展示MoE专家融合的注意力分布（多尺度+专家网络融合）")
+        print("   - 禁止：使用model.BACKBONE.base，因为那会变成CLIP backbone")
+    else:
+        print("✅ 验证Baseline模型原则：必须使用CLIP backbone（model.BACKBONE.base）")
+        print("   - 目的：展示传统CLIP模型的注意力分布（单一尺度特征提取）")
+        print("   - 禁止：使用完整模型，因为那会包含MoE功能")
+    return True
+
 def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
     """生成MoE模型的热力图"""
+    # 首先验证目标层对比原则
+    validate_target_layer_principle(is_moe_model, "MoE" if is_moe_model else "Baseline")
+    
     try:
         if is_moe_model:
             print("🔄 生成MoE专家融合层热力图...")
             print("🎯 目标：展示MoE专家融合的注意力分布（多尺度+专家网络融合）")
+            print("🔒 严格遵循：完整MoE模型（model(model_input)）")
             
             # 尝试使用梯度方法生成热力图
             try:
@@ -220,8 +251,14 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                 device = input_tensor.device
                 model = model.to(device)
                 
-                # 直接调用MoE模型，关注专家融合层
+                # ===== 严格遵循目标层对比原则 =====
+                # 您的MoE模型：必须使用完整模型（model(model_input)）
+                # 目的：展示MoE专家融合的注意力分布（多尺度+专家网络融合）
+                # 禁止：使用model.BACKBONE.base，因为那会变成CLIP backbone
                 print("🔄 调用MoE模型，关注专家融合层...")
+                print("🎯 目标：展示MoE专家融合的注意力分布（多尺度+专家网络融合）")
+                
+                # 构建MoE模型输入
                 model_input = {
                     'RGB': input_tensor,
                     'NI': input_tensor,
@@ -229,13 +266,10 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                     'cam_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=device),
                     'view_label': torch.zeros(input_tensor.size(0), dtype=torch.long, device=device)
                 }
-                try:
-                    output = model(model_input)
-                    print(f"🔍 MoE模型输出: {type(output)}, 形状: {output.shape if hasattr(output, 'shape') else 'No shape'}")
-                except Exception as e:
-                    print(f"🔍 MoE模型调用失败: {e}")
-                    print("⚠️  MoE模型调用失败，无法生成热力图")
-                    return None
+                
+                # 调用完整MoE模型（包含专家融合层）
+                output = model(model_input)
+                print(f"🔍 MoE模型输出: {type(output)}, 形状: {output.shape if hasattr(output, 'shape') else 'No shape'}")
                 
                 if output is not None and output.requires_grad:
                     # 计算梯度
@@ -262,6 +296,7 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
         else:
             print("🔄 生成baseline热力图...")
             print("🎯 目标：展示传统CLIP模型的注意力分布（单一尺度特征提取）")
+            print("🔒 严格遵循：CLIP backbone（model.BACKBONE.base）")
             
             # 使用baseline模型
             try:
@@ -271,21 +306,21 @@ def generate_moe_heatmap(model, input_tensor, target_layer, is_moe_model=True):
                 device = input_tensor.device
                 model = model.to(device)
                 
-                # 调用baseline模型，关注CLIP backbone层
+                # ===== 严格遵循目标层对比原则 =====
+                # Baseline模型：必须使用CLIP backbone（model.BACKBONE.base）
+                # 目的：展示传统CLIP模型的注意力分布（单一尺度特征提取）
+                # 禁止：使用完整模型，因为那会包含MoE功能
                 print("🔄 调用baseline模型，关注CLIP backbone层...")
-                try:
-                    if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'base'):
-                        output = model.BACKBONE.base(input_tensor)
-                    elif hasattr(model, 'base'):
-                        output = model.base(input_tensor)
-                    else:
-                        print("⚠️  找不到baseline模型的backbone，无法生成热力图")
-                        return None
-                    
+                
+                # 优先使用model.BACKBONE.base
+                if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'base'):
+                    output = model.BACKBONE.base(input_tensor)
                     print(f"🔍 Baseline模型输出: {type(output)}, 形状: {output.shape if hasattr(output, 'shape') else 'No shape'}")
-                except Exception as e:
-                    print(f"🔍 Baseline模型调用失败: {e}")
-                    print("⚠️  Baseline模型调用失败，无法生成热力图")
+                elif hasattr(model, 'base'):
+                    output = model.base(input_tensor)
+                    print(f"🔍 Baseline模型输出: {type(output)}, 形状: {output.shape if hasattr(output, 'shape') else 'No shape'}")
+                else:
+                    print("⚠️  找不到baseline模型的backbone，无法生成热力图")
                     return None
                 
                 if output is not None and output.requires_grad:
@@ -505,9 +540,13 @@ def main():
     print("🎉 CLIP Backbone vs MoE Expert Fusion Layer 热力图分析完成！")
     print(f"📁 结果保存在: {args.output_dir}")
     print(f"🖼️  测试图像: {args.img_path}")
-    print(f"🎯 对比目标:")
-    print(f"   - Baseline: CLIP Backbone (单一尺度特征提取)")
-    print(f"   - 您的模型: MoE Expert Fusion (多尺度+专家网络融合)")
+    print(f"🎯 严格遵循目标层对比原则:")
+    print(f"   🔵 Baseline: CLIP Backbone (model.BACKBONE.base)")
+    print(f"      - 作用: 展示传统CLIP模型的注意力分布")
+    print(f"      - 特点: 单一尺度特征提取")
+    print(f"   🔴 您的模型: MoE Expert Fusion (完整模型)")
+    print(f"      - 作用: 展示MoE专家融合的注意力分布")
+    print(f"      - 特点: 多尺度+专家网络融合")
 
 
 if __name__ == "__main__":
