@@ -290,15 +290,46 @@ def main():
 
     # ========== 模型初始化和加载 ==========
     print("🔄 初始化模型...")
+    
+    # 添加缺失的配置参数
+    def add_missing_config(cfg):
+        """为配置文件添加缺失的参数"""
+        if not hasattr(cfg.MODEL, 'FLOPS_TEST'):
+            cfg.MODEL.FLOPS_TEST = False
+        if not hasattr(cfg.MODEL, 'DIST_TRAIN'):
+            cfg.MODEL.DIST_TRAIN = False
+        if not hasattr(cfg.MODEL, 'DEVICE'):
+            cfg.MODEL.DEVICE = 'cuda'
+        if not hasattr(cfg.MODEL, 'DEVICE_ID'):
+            cfg.MODEL.DEVICE_ID = '0'
+        if not hasattr(cfg.MODEL, 'IF_LABELSMOOTH'):
+            cfg.MODEL.IF_LABELSMOOTH = 'on'
+        if not hasattr(cfg.MODEL, 'METRIC_LOSS_TYPE'):
+            cfg.MODEL.METRIC_LOSS_TYPE = 'triplet'
+        if not hasattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE'):
+            cfg.MODEL.USE_CLIP_MULTI_SCALE = False
+        if not hasattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE'):
+            cfg.MODEL.USE_MULTI_SCALE_MOE = False
+        if not hasattr(cfg.MODEL, 'USE_GATE_FUSION'):
+            cfg.MODEL.USE_GATE_FUSION = False
+        return cfg
+    
+    # 为配置文件添加缺失参数
+    cfg = add_missing_config(cfg)
+    
     # 根据数据集设置类别数量
     num_classes = getattr(cfg.DATASETS, 'NUM_CLASSES', 171)
     camera_num = getattr(cfg, 'CAMERA_NUM', 4)
     
     # 创建模型实例
-    model = make_model(cfg, num_class=num_classes, camera_num=camera_num)
-    model.eval()  # 设置为评估模式
-    model.cuda()  # 移动到GPU
-    print(f"✅ 模型初始化完成，类别数: {num_classes}, 相机数: {camera_num}")
+    try:
+        model = make_model(cfg, num_class=num_classes, camera_num=camera_num)
+        model.eval()  # 设置为评估模式
+        model.cuda()  # 移动到GPU
+        print(f"✅ 模型初始化完成，类别数: {num_classes}, 相机数: {camera_num}")
+    except Exception as e:
+        print(f"❌ 模型初始化失败: {e}")
+        return
 
     # ========== 加载预训练权重 ==========
     print("📥 加载模型权重...")

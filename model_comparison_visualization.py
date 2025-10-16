@@ -62,28 +62,68 @@ def load_image(image_path, input_size):
 
 def load_models(baseline_cfg, your_model_cfg, baseline_weight, your_model_weight):
     """加载Baseline和您的模型"""
-    print("🔄 加载Baseline模型...")
-    baseline_model = make_model(baseline_cfg, num_class=171, camera_num=4)
-    baseline_model.eval()
-    baseline_model.cuda()
     
-    if os.path.exists(baseline_weight):
-        baseline_model.load_param(baseline_weight)
-        print("✅ Baseline模型加载完成")
-    else:
-        print(f"⚠️  Baseline权重文件不存在: {baseline_weight}")
+    # 添加缺失的配置参数
+    def add_missing_config(cfg, is_your_model=False):
+        """为配置文件添加缺失的参数"""
+        # 基础参数（不影响模型功能）
+        if not hasattr(cfg.MODEL, 'FLOPS_TEST'):
+            cfg.MODEL.FLOPS_TEST = False
+        if not hasattr(cfg.MODEL, 'DIST_TRAIN'):
+            cfg.MODEL.DIST_TRAIN = False
+        if not hasattr(cfg.MODEL, 'DEVICE'):
+            cfg.MODEL.DEVICE = 'cuda'
+        if not hasattr(cfg.MODEL, 'DEVICE_ID'):
+            cfg.MODEL.DEVICE_ID = '0'
+        if not hasattr(cfg.MODEL, 'IF_LABELSMOOTH'):
+            cfg.MODEL.IF_LABELSMOOTH = 'on'
+        if not hasattr(cfg.MODEL, 'METRIC_LOSS_TYPE'):
+            cfg.MODEL.METRIC_LOSS_TYPE = 'triplet'
+        
+        # 关键参数：根据模型类型设置
+        if not hasattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE'):
+            cfg.MODEL.USE_CLIP_MULTI_SCALE = is_your_model  # 您的模型启用，Baseline禁用
+        if not hasattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE'):
+            cfg.MODEL.USE_MULTI_SCALE_MOE = is_your_model   # 您的模型启用，Baseline禁用
+        if not hasattr(cfg.MODEL, 'USE_GATE_FUSION'):
+            cfg.MODEL.USE_GATE_FUSION = False  # 默认禁用，根据实际需要调整
+        
+        return cfg
+    
+    # 为两个配置文件添加缺失参数
+    baseline_cfg = add_missing_config(baseline_cfg, is_your_model=False)  # Baseline模型
+    your_model_cfg = add_missing_config(your_model_cfg, is_your_model=True)  # 您的模型
+    
+    print("🔄 加载Baseline模型...")
+    try:
+        baseline_model = make_model(baseline_cfg, num_class=171, camera_num=4)
+        baseline_model.eval()
+        baseline_model.cuda()
+        
+        if os.path.exists(baseline_weight):
+            baseline_model.load_param(baseline_weight)
+            print("✅ Baseline模型加载完成")
+        else:
+            print(f"⚠️  Baseline权重文件不存在: {baseline_weight}")
+            return None, None
+    except Exception as e:
+        print(f"❌ Baseline模型加载失败: {e}")
         return None, None
     
     print("🔄 加载您的多尺度MoE模型...")
-    your_model = make_model(your_model_cfg, num_class=171, camera_num=4)
-    your_model.eval()
-    your_model.cuda()
-    
-    if os.path.exists(your_model_weight):
-        your_model.load_param(your_model_weight)
-        print("✅ 您的模型加载完成")
-    else:
-        print(f"⚠️  您的模型权重文件不存在: {your_model_weight}")
+    try:
+        your_model = make_model(your_model_cfg, num_class=171, camera_num=4)
+        your_model.eval()
+        your_model.cuda()
+        
+        if os.path.exists(your_model_weight):
+            your_model.load_param(your_model_weight)
+            print("✅ 您的模型加载完成")
+        else:
+            print(f"⚠️  您的模型权重文件不存在: {your_model_weight}")
+            return baseline_model, None
+    except Exception as e:
+        print(f"❌ 您的模型加载失败: {e}")
         return baseline_model, None
     
     return baseline_model, your_model
