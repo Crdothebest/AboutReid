@@ -48,40 +48,21 @@ import matplotlib.pyplot as plt
 # 设置中文字体支持
 def setup_chinese_font():
     """设置中文字体支持"""
-    import matplotlib.font_manager as fm
-    
-    # 尝试多种中文字体
-    chinese_fonts = [
-        'SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 
-        'DejaVu Sans', 'Arial Unicode MS', 'Noto Sans CJK SC',
-        'Source Han Sans SC', 'PingFang SC', 'Hiragino Sans GB'
-    ]
-    
-    # 检查系统可用字体
-    available_fonts = [f.name for f in fm.fontManager.ttflist]
-    
-    # 选择第一个可用的中文字体
-    selected_font = None
-    for font in chinese_fonts:
-        if font in available_fonts:
-            selected_font = font
-            break
-    
-    if selected_font:
-        plt.rcParams['font.sans-serif'] = [selected_font] + chinese_fonts
-        print(f"✅ 使用中文字体: {selected_font}")
-    else:
-        # 如果没有找到中文字体，使用默认字体并禁用中文显示
-        plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
-        print("⚠️  未找到中文字体，将使用英文标签")
-    
-    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
-    
-    # 禁用字体警告
     import warnings
+    
+    # 直接设置字体参数，避免复杂的字体检测
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans']
+    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+    plt.rcParams['font.size'] = 12
+    plt.rcParams['figure.dpi'] = 100
+    
+    # 禁用所有字体相关警告
     warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
     warnings.filterwarnings('ignore', message='.*Glyph.*missing from current font.*')
     warnings.filterwarnings('ignore', message='.*missing from current font.*')
+    warnings.filterwarnings('ignore', message='.*font.*')
+    
+    print("✅ 字体设置完成，使用英文标签")
 
 # 初始化中文字体
 setup_chinese_font()
