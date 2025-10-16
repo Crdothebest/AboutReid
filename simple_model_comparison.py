@@ -233,6 +233,11 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
     # Baseline热力图
     if baseline_cam is not None:
         try:
+            # 修复热力图尺寸
+            if baseline_cam.shape != rgb_image.shape[:2]:
+                import cv2
+                baseline_cam = cv2.resize(baseline_cam, (rgb_image.shape[1], rgb_image.shape[0]))
+            
             baseline_vis = show_cam_on_image(rgb_image, baseline_cam, use_rgb=True)
             axes[0, 1].imshow(baseline_vis)
             axes[0, 1].set_title('Baseline Model Attention', fontsize=14, fontweight='bold')
@@ -250,6 +255,11 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
     # 您的模型热力图
     if your_model_cam is not None:
         try:
+            # 修复热力图尺寸
+            if your_model_cam.shape != rgb_image.shape[:2]:
+                import cv2
+                your_model_cam = cv2.resize(your_model_cam, (rgb_image.shape[1], rgb_image.shape[0]))
+            
             your_model_vis = show_cam_on_image(rgb_image, your_model_cam, use_rgb=True)
             axes[1, 0].imshow(your_model_vis)
             axes[1, 0].set_title('Your Model Attention', fontsize=14, fontweight='bold')
@@ -267,6 +277,14 @@ def create_comparison_visualization(rgb_image, baseline_cam, your_model_cam, out
     # 注意力差异图
     if baseline_cam is not None and your_model_cam is not None:
         try:
+            # 确保两个热力图尺寸一致
+            if baseline_cam.shape != your_model_cam.shape:
+                import cv2
+                if baseline_cam.shape != rgb_image.shape[:2]:
+                    baseline_cam = cv2.resize(baseline_cam, (rgb_image.shape[1], rgb_image.shape[0]))
+                if your_model_cam.shape != rgb_image.shape[:2]:
+                    your_model_cam = cv2.resize(your_model_cam, (rgb_image.shape[1], rgb_image.shape[0]))
+            
             diff_cam = your_model_cam - baseline_cam
             diff_vis = show_cam_on_image(rgb_image, diff_cam, use_rgb=True)
             axes[1, 1].imshow(diff_vis)
