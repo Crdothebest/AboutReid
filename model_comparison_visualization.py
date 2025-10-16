@@ -80,6 +80,30 @@ def load_models(baseline_cfg, your_model_cfg, baseline_weight, your_model_weight
         if not hasattr(cfg.MODEL, 'METRIC_LOSS_TYPE'):
             cfg.MODEL.METRIC_LOSS_TYPE = 'triplet'
         
+        # 添加SIE相关参数
+        if not hasattr(cfg.MODEL, 'SIE_CAMERA'):
+            cfg.MODEL.SIE_CAMERA = True
+        if not hasattr(cfg.MODEL, 'SIE_VIEW'):
+            cfg.MODEL.SIE_VIEW = True
+        if not hasattr(cfg.MODEL, 'SIE_COE'):
+            cfg.MODEL.SIE_COE = 1.0
+        if not hasattr(cfg.MODEL, 'DIRECT'):
+            cfg.MODEL.DIRECT = 1
+        
+        # 添加其他可能缺失的参数
+        if not hasattr(cfg.MODEL, 'ID_LOSS_WEIGHT'):
+            cfg.MODEL.ID_LOSS_WEIGHT = 0.25
+        if not hasattr(cfg.MODEL, 'TRIPLET_LOSS_WEIGHT'):
+            cfg.MODEL.TRIPLET_LOSS_WEIGHT = 1.0
+        if not hasattr(cfg.MODEL, 'PROMPT'):
+            cfg.MODEL.PROMPT = True
+        if not hasattr(cfg.MODEL, 'ADAPTER'):
+            cfg.MODEL.ADAPTER = True
+        if not hasattr(cfg.MODEL, 'MAMBA'):
+            cfg.MODEL.MAMBA = True
+        if not hasattr(cfg.MODEL, 'FROZEN'):
+            cfg.MODEL.FROZEN = True
+        
         # 关键参数：根据模型类型设置
         if not hasattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE'):
             cfg.MODEL.USE_CLIP_MULTI_SCALE = is_your_model  # 您的模型启用，Baseline禁用

@@ -294,6 +294,7 @@ def main():
     # 添加缺失的配置参数
     def add_missing_config(cfg):
         """为配置文件添加缺失的参数"""
+        # 基础参数（不影响模型功能）
         if not hasattr(cfg.MODEL, 'FLOPS_TEST'):
             cfg.MODEL.FLOPS_TEST = False
         if not hasattr(cfg.MODEL, 'DIST_TRAIN'):
@@ -306,12 +307,39 @@ def main():
             cfg.MODEL.IF_LABELSMOOTH = 'on'
         if not hasattr(cfg.MODEL, 'METRIC_LOSS_TYPE'):
             cfg.MODEL.METRIC_LOSS_TYPE = 'triplet'
+        
+        # 添加SIE相关参数
+        if not hasattr(cfg.MODEL, 'SIE_CAMERA'):
+            cfg.MODEL.SIE_CAMERA = True
+        if not hasattr(cfg.MODEL, 'SIE_VIEW'):
+            cfg.MODEL.SIE_VIEW = True
+        if not hasattr(cfg.MODEL, 'SIE_COE'):
+            cfg.MODEL.SIE_COE = 1.0
+        if not hasattr(cfg.MODEL, 'DIRECT'):
+            cfg.MODEL.DIRECT = 1
+        
+        # 添加其他可能缺失的参数
+        if not hasattr(cfg.MODEL, 'ID_LOSS_WEIGHT'):
+            cfg.MODEL.ID_LOSS_WEIGHT = 0.25
+        if not hasattr(cfg.MODEL, 'TRIPLET_LOSS_WEIGHT'):
+            cfg.MODEL.TRIPLET_LOSS_WEIGHT = 1.0
+        if not hasattr(cfg.MODEL, 'PROMPT'):
+            cfg.MODEL.PROMPT = True
+        if not hasattr(cfg.MODEL, 'ADAPTER'):
+            cfg.MODEL.ADAPTER = True
+        if not hasattr(cfg.MODEL, 'MAMBA'):
+            cfg.MODEL.MAMBA = True
+        if not hasattr(cfg.MODEL, 'FROZEN'):
+            cfg.MODEL.FROZEN = True
+        
+        # 关键参数：根据您的模型设置
         if not hasattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE'):
-            cfg.MODEL.USE_CLIP_MULTI_SCALE = False
+            cfg.MODEL.USE_CLIP_MULTI_SCALE = True  # 您的模型启用多尺度
         if not hasattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE'):
-            cfg.MODEL.USE_MULTI_SCALE_MOE = False
+            cfg.MODEL.USE_MULTI_SCALE_MOE = True   # 您的模型启用MoE
         if not hasattr(cfg.MODEL, 'USE_GATE_FUSION'):
-            cfg.MODEL.USE_GATE_FUSION = False
+            cfg.MODEL.USE_GATE_FUSION = False  # 默认禁用，根据实际需要调整
+        
         return cfg
     
     # 为配置文件添加缺失参数
