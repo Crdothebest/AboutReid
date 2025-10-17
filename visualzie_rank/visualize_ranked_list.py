@@ -235,10 +235,10 @@ def get_numbered_output_dir(base_output_dir, auto_number=False):
     if not auto_number:
         return base_output_dir
     
-    # 使用时间戳创建编号目录
+    # 使用时间戳创建编号目录，作为子目录
     import datetime
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    numbered_dir = f"{base_output_dir}_{timestamp}"
+    numbered_dir = os.path.join(base_output_dir, f"run_{timestamp}")
     return numbered_dir
 
 def parse_args():
@@ -266,7 +266,7 @@ def parse_args():
                         help='要可视化的Query数量（-1表示处理所有Query）')
     parser.add_argument('--test_all_queries', action='store_true',
                         help='测试所有Query图像，为每个行人ID生成Rank-10图')
-    parser.add_argument('--output_dir', type=str, default='ranked_list_results',
+    parser.add_argument('--output_dir', type=str, default='RGB_rank-10_results',
                         help='输出目录')
     parser.add_argument('--auto_number', action='store_true',
                         help='自动为输出文件编号（使用时间戳），避免覆盖之前的运行结果')
