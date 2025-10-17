@@ -200,7 +200,7 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=10):
     plt.close()
     print(f"✅ 可视化结果已保存: {output_path}")
 
-def visualize_single_query(model, query_path, gallery_paths, gallery_feats, transform, device, modality, output_dir, k=10):
+def visualize_single_query(model, query_path, gallery_paths, gallery_feats, transform, device, modality, output_dir, k=10, model_type=""):
     """
     为单个Query生成Top-K Ranked List可视化
     """
@@ -213,7 +213,10 @@ def visualize_single_query(model, query_path, gallery_paths, gallery_feats, tran
     
     # 生成可视化结果
     query_id = os.path.basename(query_path).split('_')[0]
-    output_path = os.path.join(output_dir, f'ranked_list_{query_id}_{modality}_top{k}.png')
+    if model_type:
+        output_path = os.path.join(output_dir, f'ranked_list_{query_id}_{modality}_top{k}_{model_type}.png')
+    else:
+        output_path = os.path.join(output_dir, f'ranked_list_{query_id}_{modality}_top{k}.png')
     create_ranked_visualization(query_path, ranked_results, output_path, k)
     
     return ranked_results
@@ -229,6 +232,12 @@ def parse_args():
                         help='配置文件路径')
     parser.add_argument('--model_path', type=str, default='pths/MambaProbest.pth',
                         help='模型权重路径')
+    parser.add_argument('--baseline_model_path', type=str, default='/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth',
+                        help='Baseline模型权重路径（用于对比）')
+    parser.add_argument('--baseline_config_path', type=str, default='configs/RGBNT201/baseline.yml',
+                        help='Baseline模型配置文件路径')
+    parser.add_argument('--compare_models', action='store_true',
+                        help='是否对比两个模型（改进模型 vs Baseline模型）')
     parser.add_argument('--modality', type=str, default='RGB', choices=['RGB', 'NI', 'TI'],
                         help='模态类型')
     parser.add_argument('--top_k', type=int, default=10,
@@ -279,6 +288,29 @@ def main():
     model.eval()
     print("✅ 模型加载完成")
     
+    # 如果启用模型对比，加载Baseline模型
+    baseline_model = None
+    if args.compare_models:
+        print("🔄 加载Baseline模型进行对比...")
+        if not os.path.exists(args.baseline_model_path):
+            print(f"❌ Baseline模型权重文件不存在: {args.baseline_model_path}")
+            return
+        if not os.path.exists(args.baseline_config_path):
+            print(f"❌ Baseline配置文件不存在: {args.baseline_config_path}")
+            return
+            
+        # 加载Baseline配置
+        baseline_cfg = cfg.clone()
+        baseline_cfg.merge_from_file(args.baseline_config_path)
+        baseline_cfg.freeze()
+        
+        # 构建Baseline模型
+        baseline_camera_num = detect_camera_num_from_weights(args.baseline_model_path)
+        baseline_model = make_model(baseline_cfg, num_class=num_class, camera_num=baseline_camera_num).to(device)
+        baseline_model.load_param(args.baseline_model_path)
+        baseline_model.eval()
+        print("✅ Baseline模型加载完成")
+    
     # 处理数据集
     print(f"🔍 处理 {args.modality} 模态数据集...")
     gallery_paths, query_paths = process_gallery_query(args.dataset_root, args.modality)
@@ -293,51 +325,124 @@ def main():
     query_id = os.path.basename(selected_query).split('_')[0]
     print(f"🎯 选择1个Query进行可视化: {query_id}")
     
-    # 生成可视化
-    print(f"\n🔄 处理Query: {query_id}")
-    ranked_results = visualize_single_query(
-        model, selected_query, gallery_paths, gallery_feats, 
-        transform, device, args.modality, args.output_dir, args.top_k
-    )
-    
-    # 统计结果
-    correct_count = sum(1 for r in ranked_results if r['is_correct'])
-    print(f"   ✅ Top-{args.top_k}中正确匹配: {correct_count}/{args.top_k}")
-    
-    all_results = [{
-        'query_id': query_id,
-        'query_path': selected_query,
-        'correct_count': correct_count,
-        'ranked_results': ranked_results
-    }]
+    if args.compare_models:
+        # 对比两个模型
+        print(f"\n🔄 处理Query: {query_id} (对比模式)")
+        
+        # 提取Baseline Gallery特征
+        print("🔄 提取Baseline Gallery特征...")
+        baseline_gallery_feats = extract_feature(baseline_model, gallery_paths, transform, device, args.modality)
+        
+        # 生成改进模型的可视化
+        print("🔄 生成改进模型可视化...")
+        improved_results = visualize_single_query(
+            model, selected_query, gallery_paths, gallery_feats, 
+            transform, device, args.modality, args.output_dir, args.top_k, "improved"
+        )
+        
+        # 生成Baseline模型的可视化
+        print("🔄 生成Baseline模型可视化...")
+        baseline_results = visualize_single_query(
+            baseline_model, selected_query, gallery_paths, baseline_gallery_feats, 
+            transform, device, args.modality, args.output_dir, args.top_k, "baseline"
+        )
+        
+        # 统计结果
+        improved_correct = sum(1 for r in improved_results if r['is_correct'])
+        baseline_correct = sum(1 for r in baseline_results if r['is_correct'])
+        
+        print(f"   ✅ 改进模型 Top-{args.top_k}中正确匹配: {improved_correct}/{args.top_k}")
+        print(f"   ✅ Baseline模型 Top-{args.top_k}中正确匹配: {baseline_correct}/{args.top_k}")
+        
+        all_results = [{
+            'query_id': query_id,
+            'query_path': selected_query,
+            'improved_correct_count': improved_correct,
+            'baseline_correct_count': baseline_correct,
+            'improved_results': improved_results,
+            'baseline_results': baseline_results
+        }]
+    else:
+        # 单个模型
+        print(f"\n🔄 处理Query: {query_id}")
+        ranked_results = visualize_single_query(
+            model, selected_query, gallery_paths, gallery_feats, 
+            transform, device, args.modality, args.output_dir, args.top_k
+        )
+        
+        # 统计结果
+        correct_count = sum(1 for r in ranked_results if r['is_correct'])
+        print(f"   ✅ Top-{args.top_k}中正确匹配: {correct_count}/{args.top_k}")
+        
+        all_results = [{
+            'query_id': query_id,
+            'query_path': selected_query,
+            'correct_count': correct_count,
+            'ranked_results': ranked_results
+        }]
     
     # 生成汇总报告
     print(f"\n📊 生成汇总报告...")
     report_path = os.path.join(args.output_dir, 'summary_report.txt')
     with open(report_path, 'w', encoding='utf-8') as f:
-        f.write(f"ReID模型Top-{args.top_k} Ranked List可视化结果汇总\n")
-        f.write(f"=" * 50 + "\n")
-        f.write(f"模态: {args.modality}\n")
-        f.write(f"模型: {args.model_path}\n")
-        f.write(f"数据集: {args.dataset_root}\n")
-        f.write(f"Top-K: {args.top_k}\n\n")
-        
-        result = all_results[0]
-        f.write(f"Query: {result['query_id']}\n")
-        f.write(f"正确匹配数: {result['correct_count']}/{args.top_k}\n")
-        f.write(f"可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}.png\n")
-        f.write(f"详细结果:\n")
-        for rank_result in result['ranked_results']:
-            status = "✓" if rank_result['is_correct'] else "✗"
-            f.write(f"  Rank {rank_result['rank']}: {rank_result['gallery_pid']:06d} "
-                   f"(Score: {rank_result['similarity_score']:.3f}) {status}\n")
+        if args.compare_models:
+            f.write(f"ReID模型对比 - Top-{args.top_k} Ranked List可视化结果汇总\n")
+            f.write(f"=" * 60 + "\n")
+            f.write(f"模态: {args.modality}\n")
+            f.write(f"改进模型: {args.model_path}\n")
+            f.write(f"Baseline模型: {args.baseline_model_path}\n")
+            f.write(f"数据集: {args.dataset_root}\n")
+            f.write(f"Top-K: {args.top_k}\n\n")
+            
+            result = all_results[0]
+            f.write(f"Query: {result['query_id']}\n\n")
+            f.write(f"改进模型结果:\n")
+            f.write(f"  正确匹配数: {result['improved_correct_count']}/{args.top_k}\n")
+            f.write(f"  准确率: {result['improved_correct_count']/args.top_k:.2%}\n")
+            f.write(f"  可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}_improved.png\n\n")
+            
+            f.write(f"Baseline模型结果:\n")
+            f.write(f"  正确匹配数: {result['baseline_correct_count']}/{args.top_k}\n")
+            f.write(f"  准确率: {result['baseline_correct_count']/args.top_k:.2%}\n")
+            f.write(f"  可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}_baseline.png\n\n")
+            
+            # 性能对比
+            improvement = result['improved_correct_count'] - result['baseline_correct_count']
+            f.write(f"性能对比:\n")
+            f.write(f"  改进模型提升: {improvement} 个正确匹配\n")
+            f.write(f"  相对提升: {improvement/args.top_k:.2%}\n")
+        else:
+            f.write(f"ReID模型Top-{args.top_k} Ranked List可视化结果汇总\n")
+            f.write(f"=" * 50 + "\n")
+            f.write(f"模态: {args.modality}\n")
+            f.write(f"模型: {args.model_path}\n")
+            f.write(f"数据集: {args.dataset_root}\n")
+            f.write(f"Top-K: {args.top_k}\n\n")
+            
+            result = all_results[0]
+            f.write(f"Query: {result['query_id']}\n")
+            f.write(f"正确匹配数: {result['correct_count']}/{args.top_k}\n")
+            f.write(f"可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}.png\n")
+            f.write(f"详细结果:\n")
+            for rank_result in result['ranked_results']:
+                status = "✓" if rank_result['is_correct'] else "✗"
+                f.write(f"  Rank {rank_result['rank']}: {rank_result['gallery_pid']:06d} "
+                       f"(Score: {rank_result['similarity_score']:.3f}) {status}\n")
     
     print(f"\n🎉 可视化完成！")
     print(f"📁 结果保存在: {args.output_dir}")
-    print(f"📊 统计结果:")
-    print(f"   - Query: {all_results[0]['query_id']}")
-    print(f"   - 正确匹配数: {all_results[0]['correct_count']}/{args.top_k}")
-    print(f"   - 准确率: {all_results[0]['correct_count']/args.top_k:.2%}")
+    if args.compare_models:
+        print(f"📊 对比结果:")
+        print(f"   - Query: {all_results[0]['query_id']}")
+        print(f"   - 改进模型: {all_results[0]['improved_correct_count']}/{args.top_k} ({all_results[0]['improved_correct_count']/args.top_k:.2%})")
+        print(f"   - Baseline模型: {all_results[0]['baseline_correct_count']}/{args.top_k} ({all_results[0]['baseline_correct_count']/args.top_k:.2%})")
+        improvement = all_results[0]['improved_correct_count'] - all_results[0]['baseline_correct_count']
+        print(f"   - 性能提升: {improvement} 个正确匹配 ({improvement/args.top_k:.2%})")
+    else:
+        print(f"📊 统计结果:")
+        print(f"   - Query: {all_results[0]['query_id']}")
+        print(f"   - 正确匹配数: {all_results[0]['correct_count']}/{args.top_k}")
+        print(f"   - 准确率: {all_results[0]['correct_count']/args.top_k:.2%}")
     print(f"   - 汇总报告: {report_path}")
 
 if __name__ == '__main__':
