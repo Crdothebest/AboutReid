@@ -161,9 +161,9 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=10):
     fig, axes = plt.subplots(1, k+1, figsize=(25, 4))
     fig.suptitle(f'Query and Top-{k} Ranked Results', fontsize=16, fontweight='bold')
     
-    # 确保所有子图都正确初始化
-    if axes.ndim == 1:
-        axes = axes.reshape(1, -1)
+    # 确保axes是一维数组（当只有一行时）
+    if axes.ndim > 1:
+        axes = axes.flatten()
     
     # 加载Query图像
     query_img = cv2.imread(query_path)
