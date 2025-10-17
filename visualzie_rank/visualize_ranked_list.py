@@ -235,10 +235,6 @@ def get_numbered_output_dir(base_output_dir, auto_number=False):
     if not auto_number:
         return base_output_dir
     
-    # 如果目录不存在，直接使用
-    if not os.path.exists(base_output_dir):
-        return base_output_dir
-    
     # 使用时间戳创建编号目录
     import datetime
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
