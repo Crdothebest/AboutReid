@@ -152,17 +152,18 @@ def draw_ground_truth_box(img, is_correct, thickness=3):
     cv2.rectangle(img_copy, (0, 0), (img_copy.shape[1], img_copy.shape[0]), color, thickness)
     return img_copy
 
-def create_ranked_visualization(query_path, ranked_results, output_path, k=9):
+def create_ranked_visualization(query_path, ranked_results, output_path, k=10):
     """
-    创建Top-K Ranked List可视化结果
+    创建简化的Top-K Ranked List可视化结果
+    只显示Query和Top-K Gallery，用绿框表示正确，红框表示错误
     """
-    # 设置图像布局
-    fig, axes = plt.subplots(2, k+1, figsize=(20, 8))
-    fig.suptitle(f'Top-{k} Ranked List Visualization', fontsize=16, fontweight='bold')
+    # 设置图像布局：1行，Query + Top-K Gallery
+    fig, axes = plt.subplots(1, k+1, figsize=(25, 4))
+    fig.suptitle(f'Query and Top-{k} Ranked Results', fontsize=16, fontweight='bold')
     
     # 确保所有子图都正确初始化
     if axes.ndim == 1:
-        axes = axes.reshape(2, -1)
+        axes = axes.reshape(1, -1)
     
     # 加载Query图像
     query_img = cv2.imread(query_path)
@@ -173,9 +174,9 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=9):
     query_pid = get_pid_from_path(query_path)
     
     # 显示Query图像
-    axes[0, 0].imshow(query_img)
-    axes[0, 0].set_title(f'Query\nID: {query_pid:06d}', fontsize=12, fontweight='bold')
-    axes[0, 0].axis('off')
+    axes[0].imshow(query_img)
+    axes[0].set_title(f'Query\nID: {query_pid:06d}', fontsize=12, fontweight='bold')
+    axes[0].axis('off')
     
     # 显示Top-K Gallery图像
     for i, result in enumerate(ranked_results):
@@ -189,35 +190,17 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=9):
         gallery_img_with_box = draw_ground_truth_box(gallery_img, result['is_correct'])
         
         # 显示图像
-        axes[0, i+1].imshow(gallery_img_with_box)
-        axes[0, i+1].set_title(f'Rank {result["rank"]}\nID: {result["gallery_pid"]:06d}\nScore: {result["similarity_score"]:.3f}', 
-                              fontsize=10, fontweight='bold')
-        axes[0, i+1].axis('off')
-        
-        # 显示相似度条形图
-        color = 'green' if result['is_correct'] else 'red'
-        axes[1, i+1].barh(0, result['similarity_score'], color=color, alpha=0.7)
-        axes[1, i+1].set_xlim(0, 1)
-        axes[1, i+1].set_title(f'Score: {result["similarity_score"]:.3f}', fontsize=10)
-        axes[1, i+1].set_yticks([])
-        axes[1, i+1].grid(True, alpha=0.3)
-    
-    # 隐藏第一行第二列的空白
-    axes[1, 0].axis('off')
-    
-    # 添加图例
-    legend_elements = [
-        patches.Patch(color='green', label='Correct Match'),
-        patches.Patch(color='red', label='Incorrect Match')
-    ]
-    axes[1, 0].legend(handles=legend_elements, loc='center', fontsize=12)
+        axes[i+1].imshow(gallery_img_with_box)
+        axes[i+1].set_title(f'Rank {i+1}\nID: {result["gallery_pid"]:06d}\nScore: {result["similarity_score"]:.3f}', 
+                           fontsize=10, fontweight='bold')
+        axes[i+1].axis('off')
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"✅ 可视化结果已保存: {output_path}")
 
-def visualize_single_query(model, query_path, gallery_paths, gallery_feats, transform, device, modality, output_dir, k=9):
+def visualize_single_query(model, query_path, gallery_paths, gallery_feats, transform, device, modality, output_dir, k=10):
     """
     为单个Query生成Top-K Ranked List可视化
     """
@@ -248,7 +231,7 @@ def parse_args():
                         help='模型权重路径')
     parser.add_argument('--modality', type=str, default='RGB', choices=['RGB', 'NI', 'TI'],
                         help='模态类型')
-    parser.add_argument('--top_k', type=int, default=9,
+    parser.add_argument('--top_k', type=int, default=10,
                         help='Top-K检索的K值')
     parser.add_argument('--num_queries', type=int, default=10,
                         help='要可视化的Query数量')
@@ -305,32 +288,28 @@ def main():
     print("🔄 提取Gallery特征...")
     gallery_feats = extract_feature(model, gallery_paths, transform, device, args.modality)
     
-    # 选择要可视化的Query
-    selected_queries = query_paths[:args.num_queries]
-    print(f"🎯 选择 {len(selected_queries)} 个Query进行可视化...")
+    # 只选择第一个Query进行可视化
+    selected_query = query_paths[0]
+    query_id = os.path.basename(selected_query).split('_')[0]
+    print(f"🎯 选择1个Query进行可视化: {query_id}")
     
-    # 为每个Query生成可视化
-    all_results = []
-    for i, query_path in enumerate(tqdm(selected_queries, desc="生成可视化结果")):
-        query_id = os.path.basename(query_path).split('_')[0]
-        print(f"\n🔄 处理Query {i+1}/{len(selected_queries)}: {query_id}")
-        
-        # 生成可视化
-        ranked_results = visualize_single_query(
-            model, query_path, gallery_paths, gallery_feats, 
-            transform, device, args.modality, args.output_dir, args.top_k
-        )
-        
-        # 统计结果
-        correct_count = sum(1 for r in ranked_results if r['is_correct'])
-        print(f"   ✅ Top-{args.top_k}中正确匹配: {correct_count}/{args.top_k}")
-        
-        all_results.append({
-            'query_id': query_id,
-            'query_path': query_path,
-            'correct_count': correct_count,
-            'ranked_results': ranked_results
-        })
+    # 生成可视化
+    print(f"\n🔄 处理Query: {query_id}")
+    ranked_results = visualize_single_query(
+        model, selected_query, gallery_paths, gallery_feats, 
+        transform, device, args.modality, args.output_dir, args.top_k
+    )
+    
+    # 统计结果
+    correct_count = sum(1 for r in ranked_results if r['is_correct'])
+    print(f"   ✅ Top-{args.top_k}中正确匹配: {correct_count}/{args.top_k}")
+    
+    all_results = [{
+        'query_id': query_id,
+        'query_path': selected_query,
+        'correct_count': correct_count,
+        'ranked_results': ranked_results
+    }]
     
     # 生成汇总报告
     print(f"\n📊 生成汇总报告...")
@@ -341,31 +320,24 @@ def main():
         f.write(f"模态: {args.modality}\n")
         f.write(f"模型: {args.model_path}\n")
         f.write(f"数据集: {args.dataset_root}\n")
-        f.write(f"Top-K: {args.top_k}\n")
-        f.write(f"Query数量: {len(all_results)}\n\n")
+        f.write(f"Top-K: {args.top_k}\n\n")
         
-        for i, result in enumerate(all_results):
-            f.write(f"Query {i+1}: {result['query_id']}\n")
-            f.write(f"  正确匹配数: {result['correct_count']}/{args.top_k}\n")
-            f.write(f"  可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}.png\n")
-            f.write(f"  详细结果:\n")
-            for rank_result in result['ranked_results']:
-                status = "✓" if rank_result['is_correct'] else "✗"
-                f.write(f"    Rank {rank_result['rank']}: {rank_result['gallery_pid']:06d} "
-                       f"(Score: {rank_result['similarity_score']:.3f}) {status}\n")
-            f.write("\n")
-    
-    # 计算总体统计
-    total_correct = sum(r['correct_count'] for r in all_results)
-    total_possible = len(all_results) * args.top_k
-    accuracy = total_correct / total_possible if total_possible > 0 else 0
+        result = all_results[0]
+        f.write(f"Query: {result['query_id']}\n")
+        f.write(f"正确匹配数: {result['correct_count']}/{args.top_k}\n")
+        f.write(f"可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}.png\n")
+        f.write(f"详细结果:\n")
+        for rank_result in result['ranked_results']:
+            status = "✓" if rank_result['is_correct'] else "✗"
+            f.write(f"  Rank {rank_result['rank']}: {rank_result['gallery_pid']:06d} "
+                   f"(Score: {rank_result['similarity_score']:.3f}) {status}\n")
     
     print(f"\n🎉 可视化完成！")
     print(f"📁 结果保存在: {args.output_dir}")
-    print(f"📊 总体统计:")
-    print(f"   - 处理的Query数量: {len(all_results)}")
-    print(f"   - 总正确匹配数: {total_correct}/{total_possible}")
-    print(f"   - Top-{args.top_k}准确率: {accuracy:.2%}")
+    print(f"📊 统计结果:")
+    print(f"   - Query: {all_results[0]['query_id']}")
+    print(f"   - 正确匹配数: {all_results[0]['correct_count']}/{args.top_k}")
+    print(f"   - 准确率: {all_results[0]['correct_count']/args.top_k:.2%}")
     print(f"   - 汇总报告: {report_path}")
 
 if __name__ == '__main__':
