@@ -196,9 +196,8 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=10):
         
         # 显示图像
         axes[i+1].imshow(gallery_img_with_box)
-        # 在标题中显示匹配状态
-        match_status = "✓ 正确" if result['is_correct'] else "✗ 错误"
-        axes[i+1].set_title(f'Rank {i+1}\nID: {result["gallery_pid"]:06d}\nScore: {result["similarity_score"]:.3f}\n{match_status}', 
+        # 在标题中只显示排名和ID
+        axes[i+1].set_title(f'Rank {i+1}\nID: {result["gallery_pid"]:06d}', 
                            fontsize=10, fontweight='bold')
         axes[i+1].axis('off')
     
