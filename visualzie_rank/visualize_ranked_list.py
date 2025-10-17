@@ -206,6 +206,59 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=10):
     plt.close()
     print(f"✅ 可视化结果已保存: {output_path}")
 
+def create_multimodal_ranked_visualization(query_paths, ranked_results_dict, output_path, k=10):
+    """
+    创建多模态Top-K Ranked List可视化结果
+    显示RGB、NIR、TIR三种模态的结果，每行一种模态
+    """
+    modalities = ['RGB', 'NIR', 'TIR']
+    modality_paths = ['RGB', 'NI', 'TI']  # 对应的文件夹名称
+    
+    # 设置图像布局：3行（RGB、NIR、TIR），每行Query + Top-K Gallery
+    fig, axes = plt.subplots(3, k+1, figsize=(25, 12))
+    fig.suptitle(f'Multi-modal Query and Top-{k} Ranked Results', fontsize=16, fontweight='bold')
+    
+    # 获取Query的PID
+    query_pid = get_pid_from_path(query_paths['RGB'])
+    
+    for modality_idx, (modality, modality_folder) in enumerate(zip(modalities, modality_paths)):
+        # 加载Query图像
+        query_img = cv2.imread(query_paths[modality_folder])
+        if query_img is None:
+            print(f"⚠️  无法加载{modality} Query图像: {query_paths[modality_folder]}")
+            continue
+        query_img = cv2.cvtColor(query_img, cv2.COLOR_BGR2RGB)
+        
+        # 显示Query图像
+        axes[modality_idx, 0].imshow(query_img)
+        axes[modality_idx, 0].set_title(f'{modality} Query\nID: {query_pid:06d}', 
+                                       fontsize=12, fontweight='bold')
+        axes[modality_idx, 0].axis('off')
+        
+        # 显示Top-K Gallery图像
+        ranked_results = ranked_results_dict[modality_folder]
+        for i, result in enumerate(ranked_results):
+            gallery_img = cv2.imread(result['gallery_path'])
+            if gallery_img is None:
+                print(f"⚠️  无法加载{modality} Gallery图像: {result['gallery_path']}")
+                continue
+            gallery_img = cv2.cvtColor(gallery_img, cv2.COLOR_BGR2RGB)
+            
+            # 添加Ground Truth标注框
+            gallery_img_with_box = draw_ground_truth_box(gallery_img, result['is_correct'])
+            
+            # 显示图像
+            axes[modality_idx, i+1].imshow(gallery_img_with_box)
+            # 在标题中只显示排名和ID
+            axes[modality_idx, i+1].set_title(f'Rank {i+1}\nID: {result["gallery_pid"]:06d}', 
+                                           fontsize=10, fontweight='bold')
+            axes[modality_idx, i+1].axis('off')
+    
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"✅ 多模态可视化结果已保存: {output_path}")
+
 def visualize_single_query(model, query_path, gallery_paths, gallery_feats, transform, device, modality, output_dir, k=10, model_type=""):
     """
     为单个Query生成Top-K Ranked List可视化
@@ -226,6 +279,31 @@ def visualize_single_query(model, query_path, gallery_paths, gallery_feats, tran
     create_ranked_visualization(query_path, ranked_results, output_path, k)
     
     return ranked_results
+
+def visualize_multimodal_query(model, query_paths, gallery_paths_dict, gallery_feats_dict, transform, device, output_dir, k=10, model_type=""):
+    """
+    为多模态Query生成Top-K Ranked List可视化
+    """
+    query_id = get_pid_from_path(query_paths['RGB'])
+    ranked_results_dict = {}
+    
+    # 为每种模态生成排名结果
+    for modality in ['RGB', 'NI', 'TI']:
+        if modality in query_paths and modality in gallery_paths_dict:
+            query_feat = extract_feature(model, [query_paths[modality]], transform, device, modality)
+            ranked_results_dict[modality] = get_topk_ranked_results(
+                query_feat[0], gallery_feats_dict[modality], gallery_paths_dict[modality], query_id, k
+            )
+    
+    # 生成输出路径
+    if model_type:
+        output_path = os.path.join(output_dir, f'multimodal_ranked_list_{query_id:06d}_top{k}_{model_type}.png')
+    else:
+        output_path = os.path.join(output_dir, f'multimodal_ranked_list_{query_id:06d}_top{k}.png')
+    
+    create_multimodal_ranked_visualization(query_paths, ranked_results_dict, output_path, k)
+    
+    return ranked_results_dict
 
 def get_numbered_output_dir(base_output_dir, auto_number=False):
     """
@@ -269,6 +347,8 @@ def parse_args():
                         help='输出目录')
     parser.add_argument('--auto_number', action='store_true',
                         help='自动为输出文件编号（使用时间戳），避免覆盖之前的运行结果')
+    parser.add_argument('--multimodal', action='store_true',
+                        help='启用多模态模式，同时处理RGB、NIR、TIR三种模态')
     return parser.parse_args()
 
 def main():
@@ -339,74 +419,161 @@ def main():
             print("✅ Baseline模型加载完成")
     
     # 处理数据集
-    print(f"🔍 处理 {args.modality} 模态数据集...")
-    gallery_paths, query_paths = process_gallery_query(args.dataset_root, args.modality)
-    print(f"📊 Gallery: {len(gallery_paths)}张, Query: {len(query_paths)}张")
-    
-    # 提取Gallery特征
-    print("🔄 提取Gallery特征...")
-    gallery_feats = extract_feature(model, gallery_paths, transform, device, args.modality)
-    
-    # 选择要处理的Query
-    if args.test_all_queries or args.num_queries == -1:
-        # 处理所有Query
-        selected_queries = query_paths
-        print(f"🎯 处理所有Query进行可视化: {len(selected_queries)}个")
+    if args.multimodal:
+        print("🔍 处理多模态数据集（RGB、NIR、TIR）...")
+        # 多模态处理
+        gallery_paths_dict = {}
+        query_paths_dict = {}
+        gallery_feats_dict = {}
+        
+        for modality in ['RGB', 'NI', 'TI']:
+            print(f"  📁 处理 {modality} 模态...")
+            gallery_paths, query_paths = process_gallery_query(args.dataset_root, modality)
+            gallery_paths_dict[modality] = gallery_paths
+            query_paths_dict[modality] = query_paths
+            print(f"    📊 {modality} Gallery: {len(gallery_paths)}张, Query: {len(query_paths)}张")
+            
+            # 提取Gallery特征
+            print(f"    🔄 提取 {modality} Gallery特征...")
+            gallery_feats_dict[modality] = extract_feature(model, gallery_paths, transform, device, modality)
+        
+        # 选择要处理的Query（使用RGB模态的Query路径）
+        if args.test_all_queries or args.num_queries == -1:
+            selected_queries = query_paths_dict['RGB']
+            print(f"🎯 处理所有Query进行多模态可视化: {len(selected_queries)}个")
+        else:
+            selected_queries = query_paths_dict['RGB'][:args.num_queries]
+            print(f"🎯 选择{len(selected_queries)}个Query进行多模态可视化")
     else:
-        # 只处理指定数量的Query
-        selected_queries = query_paths[:args.num_queries]
-        print(f"🎯 选择{len(selected_queries)}个Query进行可视化")
+        print(f"🔍 处理 {args.modality} 模态数据集...")
+        gallery_paths, query_paths = process_gallery_query(args.dataset_root, args.modality)
+        print(f"📊 Gallery: {len(gallery_paths)}张, Query: {len(query_paths)}张")
+        
+        # 提取Gallery特征
+        print("🔄 提取Gallery特征...")
+        gallery_feats = extract_feature(model, gallery_paths, transform, device, args.modality)
+        
+        # 选择要处理的Query
+        if args.test_all_queries or args.num_queries == -1:
+            selected_queries = query_paths
+            print(f"🎯 处理所有Query进行可视化: {len(selected_queries)}个")
+        else:
+            selected_queries = query_paths[:args.num_queries]
+            print(f"🎯 选择{len(selected_queries)}个Query进行可视化")
     
     if args.dual_model_mode:
         # 双模型模式：同时运行两个模型，为每个Query生成两个不同的Rank-10图
         print(f"\n🔄 双模型模式处理 {len(selected_queries)} 个Query...")
-        print("📋 将为每个Query生成两个Rank-10图：")
-        print("   - 您的模型: ranked_list_{query_id}_{modality}_top{k}_your_model.png")
-        print("   - Baseline模型: ranked_list_{query_id}_{modality}_top{k}_baseline.png")
+        
+        if args.multimodal:
+            print("📋 将为每个Query生成多模态Rank-10图：")
+            print("   - 您的模型: multimodal_ranked_list_{query_id}_top{k}_your_model.png")
+            print("   - Baseline模型: multimodal_ranked_list_{query_id}_top{k}_baseline.png")
+        else:
+            print("📋 将为每个Query生成两个Rank-10图：")
+            print("   - 您的模型: ranked_list_{query_id}_{modality}_top{k}_your_model.png")
+            print("   - Baseline模型: ranked_list_{query_id}_{modality}_top{k}_baseline.png")
         
         # 检查Baseline模型是否已加载
         if baseline_model is None:
             print("❌ Baseline模型未加载，无法运行双模型模式")
             return
         
-        # 提取Baseline Gallery特征
-        print("🔄 提取Baseline Gallery特征...")
-        baseline_gallery_feats = extract_feature(baseline_model, gallery_paths, transform, device, args.modality)
+        if args.multimodal:
+            # 多模态双模型模式
+            print("🔄 提取Baseline多模态Gallery特征...")
+            baseline_gallery_feats_dict = {}
+            for modality in ['RGB', 'NI', 'TI']:
+                print(f"  🔄 提取Baseline {modality} Gallery特征...")
+                baseline_gallery_feats_dict[modality] = extract_feature(
+                    baseline_model, gallery_paths_dict[modality], transform, device, modality
+                )
+        else:
+            # 单模态双模型模式
+            print("🔄 提取Baseline Gallery特征...")
+            baseline_gallery_feats = extract_feature(baseline_model, gallery_paths, transform, device, args.modality)
         
         all_results = []
         for i, query_path in enumerate(tqdm(selected_queries, desc="处理Query")):
             query_id = os.path.basename(query_path).split('_')[0]
             print(f"\n🔄 处理Query {i+1}/{len(selected_queries)}: {query_id}")
             
-            # 生成您的模型的可视化
-            print(f"   🔄 生成您的模型Rank-10图...")
-            your_model_results = visualize_single_query(
-                model, query_path, gallery_paths, gallery_feats, 
-                transform, device, args.modality, args.output_dir, args.top_k, "your_model"
-            )
-            
-            # 生成Baseline模型的可视化
-            print(f"   🔄 生成Baseline模型Rank-10图...")
-            baseline_results = visualize_single_query(
-                baseline_model, query_path, gallery_paths, baseline_gallery_feats, 
-                transform, device, args.modality, args.output_dir, args.top_k, "baseline"
-            )
-            
-            # 统计结果
-            your_model_correct = sum(1 for r in your_model_results if r['is_correct'])
-            baseline_correct = sum(1 for r in baseline_results if r['is_correct'])
-            
-            print(f"   ✅ 您的模型 Top-{args.top_k}中正确匹配: {your_model_correct}/{args.top_k}")
-            print(f"   ✅ Baseline模型 Top-{args.top_k}中正确匹配: {baseline_correct}/{args.top_k}")
-            
-            all_results.append({
-                'query_id': query_id,
-                'query_path': query_path,
-                'your_model_correct_count': your_model_correct,
-                'baseline_correct_count': baseline_correct,
-                'your_model_results': your_model_results,
-                'baseline_results': baseline_results
-            })
+            if args.multimodal:
+                # 多模态双模型模式
+                # 构建多模态Query路径
+                query_paths_multimodal = {}
+                for modality in ['RGB', 'NI', 'TI']:
+                    # 从RGB路径构建其他模态的路径
+                    rgb_path = query_path
+                    if modality == 'RGB':
+                        query_paths_multimodal[modality] = rgb_path
+                    elif modality == 'NI':
+                        ni_path = rgb_path.replace('/RGB/', '/NI/')
+                        query_paths_multimodal[modality] = ni_path
+                    elif modality == 'TI':
+                        ti_path = rgb_path.replace('/RGB/', '/TI/')
+                        query_paths_multimodal[modality] = ti_path
+                
+                # 生成您的模型的多模态可视化
+                print(f"   🔄 生成您的模型多模态Rank-10图...")
+                your_model_results_dict = visualize_multimodal_query(
+                    model, query_paths_multimodal, gallery_paths_dict, gallery_feats_dict,
+                    transform, device, args.output_dir, args.top_k, "your_model"
+                )
+                
+                # 生成Baseline模型的多模态可视化
+                print(f"   🔄 生成Baseline模型多模态Rank-10图...")
+                baseline_results_dict = visualize_multimodal_query(
+                    baseline_model, query_paths_multimodal, gallery_paths_dict, baseline_gallery_feats_dict,
+                    transform, device, args.output_dir, args.top_k, "baseline"
+                )
+                
+                # 统计结果（使用RGB模态的结果）
+                your_model_correct = sum(1 for r in your_model_results_dict['RGB'] if r['is_correct'])
+                baseline_correct = sum(1 for r in baseline_results_dict['RGB'] if r['is_correct'])
+                
+                print(f"   ✅ 您的模型 Top-{args.top_k}中正确匹配: {your_model_correct}/{args.top_k}")
+                print(f"   ✅ Baseline模型 Top-{args.top_k}中正确匹配: {baseline_correct}/{args.top_k}")
+                
+                all_results.append({
+                    'query_id': query_id,
+                    'query_path': query_path,
+                    'your_model_correct_count': your_model_correct,
+                    'baseline_correct_count': baseline_correct,
+                    'your_model_results': your_model_results_dict,
+                    'baseline_results': baseline_results_dict
+                })
+            else:
+                # 单模态双模型模式
+                # 生成您的模型的可视化
+                print(f"   🔄 生成您的模型Rank-10图...")
+                your_model_results = visualize_single_query(
+                    model, query_path, gallery_paths, gallery_feats, 
+                    transform, device, args.modality, args.output_dir, args.top_k, "your_model"
+                )
+                
+                # 生成Baseline模型的可视化
+                print(f"   🔄 生成Baseline模型Rank-10图...")
+                baseline_results = visualize_single_query(
+                    baseline_model, query_path, gallery_paths, baseline_gallery_feats, 
+                    transform, device, args.modality, args.output_dir, args.top_k, "baseline"
+                )
+                
+                # 统计结果
+                your_model_correct = sum(1 for r in your_model_results if r['is_correct'])
+                baseline_correct = sum(1 for r in baseline_results if r['is_correct'])
+                
+                print(f"   ✅ 您的模型 Top-{args.top_k}中正确匹配: {your_model_correct}/{args.top_k}")
+                print(f"   ✅ Baseline模型 Top-{args.top_k}中正确匹配: {baseline_correct}/{args.top_k}")
+                
+                all_results.append({
+                    'query_id': query_id,
+                    'query_path': query_path,
+                    'your_model_correct_count': your_model_correct,
+                    'baseline_correct_count': baseline_correct,
+                    'your_model_results': your_model_results,
+                    'baseline_results': baseline_results
+                })
     elif args.compare_models:
         # 对比两个模型
         print(f"\n🔄 对比模式处理 {len(selected_queries)} 个Query...")
