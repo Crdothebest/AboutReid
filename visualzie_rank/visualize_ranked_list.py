@@ -228,6 +228,23 @@ def visualize_single_query(model, query_path, gallery_paths, gallery_feats, tran
     
     return ranked_results
 
+def get_numbered_output_dir(base_output_dir, auto_number=False):
+    """
+    获取编号的输出目录（使用时间戳）
+    """
+    if not auto_number:
+        return base_output_dir
+    
+    # 如果目录不存在，直接使用
+    if not os.path.exists(base_output_dir):
+        return base_output_dir
+    
+    # 使用时间戳创建编号目录
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    numbered_dir = f"{base_output_dir}_{timestamp}"
+    return numbered_dir
+
 def parse_args():
     """
     解析命令行参数
@@ -255,6 +272,8 @@ def parse_args():
                         help='测试所有Query图像，为每个行人ID生成Rank-10图')
     parser.add_argument('--output_dir', type=str, default='ranked_list_results',
                         help='输出目录')
+    parser.add_argument('--auto_number', action='store_true',
+                        help='自动为输出文件编号（使用时间戳），避免覆盖之前的运行结果')
     return parser.parse_args()
 
 def main():
@@ -263,6 +282,11 @@ def main():
     """
     # 解析命令行参数
     args = parse_args()
+    
+    # 获取编号的输出目录
+    if args.auto_number:
+        args.output_dir = get_numbered_output_dir(args.output_dir, args.auto_number)
+        print(f"📁 使用时间戳编号输出目录: {args.output_dir}")
     
     # 创建输出目录
     os.makedirs(args.output_dir, exist_ok=True)
@@ -460,6 +484,10 @@ def main():
         if args.dual_model_mode:
             f.write(f"双模型模式 - Top-{args.top_k} Ranked List可视化结果汇总\n")
             f.write(f"=" * 60 + "\n")
+            f.write(f"运行时间: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"输出目录: {args.output_dir}\n")
+            if args.auto_number:
+                f.write(f"时间戳编号: {args.output_dir.split('_')[-1]}\n")
             f.write(f"模态: {args.modality}\n")
             f.write(f"您的模型: {args.model_path}\n")
             f.write(f"Baseline模型: {args.baseline_model_path}\n")
@@ -490,6 +518,10 @@ def main():
         elif args.compare_models:
             f.write(f"ReID模型对比 - Top-{args.top_k} Ranked List可视化结果汇总\n")
             f.write(f"=" * 60 + "\n")
+            f.write(f"运行时间: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"输出目录: {args.output_dir}\n")
+            if args.auto_number:
+                f.write(f"时间戳编号: {args.output_dir.split('_')[-1]}\n")
             f.write(f"模态: {args.modality}\n")
             f.write(f"改进模型: {args.model_path}\n")
             f.write(f"Baseline模型: {args.baseline_model_path}\n")
@@ -520,6 +552,10 @@ def main():
         else:
             f.write(f"ReID模型Top-{args.top_k} Ranked List可视化结果汇总\n")
             f.write(f"=" * 50 + "\n")
+            f.write(f"运行时间: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"输出目录: {args.output_dir}\n")
+            if args.auto_number:
+                f.write(f"时间戳编号: {args.output_dir.split('_')[-1]}\n")
             f.write(f"模态: {args.modality}\n")
             f.write(f"模型: {args.model_path}\n")
             f.write(f"数据集: {args.dataset_root}\n")
