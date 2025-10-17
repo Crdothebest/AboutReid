@@ -127,7 +127,7 @@ SOLVER:
 TEST:
   IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
   RE_RANKING: 'no' # 是否重新排序
-  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  WEIGHT: '' # 权重路径
   NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
   FEAT_NORM: 'yes' # 特征归一化
   MISS: "nothing" # 缺失
