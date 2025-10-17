@@ -146,9 +146,14 @@ def get_topk_ranked_results(query_feat, gallery_feats, gallery_paths, query_pid,
 def draw_ground_truth_box(img, is_correct, thickness=3):
     """
     在图像上绘制Ground Truth标注框
+    - 正确匹配：绿色框 (0, 255, 0)
+    - 错误匹配：红色框 (0, 0, 255)
     """
     img_copy = img.copy()
-    color = (0, 255, 0) if is_correct else (0, 0, 255)  # 绿色=正确，红色=错误
+    if is_correct:
+        color = (0, 255, 0)  # 绿色框表示正确匹配
+    else:
+        color = (0, 0, 255)  # 红色框表示错误匹配
     cv2.rectangle(img_copy, (0, 0), (img_copy.shape[1], img_copy.shape[0]), color, thickness)
     return img_copy
 
@@ -191,7 +196,9 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=10):
         
         # 显示图像
         axes[i+1].imshow(gallery_img_with_box)
-        axes[i+1].set_title(f'Rank {i+1}\nID: {result["gallery_pid"]:06d}\nScore: {result["similarity_score"]:.3f}', 
+        # 在标题中显示匹配状态
+        match_status = "✓ 正确" if result['is_correct'] else "✗ 错误"
+        axes[i+1].set_title(f'Rank {i+1}\nID: {result["gallery_pid"]:06d}\nScore: {result["similarity_score"]:.3f}\n{match_status}', 
                            fontsize=10, fontweight='bold')
         axes[i+1].axis('off')
     
@@ -473,6 +480,7 @@ def main():
             
             f.write(f"详细结果:\n")
             f.write(f"-" * 50 + "\n")
+            f.write(f"注意：可视化图中绿色框表示正确匹配，红色框表示错误匹配\n\n")
             for result in all_results:
                 f.write(f"Query {result['query_id']}:\n")
                 f.write(f"  您的模型: {result['your_model_correct_count']}/{args.top_k} ({result['your_model_correct_count']/args.top_k:.2%})\n")
@@ -502,6 +510,7 @@ def main():
             
             f.write(f"详细结果:\n")
             f.write(f"-" * 50 + "\n")
+            f.write(f"注意：可视化图中绿色框表示正确匹配，红色框表示错误匹配\n\n")
             for result in all_results:
                 f.write(f"Query {result['query_id']}:\n")
                 f.write(f"  改进模型: {result['improved_correct_count']}/{args.top_k} ({result['improved_correct_count']/args.top_k:.2%})\n")
@@ -526,6 +535,7 @@ def main():
             
             f.write(f"详细结果:\n")
             f.write(f"-" * 50 + "\n")
+            f.write(f"注意：可视化图中绿色框表示正确匹配，红色框表示错误匹配\n\n")
             for result in all_results:
                 f.write(f"Query {result['query_id']}:\n")
                 f.write(f"  正确匹配数: {result['correct_count']}/{args.top_k} ({result['correct_count']/args.top_k:.2%})\n")
