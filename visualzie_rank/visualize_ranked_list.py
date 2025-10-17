@@ -21,6 +21,8 @@ import torch
 import numpy as np
 import argparse
 import cv2
+import matplotlib
+matplotlib.use('Agg')  # 使用非交互式后端
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from PIL import Image
@@ -158,8 +160,15 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=9):
     fig, axes = plt.subplots(2, k+1, figsize=(20, 8))
     fig.suptitle(f'Top-{k} Ranked List Visualization', fontsize=16, fontweight='bold')
     
+    # 确保所有子图都正确初始化
+    if axes.ndim == 1:
+        axes = axes.reshape(2, -1)
+    
     # 加载Query图像
     query_img = cv2.imread(query_path)
+    if query_img is None:
+        print(f"⚠️  无法加载Query图像: {query_path}")
+        return
     query_img = cv2.cvtColor(query_img, cv2.COLOR_BGR2RGB)
     query_pid = get_pid_from_path(query_path)
     
@@ -171,6 +180,9 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=9):
     # 显示Top-K Gallery图像
     for i, result in enumerate(ranked_results):
         gallery_img = cv2.imread(result['gallery_path'])
+        if gallery_img is None:
+            print(f"⚠️  无法加载Gallery图像: {result['gallery_path']}")
+            continue
         gallery_img = cv2.cvtColor(gallery_img, cv2.COLOR_BGR2RGB)
         
         # 添加Ground Truth标注框
@@ -203,6 +215,7 @@ def create_ranked_visualization(query_path, ranked_results, output_path, k=9):
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
+    print(f"✅ 可视化结果已保存: {output_path}")
 
 def visualize_single_query(model, query_path, gallery_paths, gallery_feats, transform, device, modality, output_dir, k=9):
     """
