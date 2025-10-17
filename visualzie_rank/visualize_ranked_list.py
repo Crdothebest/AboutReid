@@ -16,6 +16,7 @@ ReID模型Top-K Ranked List可视化工具
 """
 
 import os
+import sys
 import torch
 import numpy as np
 import argparse
@@ -25,6 +26,18 @@ import matplotlib.patches as patches
 from PIL import Image
 from tqdm import tqdm
 from torchvision import transforms
+
+# 添加项目根目录到Python路径
+# 获取脚本所在目录的父目录（即MambaPro项目根目录）
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+sys.path.insert(0, project_root)
+
+# 调试信息
+print(f"🔍 脚本目录: {script_dir}")
+print(f"🔍 项目根目录: {project_root}")
+print(f"🔍 Python路径: {sys.path[:3]}")
+
 from modeling.make_model import make_model
 from config import cfg
 
