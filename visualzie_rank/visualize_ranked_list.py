@@ -241,7 +241,9 @@ def parse_args():
     parser.add_argument('--top_k', type=int, default=10,
                         help='Top-K检索的K值')
     parser.add_argument('--num_queries', type=int, default=10,
-                        help='要可视化的Query数量')
+                        help='要可视化的Query数量（-1表示处理所有Query）')
+    parser.add_argument('--test_all_queries', action='store_true',
+                        help='测试所有Query图像，为每个行人ID生成Rank-10图')
     parser.add_argument('--output_dir', type=str, default='ranked_list_results',
                         help='输出目录')
     return parser.parse_args()
@@ -311,66 +313,80 @@ def main():
     print("🔄 提取Gallery特征...")
     gallery_feats = extract_feature(model, gallery_paths, transform, device, args.modality)
     
-    # 只选择第一个Query进行可视化
-    selected_query = query_paths[0]
-    query_id = os.path.basename(selected_query).split('_')[0]
-    print(f"🎯 选择1个Query进行可视化: {query_id}")
+    # 选择要处理的Query
+    if args.test_all_queries or args.num_queries == -1:
+        # 处理所有Query
+        selected_queries = query_paths
+        print(f"🎯 处理所有Query进行可视化: {len(selected_queries)}个")
+    else:
+        # 只处理指定数量的Query
+        selected_queries = query_paths[:args.num_queries]
+        print(f"🎯 选择{len(selected_queries)}个Query进行可视化")
     
     if args.compare_models:
         # 对比两个模型
-        print(f"\n🔄 处理Query: {query_id} (对比模式)")
+        print(f"\n🔄 对比模式处理 {len(selected_queries)} 个Query...")
         
         # 提取Baseline Gallery特征
         print("🔄 提取Baseline Gallery特征...")
         baseline_gallery_feats = extract_feature(baseline_model, gallery_paths, transform, device, args.modality)
         
-        # 生成改进模型的可视化
-        print("🔄 生成改进模型可视化...")
-        improved_results = visualize_single_query(
-            model, selected_query, gallery_paths, gallery_feats, 
-            transform, device, args.modality, args.output_dir, args.top_k, "improved"
-        )
-        
-        # 生成Baseline模型的可视化
-        print("🔄 生成Baseline模型可视化...")
-        baseline_results = visualize_single_query(
-            baseline_model, selected_query, gallery_paths, baseline_gallery_feats, 
-            transform, device, args.modality, args.output_dir, args.top_k, "baseline"
-        )
-        
-        # 统计结果
-        improved_correct = sum(1 for r in improved_results if r['is_correct'])
-        baseline_correct = sum(1 for r in baseline_results if r['is_correct'])
-        
-        print(f"   ✅ 改进模型 Top-{args.top_k}中正确匹配: {improved_correct}/{args.top_k}")
-        print(f"   ✅ Baseline模型 Top-{args.top_k}中正确匹配: {baseline_correct}/{args.top_k}")
-        
-        all_results = [{
-            'query_id': query_id,
-            'query_path': selected_query,
-            'improved_correct_count': improved_correct,
-            'baseline_correct_count': baseline_correct,
-            'improved_results': improved_results,
-            'baseline_results': baseline_results
-        }]
+        all_results = []
+        for i, query_path in enumerate(tqdm(selected_queries, desc="处理Query")):
+            query_id = os.path.basename(query_path).split('_')[0]
+            print(f"\n🔄 处理Query {i+1}/{len(selected_queries)}: {query_id}")
+            
+            # 生成改进模型的可视化
+            improved_results = visualize_single_query(
+                model, query_path, gallery_paths, gallery_feats, 
+                transform, device, args.modality, args.output_dir, args.top_k, "improved"
+            )
+            
+            # 生成Baseline模型的可视化
+            baseline_results = visualize_single_query(
+                baseline_model, query_path, gallery_paths, baseline_gallery_feats, 
+                transform, device, args.modality, args.output_dir, args.top_k, "baseline"
+            )
+            
+            # 统计结果
+            improved_correct = sum(1 for r in improved_results if r['is_correct'])
+            baseline_correct = sum(1 for r in baseline_results if r['is_correct'])
+            
+            print(f"   ✅ 改进模型 Top-{args.top_k}中正确匹配: {improved_correct}/{args.top_k}")
+            print(f"   ✅ Baseline模型 Top-{args.top_k}中正确匹配: {baseline_correct}/{args.top_k}")
+            
+            all_results.append({
+                'query_id': query_id,
+                'query_path': query_path,
+                'improved_correct_count': improved_correct,
+                'baseline_correct_count': baseline_correct,
+                'improved_results': improved_results,
+                'baseline_results': baseline_results
+            })
     else:
         # 单个模型
-        print(f"\n🔄 处理Query: {query_id}")
-        ranked_results = visualize_single_query(
-            model, selected_query, gallery_paths, gallery_feats, 
-            transform, device, args.modality, args.output_dir, args.top_k
-        )
+        print(f"\n🔄 处理 {len(selected_queries)} 个Query...")
         
-        # 统计结果
-        correct_count = sum(1 for r in ranked_results if r['is_correct'])
-        print(f"   ✅ Top-{args.top_k}中正确匹配: {correct_count}/{args.top_k}")
-        
-        all_results = [{
-            'query_id': query_id,
-            'query_path': selected_query,
-            'correct_count': correct_count,
-            'ranked_results': ranked_results
-        }]
+        all_results = []
+        for i, query_path in enumerate(tqdm(selected_queries, desc="处理Query")):
+            query_id = os.path.basename(query_path).split('_')[0]
+            print(f"\n🔄 处理Query {i+1}/{len(selected_queries)}: {query_id}")
+            
+            ranked_results = visualize_single_query(
+                model, query_path, gallery_paths, gallery_feats, 
+                transform, device, args.modality, args.output_dir, args.top_k
+            )
+            
+            # 统计结果
+            correct_count = sum(1 for r in ranked_results if r['is_correct'])
+            print(f"   ✅ Top-{args.top_k}中正确匹配: {correct_count}/{args.top_k}")
+            
+            all_results.append({
+                'query_id': query_id,
+                'query_path': query_path,
+                'correct_count': correct_count,
+                'ranked_results': ranked_results
+            })
     
     # 生成汇总报告
     print(f"\n📊 生成汇总报告...")
@@ -384,57 +400,72 @@ def main():
             f.write(f"Baseline模型: {args.baseline_model_path}\n")
             f.write(f"配置文件: {args.config_path}\n")
             f.write(f"数据集: {args.dataset_root}\n")
-            f.write(f"Top-K: {args.top_k}\n\n")
+            f.write(f"Top-K: {args.top_k}\n")
+            f.write(f"处理Query数量: {len(all_results)}\n\n")
             
-            result = all_results[0]
-            f.write(f"Query: {result['query_id']}\n\n")
-            f.write(f"改进模型结果:\n")
-            f.write(f"  正确匹配数: {result['improved_correct_count']}/{args.top_k}\n")
-            f.write(f"  准确率: {result['improved_correct_count']/args.top_k:.2%}\n")
-            f.write(f"  可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}_improved.png\n\n")
+            # 计算总体统计
+            total_improved_correct = sum(r['improved_correct_count'] for r in all_results)
+            total_baseline_correct = sum(r['baseline_correct_count'] for r in all_results)
+            total_possible = len(all_results) * args.top_k
             
-            f.write(f"Baseline模型结果:\n")
-            f.write(f"  正确匹配数: {result['baseline_correct_count']}/{args.top_k}\n")
-            f.write(f"  准确率: {result['baseline_correct_count']/args.top_k:.2%}\n")
-            f.write(f"  可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}_baseline.png\n\n")
+            f.write(f"总体统计:\n")
+            f.write(f"  改进模型总体准确率: {total_improved_correct}/{total_possible} ({total_improved_correct/total_possible:.2%})\n")
+            f.write(f"  Baseline模型总体准确率: {total_baseline_correct}/{total_possible} ({total_baseline_correct/total_possible:.2%})\n")
+            f.write(f"  总体性能提升: {total_improved_correct - total_baseline_correct} 个正确匹配\n\n")
             
-            # 性能对比
-            improvement = result['improved_correct_count'] - result['baseline_correct_count']
-            f.write(f"性能对比:\n")
-            f.write(f"  改进模型提升: {improvement} 个正确匹配\n")
-            f.write(f"  相对提升: {improvement/args.top_k:.2%}\n")
+            f.write(f"详细结果:\n")
+            f.write(f"-" * 50 + "\n")
+            for result in all_results:
+                f.write(f"Query {result['query_id']}:\n")
+                f.write(f"  改进模型: {result['improved_correct_count']}/{args.top_k} ({result['improved_correct_count']/args.top_k:.2%})\n")
+                f.write(f"  Baseline模型: {result['baseline_correct_count']}/{args.top_k} ({result['baseline_correct_count']/args.top_k:.2%})\n")
+                f.write(f"  可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}_improved.png\n")
+                f.write(f"  可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}_baseline.png\n\n")
         else:
             f.write(f"ReID模型Top-{args.top_k} Ranked List可视化结果汇总\n")
             f.write(f"=" * 50 + "\n")
             f.write(f"模态: {args.modality}\n")
             f.write(f"模型: {args.model_path}\n")
             f.write(f"数据集: {args.dataset_root}\n")
-            f.write(f"Top-K: {args.top_k}\n\n")
+            f.write(f"Top-K: {args.top_k}\n")
+            f.write(f"处理Query数量: {len(all_results)}\n\n")
             
-            result = all_results[0]
-            f.write(f"Query: {result['query_id']}\n")
-            f.write(f"正确匹配数: {result['correct_count']}/{args.top_k}\n")
-            f.write(f"可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}.png\n")
+            # 计算总体统计
+            total_correct = sum(r['correct_count'] for r in all_results)
+            total_possible = len(all_results) * args.top_k
+            
+            f.write(f"总体统计:\n")
+            f.write(f"  总体准确率: {total_correct}/{total_possible} ({total_correct/total_possible:.2%})\n\n")
+            
             f.write(f"详细结果:\n")
-            for rank_result in result['ranked_results']:
-                status = "✓" if rank_result['is_correct'] else "✗"
-                f.write(f"  Rank {rank_result['rank']}: {rank_result['gallery_pid']:06d} "
-                       f"(Score: {rank_result['similarity_score']:.3f}) {status}\n")
+            f.write(f"-" * 50 + "\n")
+            for result in all_results:
+                f.write(f"Query {result['query_id']}:\n")
+                f.write(f"  正确匹配数: {result['correct_count']}/{args.top_k} ({result['correct_count']/args.top_k:.2%})\n")
+                f.write(f"  可视化文件: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}.png\n\n")
     
     print(f"\n🎉 可视化完成！")
     print(f"📁 结果保存在: {args.output_dir}")
     if args.compare_models:
+        # 计算总体统计
+        total_improved_correct = sum(r['improved_correct_count'] for r in all_results)
+        total_baseline_correct = sum(r['baseline_correct_count'] for r in all_results)
+        total_possible = len(all_results) * args.top_k
+        
         print(f"📊 对比结果:")
-        print(f"   - Query: {all_results[0]['query_id']}")
-        print(f"   - 改进模型: {all_results[0]['improved_correct_count']}/{args.top_k} ({all_results[0]['improved_correct_count']/args.top_k:.2%})")
-        print(f"   - Baseline模型: {all_results[0]['baseline_correct_count']}/{args.top_k} ({all_results[0]['baseline_correct_count']/args.top_k:.2%})")
-        improvement = all_results[0]['improved_correct_count'] - all_results[0]['baseline_correct_count']
-        print(f"   - 性能提升: {improvement} 个正确匹配 ({improvement/args.top_k:.2%})")
+        print(f"   - 处理Query数量: {len(all_results)}")
+        print(f"   - 改进模型总体准确率: {total_improved_correct}/{total_possible} ({total_improved_correct/total_possible:.2%})")
+        print(f"   - Baseline模型总体准确率: {total_baseline_correct}/{total_possible} ({total_baseline_correct/total_possible:.2%})")
+        improvement = total_improved_correct - total_baseline_correct
+        print(f"   - 总体性能提升: {improvement} 个正确匹配 ({improvement/total_possible:.2%})")
     else:
+        # 计算总体统计
+        total_correct = sum(r['correct_count'] for r in all_results)
+        total_possible = len(all_results) * args.top_k
+        
         print(f"📊 统计结果:")
-        print(f"   - Query: {all_results[0]['query_id']}")
-        print(f"   - 正确匹配数: {all_results[0]['correct_count']}/{args.top_k}")
-        print(f"   - 准确率: {all_results[0]['correct_count']/args.top_k:.2%}")
+        print(f"   - 处理Query数量: {len(all_results)}")
+        print(f"   - 总体准确率: {total_correct}/{total_possible} ({total_correct/total_possible:.2%})")
     print(f"   - 汇总报告: {report_path}")
 
 if __name__ == '__main__':
