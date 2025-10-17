@@ -234,8 +234,6 @@ def parse_args():
                         help='模型权重路径')
     parser.add_argument('--baseline_model_path', type=str, default='/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth',
                         help='Baseline模型权重路径（用于对比）')
-    parser.add_argument('--baseline_config_path', type=str, default='configs/RGBNT201/baseline.yml',
-                        help='Baseline模型配置文件路径')
     parser.add_argument('--compare_models', action='store_true',
                         help='是否对比两个模型（改进模型 vs Baseline模型）')
     parser.add_argument('--modality', type=str, default='RGB', choices=['RGB', 'NI', 'TI'],
@@ -295,18 +293,11 @@ def main():
         if not os.path.exists(args.baseline_model_path):
             print(f"❌ Baseline模型权重文件不存在: {args.baseline_model_path}")
             return
-        if not os.path.exists(args.baseline_config_path):
-            print(f"❌ Baseline配置文件不存在: {args.baseline_config_path}")
-            return
             
-        # 加载Baseline配置
-        baseline_cfg = cfg.clone()
-        baseline_cfg.merge_from_file(args.baseline_config_path)
-        baseline_cfg.freeze()
-        
-        # 构建Baseline模型
+        # 构建Baseline模型（使用相同的配置，但加载不同的权重）
+        print(f"🔄 构建Baseline模型...")
         baseline_camera_num = detect_camera_num_from_weights(args.baseline_model_path)
-        baseline_model = make_model(baseline_cfg, num_class=num_class, camera_num=baseline_camera_num).to(device)
+        baseline_model = make_model(cfg, num_class=num_class, camera_num=baseline_camera_num).to(device)
         baseline_model.load_param(args.baseline_model_path)
         baseline_model.eval()
         print("✅ Baseline模型加载完成")
@@ -391,6 +382,7 @@ def main():
             f.write(f"模态: {args.modality}\n")
             f.write(f"改进模型: {args.model_path}\n")
             f.write(f"Baseline模型: {args.baseline_model_path}\n")
+            f.write(f"配置文件: {args.config_path}\n")
             f.write(f"数据集: {args.dataset_root}\n")
             f.write(f"Top-K: {args.top_k}\n\n")
             
