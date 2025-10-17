@@ -290,10 +290,13 @@ def main():
     model.eval()
     print("✅ 模型加载完成")
     
-    # 如果启用模型对比，加载Baseline模型
+    # 如果启用模型对比或双模型模式，加载Baseline模型
     baseline_model = None
-    if args.compare_models:
-        print("🔄 加载Baseline模型进行对比...")
+    if args.compare_models or args.dual_model_mode:
+        if args.dual_model_mode:
+            print("🔄 加载Baseline模型（双模型模式）...")
+        else:
+            print("🔄 加载Baseline模型进行对比...")
         if not os.path.exists(args.baseline_model_path):
             print(f"❌ Baseline模型权重文件不存在: {args.baseline_model_path}")
             return
@@ -304,7 +307,10 @@ def main():
         baseline_model = make_model(cfg, num_class=num_class, camera_num=baseline_camera_num).to(device)
         baseline_model.load_param(args.baseline_model_path)
         baseline_model.eval()
-        print("✅ Baseline模型加载完成")
+        if args.dual_model_mode:
+            print("✅ Baseline模型加载完成（双模型模式）")
+        else:
+            print("✅ Baseline模型加载完成")
     
     # 处理数据集
     print(f"🔍 处理 {args.modality} 模态数据集...")
@@ -331,6 +337,11 @@ def main():
         print("📋 将为每个Query生成两个Rank-10图：")
         print("   - 您的模型: ranked_list_{query_id}_{modality}_top{k}_your_model.png")
         print("   - Baseline模型: ranked_list_{query_id}_{modality}_top{k}_baseline.png")
+        
+        # 检查Baseline模型是否已加载
+        if baseline_model is None:
+            print("❌ Baseline模型未加载，无法运行双模型模式")
+            return
         
         # 提取Baseline Gallery特征
         print("🔄 提取Baseline Gallery特征...")
