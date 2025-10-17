@@ -236,6 +236,8 @@ def parse_args():
                         help='Baseline模型权重路径（用于对比）')
     parser.add_argument('--compare_models', action='store_true',
                         help='是否对比两个模型（改进模型 vs Baseline模型）')
+    parser.add_argument('--dual_model_mode', action='store_true',
+                        help='双模型模式：同时运行两个模型，为每个Query生成两个不同的Rank-10图')
     parser.add_argument('--modality', type=str, default='RGB', choices=['RGB', 'NI', 'TI'],
                         help='模态类型')
     parser.add_argument('--top_k', type=int, default=10,
@@ -323,7 +325,52 @@ def main():
         selected_queries = query_paths[:args.num_queries]
         print(f"🎯 选择{len(selected_queries)}个Query进行可视化")
     
-    if args.compare_models:
+    if args.dual_model_mode:
+        # 双模型模式：同时运行两个模型，为每个Query生成两个不同的Rank-10图
+        print(f"\n🔄 双模型模式处理 {len(selected_queries)} 个Query...")
+        print("📋 将为每个Query生成两个Rank-10图：")
+        print("   - 您的模型: ranked_list_{query_id}_{modality}_top{k}_your_model.png")
+        print("   - Baseline模型: ranked_list_{query_id}_{modality}_top{k}_baseline.png")
+        
+        # 提取Baseline Gallery特征
+        print("🔄 提取Baseline Gallery特征...")
+        baseline_gallery_feats = extract_feature(baseline_model, gallery_paths, transform, device, args.modality)
+        
+        all_results = []
+        for i, query_path in enumerate(tqdm(selected_queries, desc="处理Query")):
+            query_id = os.path.basename(query_path).split('_')[0]
+            print(f"\n🔄 处理Query {i+1}/{len(selected_queries)}: {query_id}")
+            
+            # 生成您的模型的可视化
+            print(f"   🔄 生成您的模型Rank-10图...")
+            your_model_results = visualize_single_query(
+                model, query_path, gallery_paths, gallery_feats, 
+                transform, device, args.modality, args.output_dir, args.top_k, "your_model"
+            )
+            
+            # 生成Baseline模型的可视化
+            print(f"   🔄 生成Baseline模型Rank-10图...")
+            baseline_results = visualize_single_query(
+                baseline_model, query_path, gallery_paths, baseline_gallery_feats, 
+                transform, device, args.modality, args.output_dir, args.top_k, "baseline"
+            )
+            
+            # 统计结果
+            your_model_correct = sum(1 for r in your_model_results if r['is_correct'])
+            baseline_correct = sum(1 for r in baseline_results if r['is_correct'])
+            
+            print(f"   ✅ 您的模型 Top-{args.top_k}中正确匹配: {your_model_correct}/{args.top_k}")
+            print(f"   ✅ Baseline模型 Top-{args.top_k}中正确匹配: {baseline_correct}/{args.top_k}")
+            
+            all_results.append({
+                'query_id': query_id,
+                'query_path': query_path,
+                'your_model_correct_count': your_model_correct,
+                'baseline_correct_count': baseline_correct,
+                'your_model_results': your_model_results,
+                'baseline_results': baseline_results
+            })
+    elif args.compare_models:
         # 对比两个模型
         print(f"\n🔄 对比模式处理 {len(selected_queries)} 个Query...")
         
@@ -392,7 +439,36 @@ def main():
     print(f"\n📊 生成汇总报告...")
     report_path = os.path.join(args.output_dir, 'summary_report.txt')
     with open(report_path, 'w', encoding='utf-8') as f:
-        if args.compare_models:
+        if args.dual_model_mode:
+            f.write(f"双模型模式 - Top-{args.top_k} Ranked List可视化结果汇总\n")
+            f.write(f"=" * 60 + "\n")
+            f.write(f"模态: {args.modality}\n")
+            f.write(f"您的模型: {args.model_path}\n")
+            f.write(f"Baseline模型: {args.baseline_model_path}\n")
+            f.write(f"配置文件: {args.config_path}\n")
+            f.write(f"数据集: {args.dataset_root}\n")
+            f.write(f"Top-K: {args.top_k}\n")
+            f.write(f"处理Query数量: {len(all_results)}\n\n")
+            
+            # 计算总体统计
+            total_your_model_correct = sum(r['your_model_correct_count'] for r in all_results)
+            total_baseline_correct = sum(r['baseline_correct_count'] for r in all_results)
+            total_possible = len(all_results) * args.top_k
+            
+            f.write(f"总体统计:\n")
+            f.write(f"  您的模型总体准确率: {total_your_model_correct}/{total_possible} ({total_your_model_correct/total_possible:.2%})\n")
+            f.write(f"  Baseline模型总体准确率: {total_baseline_correct}/{total_possible} ({total_baseline_correct/total_possible:.2%})\n")
+            f.write(f"  总体性能提升: {total_your_model_correct - total_baseline_correct} 个正确匹配\n\n")
+            
+            f.write(f"详细结果:\n")
+            f.write(f"-" * 50 + "\n")
+            for result in all_results:
+                f.write(f"Query {result['query_id']}:\n")
+                f.write(f"  您的模型: {result['your_model_correct_count']}/{args.top_k} ({result['your_model_correct_count']/args.top_k:.2%})\n")
+                f.write(f"  Baseline模型: {result['baseline_correct_count']}/{args.top_k} ({result['baseline_correct_count']/args.top_k:.2%})\n")
+                f.write(f"  您的模型图: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}_your_model.png\n")
+                f.write(f"  Baseline图: ranked_list_{result['query_id']}_{args.modality}_top{args.top_k}_baseline.png\n\n")
+        elif args.compare_models:
             f.write(f"ReID模型对比 - Top-{args.top_k} Ranked List可视化结果汇总\n")
             f.write(f"=" * 60 + "\n")
             f.write(f"模态: {args.modality}\n")
@@ -446,7 +522,20 @@ def main():
     
     print(f"\n🎉 可视化完成！")
     print(f"📁 结果保存在: {args.output_dir}")
-    if args.compare_models:
+    if args.dual_model_mode:
+        # 计算总体统计
+        total_your_model_correct = sum(r['your_model_correct_count'] for r in all_results)
+        total_baseline_correct = sum(r['baseline_correct_count'] for r in all_results)
+        total_possible = len(all_results) * args.top_k
+        
+        print(f"📊 双模型模式结果:")
+        print(f"   - 处理Query数量: {len(all_results)}")
+        print(f"   - 您的模型总体准确率: {total_your_model_correct}/{total_possible} ({total_your_model_correct/total_possible:.2%})")
+        print(f"   - Baseline模型总体准确率: {total_baseline_correct}/{total_possible} ({total_baseline_correct/total_possible:.2%})")
+        improvement = total_your_model_correct - total_baseline_correct
+        print(f"   - 总体性能提升: {improvement} 个正确匹配 ({improvement/total_possible:.2%})")
+        print(f"   - 每个Query生成2个Rank-10图：您的模型图和Baseline模型图")
+    elif args.compare_models:
         # 计算总体统计
         total_improved_correct = sum(r['improved_correct_count'] for r in all_results)
         total_baseline_correct = sum(r['baseline_correct_count'] for r in all_results)
