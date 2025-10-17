@@ -146,14 +146,14 @@ def get_topk_ranked_results(query_feat, gallery_feats, gallery_paths, query_pid,
 def draw_ground_truth_box(img, is_correct, thickness=3):
     """
     在图像上绘制Ground Truth标注框
-    - 正确匹配：绿色框 (0, 255, 0)
-    - 错误匹配：红色框 (0, 0, 255)
+    - 正确匹配：绿色框 (0, 255, 0) - RGB格式
+    - 错误匹配：红色框 (255, 0, 0) - RGB格式
     """
     img_copy = img.copy()
     if is_correct:
-        color = (0, 255, 0)  # 绿色框表示正确匹配
+        color = (0, 255, 0)  # 绿色框表示正确匹配 (RGB格式)
     else:
-        color = (0, 0, 255)  # 红色框表示错误匹配
+        color = (255, 0, 0)  # 红色框表示错误匹配 (RGB格式)
     cv2.rectangle(img_copy, (0, 0), (img_copy.shape[1], img_copy.shape[0]), color, thickness)
     return img_copy
 
