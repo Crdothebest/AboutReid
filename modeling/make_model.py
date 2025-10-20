@@ -356,10 +356,15 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             NI = x['NI']  # 近红外
             TI = x['TI']  # 热红外
 
-            RGB_cash, RGB_score, RGB_global = self.BACKBONE(RGB, cam_label=cam_label, view_label=view_label,
+            RGB_tokens, RGB_score, RGB_global = self.BACKBONE(RGB, cam_label=cam_label, view_label=view_label,
                                                             modality='rgb')
-            NI_cash, NI_score, NI_global = self.BACKBONE(NI, cam_label=cam_label, view_label=view_label, modality='nir')
-            TI_cash, TI_score, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
+            NI_tokens, NI_score, NI_global = self.BACKBONE(NI, cam_label=cam_label, view_label=view_label, modality='nir')
+            TI_tokens, TI_score, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
+            
+            # 为了保持兼容性，将tokens作为cash使用
+            RGB_cash = RGB_tokens
+            NI_cash = NI_tokens
+            TI_cash = TI_tokens
 
             # 🔥 关键修改：检测数据集类型，支持双模态和三模态
             # 通过检查TI特征是否与NI特征相同来判断是否为双模态数据集
