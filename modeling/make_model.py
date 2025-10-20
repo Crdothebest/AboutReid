@@ -149,6 +149,13 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             self.gate_num_heads = getattr(cfg.MODEL, 'GATE_NUM_HEADS', 8)
             self.gate_dropout = getattr(cfg.MODEL, 'GATE_DROPOUT', 0.1)
             
+            # 🔥 新增：注意力融合配置
+            # 功能：从配置文件读取注意力融合设置，支持注意力融合机制开关
+            self.use_attention_fusion = getattr(cfg.MODEL, 'USE_ATTENTION_FUSION', False)
+            self.attention_num_heads = getattr(cfg.MODEL, 'ATTENTION_NUM_HEADS', 8)
+            self.attention_dropout = getattr(cfg.MODEL, 'ATTENTION_DROPOUT', 0.1)
+            self.attention_dim = getattr(cfg.MODEL, 'ATTENTION_DIM', 512)
+            
             if self.use_multi_scale_moe:
                 from modeling.fusion_part.multi_scale_moe import CLIPMultiScaleMoE
                 # 🔥 修复：从配置文件读取所有MoE参数，替代硬编码
@@ -174,7 +181,11 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     expert_threshold=expert_threshold,
                     residual_weight=residual_weight,
                     use_gate_fusion=self.use_gate_fusion,
-                    gate_num_heads=self.gate_num_heads
+                    gate_num_heads=self.gate_num_heads,
+                    use_attention_fusion=self.use_attention_fusion,
+                    attention_num_heads=self.attention_num_heads,
+                    attention_dropout=self.attention_dropout,
+                    attention_dim=self.attention_dim
                 )
                 # 初始化专家权重历史记录（用于分析）
                 self.expert_weights_history = []
@@ -183,6 +194,8 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 print(f'   - 特征维度: 512 (CLIP投影维度)')
                 print(f'   - 专家隐藏层维度: {expert_hidden_dim}')
                 print(f'   - 门控网络温度: {temperature}')
+                print(f'   - 门控融合机制: {"已启用" if self.use_gate_fusion else "已禁用"}')
+                print(f'   - 注意力融合机制: {"已启用" if self.use_attention_fusion else "已禁用"}')
 
             if cfg.MODEL.SIE_CAMERA and cfg.MODEL.SIE_VIEW:
                 self.cv_embed = nn.Parameter(torch.zeros(camera_num * view_num, 768))  # 相机×视角嵌入（CLIP实际维度）
@@ -343,10 +356,15 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             NI = x['NI']  # 近红外
             TI = x['TI']  # 热红外
 
-            RGB_cash, RGB_score, RGB_global = self.BACKBONE(RGB, cam_label=cam_label, view_label=view_label,
+            RGB_tokens, RGB_score, RGB_global = self.BACKBONE(RGB, cam_label=cam_label, view_label=view_label,
                                                             modality='rgb')
-            NI_cash, NI_score, NI_global = self.BACKBONE(NI, cam_label=cam_label, view_label=view_label, modality='nir')
-            TI_cash, TI_score, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
+            NI_tokens, NI_score, NI_global = self.BACKBONE(NI, cam_label=cam_label, view_label=view_label, modality='nir')
+            TI_tokens, TI_score, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
+            
+            # 为了保持兼容性，将tokens作为cash使用
+            RGB_cash = RGB_tokens
+            NI_cash = NI_tokens
+            TI_cash = TI_tokens
 
             # 🔥 关键修改：检测数据集类型，支持双模态和三模态
             # 通过检查TI特征是否与NI特征相同来判断是否为双模态数据集

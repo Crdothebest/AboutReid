@@ -79,6 +79,17 @@ _C.MODEL.USE_GATE_FUSION = False              # whether use gate fusion mechanis
 _C.MODEL.GATE_NUM_HEADS = 8                   # number of gate network heads (默认8个门控头)
 _C.MODEL.GATE_DROPOUT = 0.1                   # gate network dropout rate (默认0.1)
 
+# ========== 新增配置：注意力融合机制设置 ==========
+# 用户修改：添加注意力融合机制配置，支持命令行开关控制
+# 功能：控制是否启用注意力融合机制增强MoE融合效果
+# 基于：注意力融合增强MoE特征融合创新设计
+# 撤销方法：删除以下配置代码
+# Attention Fusion settings
+_C.MODEL.USE_ATTENTION_FUSION = False         # whether use attention fusion mechanism (默认关闭)
+_C.MODEL.ATTENTION_NUM_HEADS = 8              # number of attention heads (默认8个注意力头)
+_C.MODEL.ATTENTION_DROPOUT = 0.1              # attention network dropout rate (默认0.1)
+_C.MODEL.ATTENTION_DIM = 512                  # attention network dimension (默认512维)
+
 # If train with label smooth, options: 'on', 'off'
 _C.MODEL.IF_LABELSMOOTH = 'on'
 # If train with the contact feature

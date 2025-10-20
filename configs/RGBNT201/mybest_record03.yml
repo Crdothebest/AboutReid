@@ -1,4 +1,4 @@
-
+# /home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251015_132633/models/MambaProbest.pth
 
 MODEL:
   PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
@@ -81,7 +81,7 @@ SOLVER:
 TEST:
   IMS_PER_BATCH: 64
   RE_RANKING: 'no'
-  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth'
+  WEIGHT: ''
   NECK_FEAT: 'after'
   FEAT_NORM: 'yes'
   MISS: "nothing"
