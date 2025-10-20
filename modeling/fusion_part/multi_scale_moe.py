@@ -537,6 +537,82 @@ class MultiScaleMoE(nn.Module):
             self._attention_fusion_complete_called = True
         
         return enhanced_multi_scale_features
+    
+    def _expert_network_processing(self, multi_scale_features):
+        """
+        专家网络处理多尺度特征
+        
+        Args:
+            multi_scale_features: List[Tensor] - 多尺度特征列表
+        Returns:
+            final_feature: [B, feat_dim] - 最终特征
+            expert_weights: [B, num_experts] - 专家权重
+        """
+        # 🔥 专家网络处理提示（仅在第一次调用时显示）
+        if not hasattr(self, '_expert_processing_called'):
+            print(f"🎯 专家网络处理：使用门控网络和专家网络")
+            print(f"   - 专家数量: {len(self.experts)}")
+            print(f"   - 专家隐藏层维度: {self.experts[0].hidden_dim if hasattr(self.experts[0], 'hidden_dim') else 'N/A'}")
+            print(f"   - 专家层数: {self.experts[0].num_layers if hasattr(self.experts[0], 'num_layers') else 'N/A'}")
+            print(f"   - 门控网络计算专家权重")
+            print(f"   - 专家网络处理多尺度特征")
+            print(f"   - 加权融合得到最终特征")
+            self._expert_processing_called = True
+        
+        B = multi_scale_features[0].shape[0]
+        
+        # 🔥 步骤1：拼接多尺度特征作为门控网络输入
+        concat_features = torch.cat(multi_scale_features, dim=1)  # [B, feat_dim * num_scales]
+        
+        # 🔥 门控网络处理提示（仅在第一次调用时显示）
+        if not hasattr(self, '_gating_network_called'):
+            print(f"🎯 门控网络处理：计算专家权重")
+            print(f"   - 输入特征形状: {concat_features.shape}")
+            print(f"   - 输出权重形状: [B, {len(self.experts)}]")
+            self._gating_network_called = True
+        
+        # ========== MLP门控网络调用：计算专家权重 ==========
+        expert_weights = self.gating_network(concat_features)  # [B, num_experts]
+        
+        # 🔥 专家网络处理提示（仅在第一次调用时显示）
+        if not hasattr(self, '_expert_network_called'):
+            print(f"🎯 专家网络处理：处理各尺度特征")
+            print(f"   - 专家网络数量: {len(self.experts)}")
+            print(f"   - 输入特征形状: {multi_scale_features[0].shape}")
+            print(f"   - 输出特征形状: [B, {self.feat_dim}]")
+            self._expert_network_called = True
+        
+        # ========== MLP专家网络调用：处理各尺度特征 ==========
+        expert_outputs = []
+        for i, (expert, feature) in enumerate(zip(self.experts, multi_scale_features)):
+            expert_output = expert(feature)  # [B, feat_dim]
+            expert_outputs.append(expert_output)
+        
+        # 🔥 步骤4：加权融合专家输出
+        weighted_outputs = []
+        for i, expert_output in enumerate(expert_outputs):
+            weight = expert_weights[:, i:i+1].expand_as(expert_output)  # [B, feat_dim]
+            weighted_output = weight * expert_output  # [B, feat_dim]
+            weighted_outputs.append(weighted_output)
+        
+        # 求和得到融合特征
+        fused_feature = torch.sum(torch.stack(weighted_outputs, dim=0), dim=0)  # [B, feat_dim]
+        
+        # 🔥 最终融合提示（仅在第一次调用时显示）
+        if not hasattr(self, '_final_fusion_called'):
+            print(f"🎯 最终融合：专家输出融合")
+            print(f"   - 融合特征形状: {fused_feature.shape}")
+            print(f"   - 最终特征形状: [B, {self.feat_dim}]")
+            self._final_fusion_called = True
+        
+        # 保存最新专家权重供训练结束时输出
+        with torch.no_grad():
+            self._latest_expert_weights = expert_weights.detach().clone()
+        
+        # ========== MLP最终融合层调用：专家输出融合 ==========
+        final_feature = self.final_fusion(fused_feature)  # [B, feat_dim]
+        
+        return final_feature, expert_weights
 
 
 class AttentionFusionConcat(nn.Module):
@@ -659,82 +735,6 @@ class AttentionFusionConcat(nn.Module):
             self._attention_fusion_completed = True
         
         return enhanced_multi_scale_features
-    
-    def _expert_network_processing(self, multi_scale_features):
-        """
-        专家网络处理多尺度特征
-        
-        Args:
-            multi_scale_features: List[Tensor] - 多尺度特征列表
-        Returns:
-            final_feature: [B, feat_dim] - 最终特征
-            expert_weights: [B, num_experts] - 专家权重
-        """
-        # 🔥 专家网络处理提示（仅在第一次调用时显示）
-        if not hasattr(self, '_expert_processing_called'):
-            print(f"🎯 专家网络处理：使用门控网络和专家网络")
-            print(f"   - 专家数量: {len(self.experts)}")
-            print(f"   - 专家隐藏层维度: {self.experts[0].hidden_dim if hasattr(self.experts[0], 'hidden_dim') else 'N/A'}")
-            print(f"   - 专家层数: {self.experts[0].num_layers if hasattr(self.experts[0], 'num_layers') else 'N/A'}")
-            print(f"   - 门控网络计算专家权重")
-            print(f"   - 专家网络处理多尺度特征")
-            print(f"   - 加权融合得到最终特征")
-            self._expert_processing_called = True
-        
-        B = multi_scale_features[0].shape[0]
-        
-        # 🔥 步骤1：拼接多尺度特征作为门控网络输入
-        concat_features = torch.cat(multi_scale_features, dim=1)  # [B, feat_dim * num_scales]
-        
-        # 🔥 门控网络处理提示（仅在第一次调用时显示）
-        if not hasattr(self, '_gating_network_called'):
-            print(f"🎯 门控网络处理：计算专家权重")
-            print(f"   - 输入特征形状: {concat_features.shape}")
-            print(f"   - 输出权重形状: [B, {len(self.experts)}]")
-            self._gating_network_called = True
-        
-        # ========== MLP门控网络调用：计算专家权重 ==========
-        expert_weights = self.gating_network(concat_features)  # [B, num_experts]
-        
-        # 🔥 专家网络处理提示（仅在第一次调用时显示）
-        if not hasattr(self, '_expert_network_called'):
-            print(f"🎯 专家网络处理：处理各尺度特征")
-            print(f"   - 专家网络数量: {len(self.experts)}")
-            print(f"   - 输入特征形状: {multi_scale_features[0].shape}")
-            print(f"   - 输出特征形状: [B, {self.feat_dim}]")
-            self._expert_network_called = True
-        
-        # ========== MLP专家网络调用：处理各尺度特征 ==========
-        expert_outputs = []
-        for i, (expert, feature) in enumerate(zip(self.experts, multi_scale_features)):
-            expert_output = expert(feature)  # [B, feat_dim]
-            expert_outputs.append(expert_output)
-        
-        # 🔥 步骤4：加权融合专家输出
-        weighted_outputs = []
-        for i, expert_output in enumerate(expert_outputs):
-            weight = expert_weights[:, i:i+1].expand_as(expert_output)  # [B, feat_dim]
-            weighted_output = weight * expert_output  # [B, feat_dim]
-            weighted_outputs.append(weighted_output)
-        
-        # 求和得到融合特征
-        fused_feature = torch.sum(torch.stack(weighted_outputs, dim=0), dim=0)  # [B, feat_dim]
-        
-        # 🔥 最终融合提示（仅在第一次调用时显示）
-        if not hasattr(self, '_final_fusion_called'):
-            print(f"🎯 最终融合：专家输出融合")
-            print(f"   - 融合特征形状: {fused_feature.shape}")
-            print(f"   - 最终特征形状: [B, {self.feat_dim}]")
-            self._final_fusion_called = True
-        
-        # 保存最新专家权重供训练结束时输出
-        with torch.no_grad():
-            self._latest_expert_weights = expert_weights.detach().clone()
-        
-        # ========== MLP最终融合层调用：专家输出融合 ==========
-        final_feature = self.final_fusion(fused_feature)  # [B, feat_dim]
-        
-        return final_feature, expert_weights
     
     def get_expert_usage_stats(self, expert_weights):
         """
