@@ -799,7 +799,8 @@ class CLIPMultiScaleMoE(nn.Module):
     def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0,
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
                  expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
-                 gate_num_heads=8):
+                 gate_num_heads=8, use_attention_fusion=False, attention_num_heads=8,
+                 attention_dropout=0.1, attention_dim=512):
         """
         初始化CLIP多尺度MoE模块
         
@@ -816,7 +817,10 @@ class CLIPMultiScaleMoE(nn.Module):
             residual_weight (float): 残差连接权重
             use_gate_fusion (bool): 是否使用门控融合机制
             gate_num_heads (int): 门控网络头数
-            gate_dropout (float): 门控网络Dropout比例
+            use_attention_fusion (bool): 是否使用注意力融合机制
+            attention_num_heads (int): 注意力网络头数
+            attention_dropout (float): 注意力网络Dropout比例
+            attention_dim (int): 注意力网络维度
         """
         super(CLIPMultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -839,13 +843,19 @@ class CLIPMultiScaleMoE(nn.Module):
             expert_threshold=expert_threshold,
             residual_weight=residual_weight,
             use_gate_fusion=use_gate_fusion,
-            gate_num_heads=gate_num_heads
+            gate_num_heads=gate_num_heads,
+            use_attention_fusion=use_attention_fusion,
+            attention_num_heads=attention_num_heads,
+            attention_dropout=attention_dropout,
+            attention_dim=attention_dim
         )
         
         print(f"🔥 CLIP多尺度MoE模块初始化完成:")
         print(f"   - 特征维度: {feat_dim}")
         print(f"   - 滑动窗口尺度: {scales}")
         print(f"   - 专家隐藏层维度: {expert_hidden_dim}")
+        print(f"   - 门控融合机制: {'已启用' if use_gate_fusion else '已禁用'}")
+        print(f"   - 注意力融合机制: {'已启用' if use_attention_fusion else '已禁用'}")
     
     def forward(self, patch_tokens):
         """
