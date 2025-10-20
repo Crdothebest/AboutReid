@@ -1,27 +1,83 @@
-
-
-
 """
-Baseline vs MoE融合层热力图对比分析工具
+多尺度滑动窗口+MoE特征可视化工具
 
-专门用于证明"多尺度滑动窗口+MoE"模型相比Baseline的优越性
+该脚本用于生成基于Grad-CAM的多尺度滑动窗口和MoE特征热力图可视化，
+帮助分析模型在多尺度特征提取和专家网络中的注意力分布。
 
-核心功能：
-1. 分析MoE融合层：BACKBONE.clip_multi_scale_moe.moe_fusion
-2. 对比Baseline vs MoE融合层的热力图分布
-3. 展示专家权重动态分配效果
-4. 生成模型优越性证明可视化
+主要功能：
+1. 加载训练好的ReID模型（包含多尺度MoE模块）
+2. 对多尺度滑动窗口层进行Grad-CAM分析
+3. 对MoE专家网络进行注意力可视化
+4. 生成多尺度特征热力图
+5. 保存可视化结果
 
 作者：MambaPro团队
 日期：2024
 """
+
+# 关于路径设置：
+# 1. 模型权重路径：/home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251013_110028/models/MambaProbest.pth
+# 2. 输入图像路径：data/RGBNT201/test/RGB/000001_cam1_0_01.jpg
+# 3. 配置文件路径：configs/RGBNT201/MambaPro_moe.yml
+# 4. 输出目录：visualization_results/
+# 5. 目标层名称：clip_multi_scale_moe.moe_fusion
+# 6. 滑动窗口尺度：4, 8, 16
+
+# 关于命令行参数：
+# 使用您的配置文件和具体测试图像
+# # 使用您的配置文件和具体测试图像
+# python cam_multiscale_moe_visualize.py \
+  # --cfg /home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251015_132633/configs/experiment_config.yml \
+  #--img-path /home/zubuntu/workspace/yzy/MambaPro/data/RGBNT201/test/RGB/000258_cam1_0_00.jpg \
+  #--output-dir your_model_heatmaps \
+  #--target-layer clip_multi_scale_moe.moe_fusion
+
 
 import argparse
 import os
 import torch
 import cv2
 import numpy as np
+
+# 设置matplotlib环境变量
+os.environ['MPLBACKEND'] = 'Agg'
+import matplotlib
+matplotlib.use('Agg')  # 设置非交互式后端
 import matplotlib.pyplot as plt
+
+# 设置中文字体支持
+def setup_chinese_font():
+    """设置中文字体支持"""
+    import warnings
+    
+    # 直接设置字体参数，避免复杂的字体检测
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans']
+    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+    plt.rcParams['font.size'] = 12
+    plt.rcParams['figure.dpi'] = 100
+    
+    # 禁用所有字体相关警告
+    warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
+    warnings.filterwarnings('ignore', message='.*Glyph.*missing from current font.*')
+    warnings.filterwarnings('ignore', message='.*missing from current font.*')
+    warnings.filterwarnings('ignore', message='.*font.*')
+    
+    print("✅ 字体设置完成，使用英文标签")
+
+# 初始化中文字体
+setup_chinese_font()
+
+# 定义英文标签映射
+LABELS = {
+    '原始图像': 'Original Image',
+    'Grad-CAM热力图': 'Grad-CAM Heatmap',
+    '多尺度特征': 'Multi-scale Features',
+    'MoE专家权重': 'MoE Expert Weights',
+    '尺度': 'Scale',
+    '特征': 'Features',
+    '权重': 'Weights',
+    '激活值': 'Activations'
+}
 from PIL import Image
 from torchvision import transforms
 from pytorch_grad_cam import GradCAM
@@ -31,6 +87,29 @@ import yaml
 
 # 导入自定义的模型结构
 from modeling.make_model import make_model
+
+class ModelWrapper(torch.nn.Module):
+    """模型包装器，处理字典输入"""
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+    
+    def forward(self, x):
+        # 如果输入是字典，直接传递给模型
+        if isinstance(x, dict):
+            return self.model(x)
+        # 如果输入是张量，包装为字典，包含所有必需的键
+        else:
+            # 创建完整的输入字典，包含RGB、NI和TI
+            # 同时提供必要的标签信息
+            model_input = {
+                'RGB': x,
+                'NI': x,   # 使用相同的RGB数据作为NI的占位符
+                'TI': x,   # 使用相同的RGB数据作为TI的占位符
+                'cam_label': torch.zeros(x.size(0), dtype=torch.long, device=x.device),  # 相机标签
+                'view_label': torch.zeros(x.size(0), dtype=torch.long, device=x.device)   # 视角标签
+            }
+            return self.model(model_input)
 
 
 def load_config(cfg_path):
@@ -82,29 +161,6 @@ def load_image(image_path, input_size):
     return input_tensor, rgb_image
 
 
-def find_suitable_layers(model):
-    """
-    自动找到适合热力图分析的特征层
-    
-    Args:
-        model: 训练好的模型对象
-        
-    Returns:
-        list: 适合的层名称列表
-    """
-    suitable_layers = []
-    
-    for name, module in model.named_modules():
-        # 寻找包含空间信息的层
-        if any(keyword in name.lower() for keyword in ['conv', 'resblock', 'transformer', 'attention']):
-            # 检查层类型
-            if hasattr(module, 'weight') and hasattr(module, 'forward'):
-                # 确保是卷积层或transformer层
-                if 'conv' in str(type(module)).lower() or 'transformer' in str(type(module)).lower():
-                    suitable_layers.append(name)
-    
-    return suitable_layers
-
 def get_target_layer(model, layer_name):
     """
     从模型中获取指定的目标层，用于Grad-CAM分析
@@ -119,510 +175,171 @@ def get_target_layer(model, layer_name):
     Raises:
         ValueError: 当指定层不存在时抛出异常
     """
-    # 确保layer_name是字符串
-    if not isinstance(layer_name, str):
-        layer_name = str(layer_name)
-    
-    print(f"🔍 查找目标层: {layer_name}")
-    
-    # 如果用户没有指定层，自动推荐合适的层
-    if layer_name == "auto" or layer_name == "":
-        suitable_layers = find_suitable_layers(model)
-        print(f"🔍 找到 {len(suitable_layers)} 个合适的层:")
-        for i, layer in enumerate(suitable_layers[:10]):  # 只显示前10个
-            print(f"  {i+1}. {layer}")
-        
-        if suitable_layers:
-            # 选择第一个合适的层
-            layer_name = suitable_layers[0]
-            print(f"🎯 自动选择层: {layer_name}")
+    # 检查模型是否包含指定的层
+    if hasattr(model, layer_name):
+        return getattr(model, layer_name)
     else:
-            raise ValueError("未找到合适的特征层")
-    
-    # 使用named_modules()来查找层
-    for name, module in model.named_modules():
-        if name == layer_name:
-            print(f"✅ 找到目标层: {name} -> {type(module)}")
-            return module
-    
-    # 如果找不到精确匹配，尝试部分匹配
+        # 如果层不存在，提供详细的错误信息
         available_layers = [name for name, _ in model.named_modules()]
-    print(f"🔍 可用层列表: {available_layers[:20]}...")
-    
-    # 尝试找到最相似的层
-    for name, module in model.named_modules():
-        if layer_name in name or name.endswith(layer_name.split('.')[-1]):
-            print(f"✅ 找到相似层: {name} -> {type(module)}")
-            return module
-    
         raise ValueError(f"Layer '{layer_name}' not found in model. "
                         f"Available layers: {available_layers[:10]}...")
 
 
-
-
-
-
-
-
-
-
-def analyze_moe_fusion_layer(model, input_tensor, target_layer="BACKBONE.clip_multi_scale_moe.moe_fusion"):
+def visualize_multiscale_features(model, input_tensor, scales=[4, 8, 16]):
     """
-    专门分析MoE融合层的热力图，证明模型优越性
+    可视化多尺度滑动窗口特征
     
     Args:
         model: 训练好的模型
         input_tensor: 输入图像张量
-        target_layer: 目标层名称
+        scales: 滑动窗口尺度列表
         
     Returns:
-        dict: 包含热力图和专家权重的分析结果
+        dict: 包含各尺度特征图的字典
     """
     model.eval()
-    
-    try:
-        # 静默查找MoE相关层
-        available_layers = []
-        for name, module in model.named_modules():
-            if 'moe' in name.lower() or 'fusion' in name.lower():
-                available_layers.append(name)
-        
-        if not available_layers:
-            print("⚠️  未找到任何MoE相关层")
-            return None
-        
-        # 获取MoE融合层
-        moe_fusion_layer = None
-        for name, module in model.named_modules():
-            if name == target_layer:
-                moe_fusion_layer = module
-                print(f"✅ 找到MoE融合层: {name} -> {type(module)}")
-                break
-        
-        if moe_fusion_layer is None:
-            # 尝试备用路径
-            backup_paths = [
-                "BACKBONE.clip_multi_scale_moe.moe_fusion",
-                "clip_multi_scale_moe.moe_fusion", 
-                "moe_fusion",
-                "BACKBONE.clip_multi_scale_moe"
-            ]
-            
-            for backup_path in backup_paths:
-                for name, module in model.named_modules():
-                    if name == backup_path:
-                        moe_fusion_layer = module
-                        print(f"✅ 找到MoE融合层: {name}")
-                        break
-                if moe_fusion_layer is not None:
-                    break
-            
-            if moe_fusion_layer is None:
-                print("⚠️  未找到MoE融合层")
-                return None
-        
-        # 准备输入参数
-        batch_size = input_tensor.shape[0]
-        cam_label = torch.zeros(batch_size, dtype=torch.long).to(input_tensor.device)
-        view_label = torch.zeros(batch_size, dtype=torch.long).to(input_tensor.device)
-        
+    with torch.no_grad():
         # 获取多尺度特征
-        with torch.no_grad():
-            # 调用BACKBONE获取特征
-            result = model.BACKBONE(input_tensor, cam_label=cam_label, view_label=view_label, modality='rgb')
-            
-            if isinstance(result, tuple) and len(result) >= 2:
-                cash, _ = result if len(result) == 2 else result[:2]
-                if cash.shape[1] > 1:
-                    patch_tokens = cash[:, 1:, :]  # 去掉CLS token
-                else:
-                    patch_tokens = cash
+        multiscale_features = {}
+        
+        for scale in scales:
+            # 这里需要根据实际模型结构调整
+            # 假设模型有多尺度特征提取方法
+            if hasattr(model, 'extract_multiscale_features'):
+                features = model.extract_multiscale_features(input_tensor, scale)
+                multiscale_features[f'scale_{scale}'] = features
             else:
-                patch_tokens = result
-            
-            # 获取多尺度特征
-            if hasattr(model.BACKBONE, 'clip_multi_scale_moe'):
-                moe_module = model.BACKBONE.clip_multi_scale_moe
-                if hasattr(moe_module, 'multi_scale_extractor'):
-                    multi_scale_features = moe_module.multi_scale_extractor(patch_tokens)
-                    
-                    # 确保multi_scale_features是张量列表
-                    if not isinstance(multi_scale_features, (list, tuple)):
-                        # 如果是单个张量，创建虚拟的多尺度特征列表
-                        if isinstance(multi_scale_features, torch.Tensor):
-                            # 创建3个尺度的虚拟特征
-                            multi_scale_features = [
-                                multi_scale_features.clone(),
-                                multi_scale_features.clone(), 
-                                multi_scale_features.clone()
-                            ]
-                        else:
-                            print("⚠️  无法处理多尺度特征格式")
-                            return None
-                    
-                    # 使用MoE融合层处理
-                    final_feature, expert_weights = moe_fusion_layer(multi_scale_features)
-                    
-                    print(f"✅ MoE融合层分析完成")
-                    print(f"   专家权重分布: {expert_weights.cpu().numpy()}")
-                    
-                    return {
-                        'final_feature': final_feature,
-                        'expert_weights': expert_weights,
-                        'multi_scale_features': multi_scale_features,
-                        'layer_name': target_layer
-                    }
-                else:
-                    print("⚠️  未找到多尺度特征提取器")
-                    return None
-            else:
-                print("⚠️  未找到CLIP多尺度MoE模块")
-                return None
-                
-    except Exception as e:
-        print(f"⚠️  MoE融合层分析失败: {e}")
-        import traceback
-        traceback.print_exc()
+                print(f"⚠️  模型不支持尺度 {scale} 的特征提取")
+    
+    return multiscale_features
+
+
+def visualize_moe_expert_weights(model, input_tensor):
+    """
+    可视化MoE专家网络权重分布
+    
+    Args:
+        model: 训练好的模型
+        input_tensor: 输入图像张量
+        
+    Returns:
+        dict: 包含专家权重信息的字典
+    """
+    model.eval()
+    with torch.no_grad():
+        # 获取MoE专家权重
+        if hasattr(model, 'clip_multi_scale_moe'):
+            moe_module = model.clip_multi_scale_moe
+            if hasattr(moe_module, 'moe_fusion'):
+                # 获取专家权重
+                expert_weights = moe_module.moe_fusion.get_expert_weights(input_tensor)
+                return {
+                    'expert_weights': expert_weights,
+                    'expert_names': ['4x4 Expert', '8x8 Expert', '16x16 Expert']
+                }
     
     return None
 
-def create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_analysis, output_dir):
+
+def create_multiscale_visualization(rgb_image, multiscale_cams, output_dir):
     """
-    创建Baseline vs MoE融合层的详细对比可视化
+    创建多尺度特征可视化
     
     Args:
         rgb_image: 原始RGB图像
-        baseline_cam: Baseline模型的热力图
-        moe_analysis: MoE融合层分析结果
+        multiscale_cams: 多尺度CAM结果
         output_dir: 输出目录
     """
-    fig, axes = plt.subplots(3, 3, figsize=(20, 18))
-    
-    # 第一行：原始图像和热力图对比
-    axes[0, 0].imshow(rgb_image)
-    axes[0, 0].set_title('Original Image', fontsize=14, fontweight='bold')
-    axes[0, 0].axis('off')
-    
-    # Baseline热力图
-    baseline_vis = show_cam_on_image(rgb_image, baseline_cam, use_rgb=True)
-    axes[0, 1].imshow(baseline_vis)
-    axes[0, 1].set_title('Baseline Model\n(Traditional Feature Extraction)', fontsize=14, fontweight='bold', color='blue')
-    axes[0, 1].axis('off')
-    
-    # MoE融合层热力图（如果有的话）
-    if moe_analysis and 'final_feature' in moe_analysis:
-        # 这里需要从final_feature生成热力图
-        # 由于final_feature是1D特征，我们需要特殊处理
-        moe_cam = generate_feature_heatmap(moe_analysis['final_feature'], rgb_image.shape[:2])
-        moe_vis = show_cam_on_image(rgb_image, moe_cam, use_rgb=True)
-        axes[0, 2].imshow(moe_vis)
-        axes[0, 2].set_title('MoE Fusion Layer\n(Multi-Scale Dynamic Fusion)', fontsize=14, fontweight='bold', color='red')
-    else:
-        axes[0, 2].text(0.5, 0.5, 'MoE Fusion Layer\nAnalysis Failed', ha='center', va='center', fontsize=12, color='red')
-        axes[0, 2].set_title('MoE Fusion Layer\n(Analysis Failed)', fontsize=14, fontweight='bold', color='red')
-    axes[0, 2].axis('off')
-    
-    # 第二行：专家权重分析
-    if moe_analysis and 'expert_weights' in moe_analysis:
-        expert_weights = moe_analysis['expert_weights'].cpu().numpy()
-        # 确保expert_weights是1D数组
-        if expert_weights.ndim > 1:
-            expert_weights = expert_weights.squeeze()
-        expert_names = ['4x4 Expert', '8x8 Expert', '16x16 Expert']
-        
-        # 专家权重柱状图
-        bars = axes[1, 0].bar(expert_names, expert_weights, color=['#FF6B6B', '#4ECDC4', '#45B7D1'], alpha=0.8)
-        axes[1, 0].set_title('MoE Expert Weights Distribution', fontsize=14, fontweight='bold')
-        axes[1, 0].set_ylabel('Weight Value')
-        axes[1, 0].set_ylim(0, 1)
-        
-        # 添加数值标签
-        for bar, weight in zip(bars, expert_weights):
-            axes[1, 0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01, 
-                           f'{weight:.3f}', ha='center', va='bottom', fontweight='bold')
-        
-        # 专家权重饼图
-        axes[1, 1].pie(expert_weights, labels=expert_names, autopct='%1.1f%%', 
-                      colors=['#FF6B6B', '#4ECDC4', '#45B7D1'], startangle=90)
-        axes[1, 1].set_title('Expert Weights Percentage', fontsize=14, fontweight='bold')
-        
-        # 专家分工分析
-        dominant_expert = np.argmax(expert_weights)
-        expert_contribution = expert_weights[dominant_expert] * 100
-        
-        axes[1, 2].text(0.5, 0.7, f'Dominant Expert: {expert_names[dominant_expert]}', 
-                       fontsize=14, fontweight='bold', ha='center')
-        axes[1, 2].text(0.5, 0.5, f'Contribution: {expert_contribution:.1f}%', 
-                       fontsize=12, ha='center')
-        axes[1, 2].text(0.5, 0.3, f'Multi-Scale Fusion Effective', 
-                       fontsize=10, ha='center', style='italic')
-        axes[1, 2].set_xlim(0, 1)
-        axes[1, 2].set_ylim(0, 1)
-        axes[1, 2].axis('off')
-    else:
-        for i in range(3):
-            axes[1, i].text(0.5, 0.5, '专家权重\n分析失败', ha='center', va='center', fontsize=12, color='red')
-            axes[1, i].set_title('专家权重分析', fontsize=14, fontweight='bold')
-    
-    # 第三行：模型优越性证明
-    # 注意力强度对比
-    baseline_intensity = np.mean(baseline_cam)
-    moe_intensity = moe_analysis['expert_weights'].mean().item() if moe_analysis else 0.5
-    
-    categories = ['Baseline', 'MoE Fusion Layer']
-    intensities = [baseline_intensity, moe_intensity]
-    colors = ['blue', 'red']
-    
-    bars = axes[2, 0].bar(categories, intensities, color=colors, alpha=0.7)
-    axes[2, 0].set_title('Attention Intensity Comparison', fontsize=14, fontweight='bold')
-    axes[2, 0].set_ylabel('Average Activation Value')
-    axes[2, 0].set_ylim(0, max(intensities) * 1.2)
-    
-    # 添加数值标签
-    for bar, intensity in zip(bars, intensities):
-        axes[2, 0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01, 
-                       f'{intensity:.3f}', ha='center', va='bottom', fontweight='bold')
-    
-    # 改进效果分析
-    improvement = ((moe_intensity - baseline_intensity) / baseline_intensity) * 100 if baseline_intensity > 0 else 0
-    
-    axes[2, 1].text(0.5, 0.8, 'MoE Model Superiority Proof', fontsize=16, fontweight='bold', ha='center')
-    axes[2, 1].text(0.5, 0.6, f'Attention Intensity Improvement: {improvement:+.1f}%', fontsize=14, ha='center')
-    axes[2, 1].text(0.5, 0.4, f'Multi-Scale Feature Fusion: Effective', fontsize=12, ha='center')
-    axes[2, 1].text(0.5, 0.2, f'Expert Network Specialization: Clear', fontsize=12, ha='center')
-    axes[2, 1].set_xlim(0, 1)
-    axes[2, 1].set_ylim(0, 1)
-    axes[2, 1].axis('off')
-    
-    # 技术优势总结
-    axes[2, 2].text(0.5, 0.9, 'Technical Innovation Advantages', fontsize=16, fontweight='bold', ha='center')
-    axes[2, 2].text(0.5, 0.7, '✓ Multi-Scale Sliding Window', fontsize=12, ha='center')
-    axes[2, 2].text(0.5, 0.5, '✓ MoE Expert Networks', fontsize=12, ha='center')
-    axes[2, 2].text(0.5, 0.3, '✓ Dynamic Weight Allocation', fontsize=12, ha='center')
-    axes[2, 2].text(0.5, 0.1, '✓ Intelligent Feature Fusion', fontsize=12, ha='center')
-    axes[2, 2].set_xlim(0, 1)
-    axes[2, 2].set_ylim(0, 1)
-    axes[2, 2].axis('off')
-    
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'baseline_vs_moe_fusion_superiority.png'), dpi=300, bbox_inches='tight')
-    plt.close()
-
-def generate_baseline_heatmap(input_tensor, target_size):
-    """
-    生成Baseline模型的热力图（简化方法）
-    
-    Args:
-        input_tensor: 输入图像张量
-        target_size: 目标热力图尺寸 (H, W)
-        
-    Returns:
-        np.ndarray: Baseline热力图
-    """
-    # 使用输入图像的梯度作为Baseline热力图
-    input_tensor.requires_grad_(True)
-    
-    if input_tensor.grad is not None:
-        input_tensor.grad.zero_()
-    
-    # 计算简单的梯度
-    simple_loss = torch.mean(input_tensor)
-    simple_loss.backward()
-    
-    # 获取梯度并生成热力图
-    grad_cam = input_tensor.grad.abs().mean(dim=1, keepdim=True)
-    grad_cam = torch.nn.functional.interpolate(grad_cam, size=target_size, mode='bilinear', align_corners=False)
-    grad_cam = grad_cam.squeeze().cpu().numpy()
-    
-    # 归一化
-    grad_cam = (grad_cam - grad_cam.min()) / (grad_cam.max() - grad_cam.min() + 1e-8)
-    
-    return grad_cam
-
-def generate_feature_heatmap(feature_tensor, target_size):
-    """
-    从特征张量生成热力图
-    
-    Args:
-        feature_tensor: 特征张量 [B, D]
-        target_size: 目标热力图尺寸 (H, W)
-        
-    Returns:
-        np.ndarray: 热力图
-    """
-    # 将特征张量重塑为2D
-    feature = feature_tensor.squeeze().cpu().numpy()
-    
-    # 如果是1D特征，需要重塑为2D
-    if len(feature.shape) == 1:
-        # 计算合适的2D尺寸
-        feature_len = len(feature)
-        h = int(np.sqrt(feature_len))
-        w = feature_len // h
-        
-        # 填充到合适的尺寸
-        padded_len = h * w
-        if padded_len > feature_len:
-            feature = np.pad(feature, (0, padded_len - feature_len), 'constant')
-        
-        feature = feature[:padded_len].reshape(h, w)
-    
-    # 调整到目标尺寸
-    feature_2d = cv2.resize(feature, (target_size[1], target_size[0]))
-    
-    # 归一化
-    feature_2d = (feature_2d - feature_2d.min()) / (feature_2d.max() - feature_2d.min() + 1e-8)
-    
-    return feature_2d
-
-def generate_expert_heatmaps(moe_analysis, rgb_image_shape):
-    """
-    为每个专家生成独立的热力图
-    
-    Args:
-        moe_analysis: MoE分析结果
-        rgb_image_shape: 图像尺寸 (H, W)
-        
-    Returns:
-        dict: 包含每个专家热力图的字典
-    """
-    expert_heatmaps = {}
-    
-    if not moe_analysis or 'multi_scale_features' not in moe_analysis:
-        print("⚠️  无法获取多尺度特征，使用虚拟热力图")
-        # 创建虚拟的专家热力图
-        for i, scale in enumerate([4, 8, 16]):
-            expert_heatmaps[f'expert_{scale}'] = np.random.rand(rgb_image_shape[0], rgb_image_shape[1])
-        return expert_heatmaps
-    
-    multi_scale_features = moe_analysis['multi_scale_features']
-    expert_weights = moe_analysis['expert_weights']
-    
-    # 确保权重在CPU上并转换为numpy数组
-    if hasattr(expert_weights, 'cpu'):
-        expert_weights = expert_weights.cpu().numpy()
-    elif hasattr(expert_weights, 'numpy'):
-        expert_weights = expert_weights.numpy()
-    
-    # 确保expert_weights是1D数组
-    if expert_weights.ndim > 1:
-        expert_weights = expert_weights.squeeze()
-    
-    scales = [4, 8, 16]
-    
-    for i, scale in enumerate(scales):
-        if i < len(multi_scale_features):
-            # 获取对应尺度的特征
-            scale_feature = multi_scale_features[i]
-            
-            # 生成该专家的热力图
-            expert_heatmap = generate_feature_heatmap(scale_feature, rgb_image_shape)
-            
-            # 根据专家权重调整热力图强度
-            weight = expert_weights[i] if i < len(expert_weights) else 0.33
-            expert_heatmap = expert_heatmap * weight
-            
-            expert_heatmaps[f'expert_{scale}'] = expert_heatmap
-            print(f"✅ 生成 {scale}x{scale} 专家热力图，权重: {weight:.3f}")
-        else:
-            # 如果特征不足，创建虚拟热力图
-            expert_heatmaps[f'expert_{scale}'] = np.random.rand(rgb_image_shape[0], rgb_image_shape[1]) * 0.1
-    
-    return expert_heatmaps
-
-def create_expert_visualization(rgb_image, expert_heatmaps, expert_weights, output_dir):
-    """
-    创建逐专家可视化
-    
-    Args:
-        rgb_image: 原始RGB图像
-        expert_heatmaps: 专家热力图字典
-        expert_weights: 专家权重
-        output_dir: 输出目录
-    """
-    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
     
     # 原始图像
     axes[0, 0].imshow(rgb_image)
-    axes[0, 0].set_title('Original Image', fontsize=14, fontweight='bold')
+    axes[0, 0].set_title('Original Image')
     axes[0, 0].axis('off')
     
-    # 专家权重分布
-    expert_names = ['4x4 Expert', '8x8 Expert', '16x16 Expert']
-    weights = expert_weights.squeeze() if expert_weights.ndim > 1 else expert_weights
-    # 确保权重在CPU上并转换为numpy数组
-    if hasattr(weights, 'cpu'):
-        weights = weights.cpu().numpy()
-    elif hasattr(weights, 'numpy'):
-        weights = weights.numpy()
-    
-    bars = axes[0, 1].bar(expert_names, weights, color=['#FF6B6B', '#4ECDC4', '#45B7D1'], alpha=0.8)
-    axes[0, 1].set_title('Expert Weights Distribution', fontsize=14, fontweight='bold')
-    axes[0, 1].set_ylabel('Weight Value')
-    axes[0, 1].set_ylim(0, 1)
-    
-    # 添加数值标签
-    for bar, weight in zip(bars, weights):
-        axes[0, 1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01, 
-                       f'{weight:.3f}', ha='center', va='bottom', fontweight='bold')
-    
-    # 专家权重饼图
-    axes[0, 2].pie(weights, labels=expert_names, autopct='%1.1f%%', 
-                  colors=['#FF6B6B', '#4ECDC4', '#45B7D1'], startangle=90)
-    axes[0, 2].set_title('Expert Weights Percentage', fontsize=14, fontweight='bold')
-    
-    # 逐专家热力图可视化
+    # 多尺度特征可视化
     scales = [4, 8, 16]
     for i, scale in enumerate(scales):
-        expert_key = f'expert_{scale}'
-        if expert_key in expert_heatmaps:
-            heatmap = expert_heatmaps[expert_key]
-            visualization = show_cam_on_image(rgb_image, heatmap, use_rgb=True)
+        if f'scale_{scale}' in multiscale_cams:
+            cam = multiscale_cams[f'scale_{scale}']
+            visualization = show_cam_on_image(rgb_image, cam, use_rgb=True)
             
-            row = 1
-            col = i
+            row = (i + 1) // 2
+            col = (i + 1) % 2
             axes[row, col].imshow(visualization)
-            axes[row, col].set_title(f'{scale}x{scale} Expert\n(Weight: {weights[i]:.3f})', 
-                                   fontsize=12, fontweight='bold')
+            axes[row, col].set_title(f'Scale {scale}x{scale} Features')
             axes[row, col].axis('off')
-        else:
-            axes[1, i].text(0.5, 0.5, f'{scale}x{scale} Expert\nNot Available', 
-                           ha='center', va='center', fontsize=12, color='red')
-            axes[1, i].set_title(f'{scale}x{scale} Expert', fontsize=12, fontweight='bold')
-            axes[1, i].axis('off')
     
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'expert_wise_heatmaps.png'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'multiscale_features.png'), dpi=300, bbox_inches='tight')
     plt.close()
-    
-    print("✅ 逐专家热力图可视化已保存")
 
+
+def create_moe_visualization(expert_weights, output_dir):
+    """
+    创建MoE专家权重可视化
+    
+    Args:
+        expert_weights: 专家权重信息
+        output_dir: 输出目录
+    """
+    if expert_weights is None:
+        print("⚠️  无法获取MoE专家权重信息")
+        return
+    
+    # 创建专家权重柱状图
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    # 专家权重分布
+    weights = expert_weights['expert_weights'].cpu().numpy()
+    expert_names = expert_weights['expert_names']
+    
+    ax1.bar(expert_names, weights, color=['#FF6B6B', '#4ECDC4', '#45B7D1'])
+    ax1.set_title('MoE Expert Weights Distribution')
+    ax1.set_ylabel('Weight Value')
+    ax1.set_ylim(0, 1)
+    
+    # 添加数值标签
+    for i, v in enumerate(weights):
+        ax1.text(i, v + 0.01, f'{v:.3f}', ha='center', va='bottom')
+    
+    # 专家权重饼图
+    ax2.pie(weights, labels=expert_names, autopct='%1.1f%%', 
+            colors=['#FF6B6B', '#4ECDC4', '#45B7D1'])
+    ax2.set_title('MoE Expert Weights Pie Chart')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'moe_expert_weights.png'), dpi=300, bbox_inches='tight')
+    plt.close()
 
 
 def main():
     """
-    主函数：执行Baseline vs MoE融合层热力图对比分析
+    主函数：执行多尺度MoE特征可视化
     
     工作流程：
     1. 解析命令行参数
     2. 加载模型配置和权重
     3. 预处理输入图像
-    4. 分析MoE融合层
-    5. 生成Baseline vs MoE对比可视化
+    4. 执行多尺度特征分析
+    5. 执行MoE专家权重分析
+    6. 生成并保存可视化结果
     """
     # ========== 命令行参数解析 ==========
-    parser = argparse.ArgumentParser(description="Baseline vs MoE Fusion Layer Heatmap Comparison")
+    parser = argparse.ArgumentParser(description="Multi-Scale MoE Feature Visualization")
     parser.add_argument("--cfg", type=str, required=True, 
                        help="Path to config.yaml file")
     parser.add_argument("--img-path", type=str, required=True, 
                        help="Path to input image for visualization")
+    parser.add_argument("--target-layer", type=str, 
+                       default="clip_multi_scale_moe.moe_fusion", 
+                       help="Layer name for Grad-CAM analysis")
     parser.add_argument("--output-dir", type=str, 
-                       default="baseline_vs_moe_analysis", 
+                       default="multiscale_moe_visualization", 
                        help="Directory to save visualization results")
-    parser.add_argument("--weight-path", type=str, 
-                       default=None, 
-                       help="Path to model weights (overrides config file)")
+    parser.add_argument("--scales", type=int, nargs='+', 
+                       default=[4, 8, 16], 
+                       help="Multi-scale window sizes")
     args = parser.parse_args()
 
     # 创建输出目录
@@ -635,28 +352,107 @@ def main():
 
     # ========== 模型初始化和加载 ==========
     print("🔄 初始化模型...")
+    
+    # 添加缺失的配置参数
+    def add_missing_config(cfg):
+        """为配置文件添加缺失的参数"""
+        # 基础参数（不影响模型功能）
+        if not hasattr(cfg.MODEL, 'FLOPS_TEST'):
+            cfg.MODEL.FLOPS_TEST = False
+        if not hasattr(cfg.MODEL, 'DIST_TRAIN'):
+            cfg.MODEL.DIST_TRAIN = False
+        if not hasattr(cfg.MODEL, 'DEVICE'):
+            cfg.MODEL.DEVICE = 'cuda'
+        if not hasattr(cfg.MODEL, 'DEVICE_ID'):
+            cfg.MODEL.DEVICE_ID = '0'
+        if not hasattr(cfg.MODEL, 'IF_LABELSMOOTH'):
+            cfg.MODEL.IF_LABELSMOOTH = 'on'
+        if not hasattr(cfg.MODEL, 'METRIC_LOSS_TYPE'):
+            cfg.MODEL.METRIC_LOSS_TYPE = 'triplet'
+        
+        # 添加SIE相关参数
+        if not hasattr(cfg.MODEL, 'SIE_CAMERA'):
+            cfg.MODEL.SIE_CAMERA = True
+        if not hasattr(cfg.MODEL, 'SIE_VIEW'):
+            cfg.MODEL.SIE_VIEW = True
+        if not hasattr(cfg.MODEL, 'SIE_COE'):
+            cfg.MODEL.SIE_COE = 1.0
+        if not hasattr(cfg.MODEL, 'DIRECT'):
+            cfg.MODEL.DIRECT = 1
+        
+        # 添加其他可能缺失的参数
+        if not hasattr(cfg.MODEL, 'ID_LOSS_WEIGHT'):
+            cfg.MODEL.ID_LOSS_WEIGHT = 0.25
+        if not hasattr(cfg.MODEL, 'TRIPLET_LOSS_WEIGHT'):
+            cfg.MODEL.TRIPLET_LOSS_WEIGHT = 1.0
+        if not hasattr(cfg.MODEL, 'ID_LOSS_TYPE'):
+            cfg.MODEL.ID_LOSS_TYPE = 'softmax'
+        if not hasattr(cfg.MODEL, 'PROMPT'):
+            cfg.MODEL.PROMPT = True
+        if not hasattr(cfg.MODEL, 'ADAPTER'):
+            cfg.MODEL.ADAPTER = True
+        if not hasattr(cfg.MODEL, 'MAMBA'):
+            cfg.MODEL.MAMBA = True
+        if not hasattr(cfg.MODEL, 'FROZEN'):
+            cfg.MODEL.FROZEN = True
+        
+        # 添加更多可能缺失的参数
+        if not hasattr(cfg.MODEL, 'TRANSFORMER_TYPE'):
+            cfg.MODEL.TRANSFORMER_TYPE = 'ViT-B-16'
+        if not hasattr(cfg.MODEL, 'STRIDE_SIZE'):
+            cfg.MODEL.STRIDE_SIZE = [16, 16]
+        if not hasattr(cfg.MODEL, 'PRETRAIN_PATH_T'):
+            cfg.MODEL.PRETRAIN_PATH_T = '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
+        if not hasattr(cfg.MODEL, 'NECK'):
+            cfg.MODEL.NECK = 'bnneck'
+        if not hasattr(cfg.MODEL, 'NECK_FEAT'):
+            cfg.MODEL.NECK_FEAT = 'after'
+        if not hasattr(cfg.MODEL, 'JPM'):
+            cfg.MODEL.JPM = False
+        if not hasattr(cfg.MODEL, 'LAST_STRIDE'):
+            cfg.MODEL.LAST_STRIDE = 1
+        if not hasattr(cfg.MODEL, 'MAMBA_BI'):
+            cfg.MODEL.MAMBA_BI = False
+        if not hasattr(cfg.MODEL, 'MAMBA_BI_LAYER'):
+            cfg.MODEL.MAMBA_BI_LAYER = 0
+        if not hasattr(cfg.MODEL, 'MAMBA_BI_DIM'):
+            cfg.MODEL.MAMBA_BI_DIM = 768
+        
+        # 关键参数：根据您的模型设置
+        if not hasattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE'):
+            cfg.MODEL.USE_CLIP_MULTI_SCALE = True  # 您的模型启用多尺度
+        if not hasattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE'):
+            cfg.MODEL.USE_MULTI_SCALE_MOE = True   # 您的模型启用MoE
+        if not hasattr(cfg.MODEL, 'USE_GATE_FUSION'):
+            cfg.MODEL.USE_GATE_FUSION = False  # 默认禁用，根据实际需要调整
+        
+        return cfg
+    
+    # 为配置文件添加缺失参数
+    cfg = add_missing_config(cfg)
+    
     # 根据数据集设置类别数量
     num_classes = getattr(cfg.DATASETS, 'NUM_CLASSES', 171)
     camera_num = getattr(cfg, 'CAMERA_NUM', 4)
     
     # 创建模型实例
-    model = make_model(cfg, num_class=num_classes, camera_num=camera_num)
-    model.eval()  # 设置为评估模式
-    model.cuda()  # 移动到GPU
-    print(f"✅ 模型初始化完成，类别数: {num_classes}, 相机数: {camera_num}")
+    try:
+        model = make_model(cfg, num_class=num_classes, camera_num=camera_num)
+        model.eval()  # 设置为评估模式
+        model.cuda()  # 移动到GPU
+        print(f"✅ 模型初始化完成，类别数: {num_classes}, 相机数: {camera_num}")
+    except Exception as e:
+        print(f"❌ 模型初始化失败: {e}")
+        return
 
     # ========== 加载预训练权重 ==========
     print("📥 加载模型权重...")
-    
-    # 确定权重路径（命令行参数优先）
-    weight_path = args.weight_path if args.weight_path else cfg.TEST.WEIGHT
-    
-    if os.path.exists(weight_path):
-        print(f"Loading weights from {weight_path}")
-        model.load_param(weight_path)
+    if os.path.exists(cfg.TEST.WEIGHT):
+        print(f"Loading weights from {cfg.TEST.WEIGHT}")
+        model.load_param(cfg.TEST.WEIGHT)
         print("✅ 模型权重加载完成")
     else:
-        raise FileNotFoundError(f"Weight file not found: {weight_path}")
+        raise FileNotFoundError(f"Weight file not found: {cfg.TEST.WEIGHT}")
 
     # ========== 图像预处理 ==========
     print("🖼️  加载和预处理图像...")
@@ -664,49 +460,87 @@ def main():
     input_tensor = input_tensor.cuda()  # 移动到GPU
     print(f"✅ 图像预处理完成，尺寸: {input_tensor.shape}")
 
-    # ========== MoE融合层专门分析 ==========
-    print("🔥 分析MoE融合层...")
-    moe_fusion_analysis = analyze_moe_fusion_layer(model, input_tensor, "BACKBONE.clip_multi_scale_moe.moe_fusion")
-    if not moe_fusion_analysis:
-        print("⚠️  MoE融合层分析失败")
+    # ========== 多尺度特征分析 ==========
+    print("🔍 分析多尺度滑动窗口特征...")
+    multiscale_features = visualize_multiscale_features(model, input_tensor, args.scales)
+    print(f"✅ 多尺度特征分析完成，尺度: {args.scales}")
 
-    # ========== Baseline vs MoE融合层对比分析 ==========
-    print("🔥 生成对比分析...")
+    # ========== MoE专家权重分析 ==========
+    print("🎯 分析MoE专家网络权重...")
+    expert_weights = visualize_moe_expert_weights(model, input_tensor)
+    if expert_weights:
+        print("✅ MoE专家权重分析完成")
+        print(f"   专家权重: {expert_weights['expert_weights'].cpu().numpy()}")
+    else:
+        print("⚠️  无法获取MoE专家权重信息")
+
+    # ========== Grad-CAM 分析 ==========
+    print("🔥 执行Grad-CAM分析...")
+    try:
+        # 创建模型包装器
+        wrapped_model = ModelWrapper(model)
+        target_layer = get_target_layer(wrapped_model.model, args.target_layer)
+        
+        # 使用最简化的方法
+        print(f"✅ 目标层类型: {type(target_layer)}")
+        
+        # 使用包装后的模型和GradCAM配置
+        try:
+            cam = GradCAM(model=wrapped_model, target_layers=[target_layer])
+        except Exception as e:
+            print(f"⚠️  GradCAM初始化失败: {e}")
+            # 尝试使用不同的初始化方法
+            try:
+                cam = GradCAM(model=wrapped_model, target_layers=[target_layer], use_cuda=False)
+            except Exception as e2:
+                print(f"⚠️  备用GradCAM初始化也失败: {e2}")
+                return None
+        
+        try:
+            # 直接传递张量，包装器会处理字典转换
+            grayscale_cam = cam(input_tensor=input_tensor)[0]
+            print(f"✅ Grad-CAM计算完成，激活图形状: {grayscale_cam.shape}")
+        finally:
+            # 确保正确清理GradCAM对象
+            try:
+                if hasattr(cam, 'activations_and_grads'):
+                    cam.activations_and_grads.release()
+            except:
+                pass
+            del cam
+        
+        # 生成热力图可视化
+        visualization = show_cam_on_image(rgb_image, grayscale_cam, use_rgb=True)
+        cv2.imwrite(os.path.join(args.output_dir, 'gradcam_heatmap.jpg'), 
+                   cv2.cvtColor(visualization, cv2.COLOR_RGB2BGR))
+        print("✅ Grad-CAM热力图已保存")
+        
+    except Exception as e:
+        print(f"⚠️  Grad-CAM分析失败: {e}")
+
+    # ========== 生成可视化结果 ==========
+    print("🎨 生成可视化结果...")
     
-    # 生成Baseline热力图（使用简化的方法）
-    baseline_cam = generate_baseline_heatmap(input_tensor, rgb_image.shape[:2])
+    # 多尺度特征可视化
+    create_multiscale_visualization(rgb_image, multiscale_features, args.output_dir)
+    print("✅ 多尺度特征可视化已保存")
     
-    # 创建详细的对比可视化
-    create_baseline_vs_moe_fusion_comparison(rgb_image, baseline_cam, moe_fusion_analysis, args.output_dir)
-    print("✅ 对比分析已保存")
-    
-    # ========== 逐专家热力图可视化 ==========
-    if moe_fusion_analysis:
-        print("🔥 生成逐专家热力图可视化...")
-        expert_heatmaps = generate_expert_heatmaps(moe_fusion_analysis, rgb_image.shape[:2])
-        create_expert_visualization(rgb_image, expert_heatmaps, moe_fusion_analysis['expert_weights'], args.output_dir)
-        print("✅ 逐专家热力图可视化已保存")
+    # MoE专家权重可视化
+    create_moe_visualization(expert_weights, args.output_dir)
+    print("✅ MoE专家权重可视化已保存")
 
     # ========== 输出分析信息 ==========
-    print(f"\n🎉 分析完成！")
+    print(f"\n🎉 可视化分析完成！")
     print(f"📁 结果保存在: {args.output_dir}")
+    print(f"🖼️  输入图像: {args.img_path}")
+    print(f"🎯 目标层: {args.target_layer}")
+    print(f"📏 分析尺度: {args.scales}")
     
-    if moe_fusion_analysis:
-        weights = moe_fusion_analysis['expert_weights'].cpu().numpy()
-        # 确保weights是1D数组
-        if weights.ndim > 1:
-            weights = weights.squeeze()
-        expert_names = ['4x4 Expert', '8x8 Expert', '16x16 Expert']
+    if expert_weights:
+        weights = expert_weights['expert_weights'].cpu().numpy()
         print(f"⚖️  专家权重分布:")
-        for i, (name, weight) in enumerate(zip(expert_names, weights)):
+        for i, (name, weight) in enumerate(zip(expert_weights['expert_names'], weights)):
             print(f"   {name}: {weight:.3f} ({weight*100:.1f}%)")
-        
-        # 计算改进效果
-        baseline_intensity = np.mean(baseline_cam)
-        moe_intensity = weights.mean()
-        improvement = ((moe_intensity - baseline_intensity) / baseline_intensity) * 100 if baseline_intensity > 0 else 0
-        print(f"📈 模型优越性:")
-        print(f"   改进效果: {improvement:+.1f}%")
 
 
 if __name__ == "__main__":

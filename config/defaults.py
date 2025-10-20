@@ -8,7 +8,7 @@ _C.MODEL = CN()
 # Using cuda or cpu for training
 _C.MODEL.DEVICE = "cuda"
 # ID number of GPU
-_C.MODEL.DEVICE_ID = 0
+_C.MODEL.DEVICE_ID = '0'
 # Name of backbone
 _C.MODEL.NAME = 'MambaPro'
 # The layer where we extract feature from the ViT backbone
@@ -32,7 +32,7 @@ _C.MODEL.METRIC_LOSS_TYPE = 'triplet'
 _C.MODEL.DIST_TRAIN = False
 _C.MODEL.PROMPT = True  # Whether use the prompt tuning
 _C.MODEL.MAMBA = True # whether use the mamba
-_C.MODEL.MAMBA_BI = 1.0 # Mamba偏置参数
+_C.MODEL.MAMBA_BI = False # whether use the bidirectional mamba
 _C.MODEL.ADAPTER = True # whether use the adapter
 _C.MODEL.FROZEN = True # whether freeze the backbone
 
@@ -88,7 +88,6 @@ _C.MODEL.DIRECT = 1
 _C.MODEL.DROP_PATH = 0.1
 _C.MODEL.DROP_OUT = 0.0
 _C.MODEL.ATT_DROP_RATE = 0.0
-_C.MODEL.DROP_RATE = 0.0
 _C.MODEL.TRANSFORMER_TYPE = 'vit_base_patch16_224'
 _C.MODEL.STRIDE_SIZE = [16, 16]
 _C.MODEL.PREFIX_NUM = 1
