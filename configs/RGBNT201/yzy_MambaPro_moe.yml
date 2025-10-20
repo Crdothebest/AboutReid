@@ -30,6 +30,12 @@ MODEL:
   GATE_NUM_HEADS: 8
   GATE_DROPOUT: 0.1
   
+  # ========== 注意力融合配置：新增注意力拼接机制 ==========
+  USE_ATTENTION_FUSION: False  # 默认禁用注意力融合机制
+  ATTENTION_NUM_HEADS: 8       # 注意力网络头数
+  ATTENTION_DROPOUT: 0.1       # 注意力网络Dropout比例
+  ATTENTION_DIM: 512           # 注意力网络维度
+  
   MOE_EXPERT_HIDDEN_DIM: 1024
   MOE_TEMPERATURE: 0.7
   MOE_EXPERT_DROPOUT: 0.1
