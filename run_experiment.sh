@@ -79,6 +79,13 @@ ATTENTION_ENABLED=false
 ATTENTION_HEADS=8
 ATTENTION_DROPOUT=0.1
 
+# 初始化注意力融合参数（默认值）
+# 默认禁用注意力融合机制，使用传统MLP融合
+ATTENTION_FUSION_ENABLED=false
+ATTENTION_FUSION_HEADS=8
+ATTENTION_FUSION_DROPOUT=0.1
+ATTENTION_FUSION_DIM=512
+
 # 检查是否有命令行参数（除了--config_file）
 if [ $# -gt 0 ]; then
     echo "🔧 检测到命令行参数，将动态覆盖配置文件参数..."
@@ -130,6 +137,24 @@ if [ $# -gt 0 ]; then
         elif [[ "$PARAM_NAME" == "MODEL.GATE_DROPOUT" ]]; then
             ATTENTION_DROPOUT="$PARAM_VALUE"
             echo "  🎯 通过MODEL.GATE_DROPOUT设置门控网络Dropout: $ATTENTION_DROPOUT"
+        # 🔥 新增：注意力融合参数处理
+        elif [[ "$PARAM_NAME" == "MODEL.USE_ATTENTION_FUSION" ]]; then
+            if [[ "$PARAM_VALUE" == "True" ]]; then
+                ATTENTION_FUSION_ENABLED="true"
+                echo "  🎯 通过MODEL.USE_ATTENTION_FUSION启用注意力融合: $ATTENTION_FUSION_ENABLED"
+            elif [[ "$PARAM_VALUE" == "False" ]]; then
+                ATTENTION_FUSION_ENABLED="false"
+                echo "  🎯 通过MODEL.USE_ATTENTION_FUSION禁用注意力融合: $ATTENTION_FUSION_ENABLED"
+            fi
+        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_NUM_HEADS" ]]; then
+            ATTENTION_FUSION_HEADS="$PARAM_VALUE"
+            echo "  🎯 通过MODEL.ATTENTION_NUM_HEADS设置注意力头数: $ATTENTION_FUSION_HEADS"
+        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_DROPOUT" ]]; then
+            ATTENTION_FUSION_DROPOUT="$PARAM_VALUE"
+            echo "  🎯 通过MODEL.ATTENTION_DROPOUT设置注意力Dropout: $ATTENTION_FUSION_DROPOUT"
+        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_DIM" ]]; then
+            ATTENTION_FUSION_DIM="$PARAM_VALUE"
+            echo "  🎯 通过MODEL.ATTENTION_DIM设置注意力维度: $ATTENTION_FUSION_DIM"
         elif [[ "$PARAM_NAME" == "SOLVER.MAX_EPOCHS" ]]; then
             echo "  🎯 设置训练轮数: $PARAM_VALUE"
             # 直接修改配置文件中的MAX_EPOCHS
@@ -206,6 +231,13 @@ echo "🔍 调试：ATTENTION_ENABLED当前值: $ATTENTION_ENABLED"
 echo "🔍 调试：ATTENTION_HEADS当前值: $ATTENTION_HEADS"
 echo "🔍 调试：ATTENTION_DROPOUT当前值: $ATTENTION_DROPOUT"
 
+# 🔥 注意力融合配置：根据命令行参数动态设置
+echo "🔍 调试：进入注意力融合配置阶段"
+echo "🔍 调试：ATTENTION_FUSION_ENABLED当前值: $ATTENTION_FUSION_ENABLED"
+echo "🔍 调试：ATTENTION_FUSION_HEADS当前值: $ATTENTION_FUSION_HEADS"
+echo "🔍 调试：ATTENTION_FUSION_DROPOUT当前值: $ATTENTION_FUSION_DROPOUT"
+echo "🔍 调试：ATTENTION_FUSION_DIM当前值: $ATTENTION_FUSION_DIM"
+
 if [ "$ATTENTION_ENABLED" = "true" ]; then
     echo "🎯 配置门控融合机制：启用门控融合"
     # 更新现有的门控融合配置
@@ -222,6 +254,27 @@ elif [ "$ATTENTION_ENABLED" = "false" ]; then
     echo "🎯 门控融合机制已禁用：使用传统MLP融合"
 else
     echo "ℹ️  使用默认配置：传统MLP融合机制（无门控融合）"
+fi
+
+# 🔥 注意力融合配置：根据命令行参数动态设置
+if [ "$ATTENTION_FUSION_ENABLED" = "true" ]; then
+    echo "🎯 配置注意力融合机制：启用注意力融合"
+    # 更新注意力融合配置
+    sed -i.bak "s|^  USE_ATTENTION_FUSION:.*|  USE_ATTENTION_FUSION: True|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_NUM_HEADS:.*|  ATTENTION_NUM_HEADS: $ATTENTION_FUSION_HEADS|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_DROPOUT:.*|  ATTENTION_DROPOUT: $ATTENTION_FUSION_DROPOUT|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_DIM:.*|  ATTENTION_DIM: $ATTENTION_FUSION_DIM|" "$MODIFIED_CONFIG"
+    echo "🎯 注意力融合机制已启用: ${ATTENTION_FUSION_HEADS}个注意力头, Dropout=${ATTENTION_FUSION_DROPOUT}, 维度=${ATTENTION_FUSION_DIM}"
+elif [ "$ATTENTION_FUSION_ENABLED" = "false" ]; then
+    echo "🎯 配置注意力融合机制：禁用注意力融合机制，使用传统MLP融合"
+    # 更新注意力融合配置
+    sed -i.bak "s|^  USE_ATTENTION_FUSION:.*|  USE_ATTENTION_FUSION: False|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_NUM_HEADS:.*|  ATTENTION_NUM_HEADS: 8|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_DROPOUT:.*|  ATTENTION_DROPOUT: 0.1|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_DIM:.*|  ATTENTION_DIM: 512|" "$MODIFIED_CONFIG"
+    echo "🎯 注意力融合机制已禁用：使用传统MLP融合"
+else
+    echo "ℹ️  使用默认配置：传统MLP融合机制（无注意力融合）"
 fi
 
 # 验证YAML格式

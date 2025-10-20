@@ -31,6 +31,12 @@ MODEL:
   GATE_NUM_HEADS: 8            # 门控网络头数（默认值，不使用）
   GATE_DROPOUT: 0.1            # 门控网络Dropout比例（默认值，不使用）
   
+  # ========== 注意力融合配置：新增注意力拼接机制 ==========
+  USE_ATTENTION_FUSION: False  # 默认禁用注意力融合机制
+  ATTENTION_NUM_HEADS: 8       # 注意力网络头数
+  ATTENTION_DROPOUT: 0.1       # 注意力网络Dropout比例
+  ATTENTION_DIM: 512           # 注意力网络维度
+  
   # ========== 最优MoE参数：基于经验的精心调优组合 ==========
   # 🏆 专家网络隐藏层维度：1024维（经验最优值）
   # 原理：1024维在容量和效率之间达到最佳平衡
