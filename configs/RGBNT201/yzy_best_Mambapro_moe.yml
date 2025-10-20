@@ -29,7 +29,6 @@ MODEL:
   GATE_DROPOUT: 0.1
   
   # ========== 最优MoE参数：基于经验的精心调优组合 ==========
-  MOE_NUM_EXPERTS: 3            # 🏆 MoE专家数量（对应3个尺度：4x4, 8x8, 16x16）
   MOE_EXPERT_HIDDEN_DIM: 1024   # 🏆 MoE专家网络隐藏层维度（经验最优：1024维）
   MOE_TEMPERATURE: 0.7          # 🏆 MoE门控网络温度参数（经验最优：0.7）
   
