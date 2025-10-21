@@ -47,7 +47,8 @@ TEST:
   FEAT_NORM: 'yes'
   MISS: "nothing"
 
-OUTPUT_DIR: '/home/zubuntu/workspace/outputs/'
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/rgbnt100_moe_experiment' # RGBNT100 MoE实验输出目录
+
 
 
 
