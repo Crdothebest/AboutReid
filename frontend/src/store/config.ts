@@ -10,13 +10,13 @@ type TargetState = {
 
 type ConfigState = {
   modelId?: string;
-  slidingWindow?: number;
+  slidingWindow?: number[];
   fusionMethod?: 'concat' | 'mlp' | 'attention_fusion';
   useMoe?: boolean;
   queryModality?: Modality;
   target: TargetState;
   setModelId: (v?: string) => void;
-  setSlidingWindow: (v?: number) => void;
+  setSlidingWindow: (v?: number[]) => void;
   setFusionMethod: (v?: 'concat' | 'mlp' | 'attention_fusion') => void;
   setUseMoe: (v?: boolean) => void;
   setQueryModality: (v?: Modality) => void;
@@ -41,7 +41,10 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { modelId, slidingWindow, fusionMethod, useMoe } = get();
     if (!modelId) return undefined;
     const cfg: QueryConfig = { model_id: modelId };
-    if (slidingWindow !== undefined) cfg.sliding_window = slidingWindow;
+    if (slidingWindow !== undefined && slidingWindow.length > 0) {
+      // 如果选择了多个滑动窗口，取第一个作为主要参数
+      cfg.sliding_window = slidingWindow[0];
+    }
     if (fusionMethod !== undefined) cfg.fusion_method = fusionMethod;
     if (useMoe !== undefined) cfg.use_moe = useMoe;
     return cfg;

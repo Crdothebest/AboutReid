@@ -26,6 +26,10 @@ app.add_middleware(
 if DATASETS_PUBLIC_ROOT.exists():
     app.mount('/datasets', StaticFiles(directory=str(DATASETS_PUBLIC_ROOT)), name='datasets')
 
+# 挂载结果图片目录
+if RESULTS_ROOT.exists():
+    app.mount('/datasets/results', StaticFiles(directory=str(RESULTS_ROOT)), name='results')
+
 
 @app.get('/api/get_models')
 def get_models():
@@ -71,7 +75,7 @@ def reid_rank_query(payload: dict):
     # payload: { target_id, query_modality, config{ model_id, sliding_window, fusion_method, use_moe } }
     try:
         target_id = payload['target_id']
-        query_modality: Literal['RGB','NIR','TI'] = payload['query_modality']
+        query_modality = payload['query_modality']
         config = payload['config']
         model_id = config['model_id']
         sliding_window = config.get('sliding_window')
@@ -85,6 +89,21 @@ def reid_rank_query(payload: dict):
              f"fusion-{fusion_method}" if fusion_method else None,
              f"moe-{str(bool(use_moe)).lower()}" if use_moe is not None else None]
     sub = '_'.join([p for p in parts if p]) or 'default'
+    
+    # 处理特殊查询：ALL 表示需要合成所有模态的结果图片
+    if query_modality == 'ALL':
+        # 查找合成图片路径
+        result_image_path = RESULTS_ROOT / model_id / sub / 'ALL' / f'{target_id}_result.jpg'
+        
+        if not result_image_path.exists():
+            raise HTTPException(status_code=404, detail=f'result image not found: {result_image_path}')
+        
+        # 返回合成图片的URL（通过现有的 /datasets 路径）
+        return ORJSONResponse({
+            'resultImage': f'/datasets/{target_id}_result.jpg'
+        })
+    
+    # 原有的单模态查询逻辑
     result_path = RESULTS_ROOT / model_id / sub / query_modality / f'{target_id}.json'
 
     if not result_path.exists():

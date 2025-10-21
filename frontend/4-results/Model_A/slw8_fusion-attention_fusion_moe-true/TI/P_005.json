@@ -1,26 +1,26 @@
 {
   "metrics": {
-    "mAP": 0.8231,
-    "rank1": 0.9042
+    "mAP": 0.7891,
+    "rank1": 0.8765
   },
   "rank_list": [
     {
-      "id": "000258_cam1_0_00",
-      "image_url": "/datasets/RGB/000258_cam1_0_00.jpg",
-      "score": 0.9876,
+      "id": "000258_cam1_0_06",
+      "image_url": "/datasets/TI/000258_cam1_0_06.jpg",
+      "score": 0.9789,
       "timestamp": "2025-10-20 11:00:00",
       "camera_id": "C01"
     },
     {
-      "id": "000258_cam1_0_01", 
-      "image_url": "/datasets/RGB/000258_cam1_0_01.jpg",
+      "id": "000258_cam1_0_07", 
+      "image_url": "/datasets/TI/000258_cam1_0_07.jpg",
       "score": 0.9234,
       "timestamp": "2025-10-20 11:05:00",
       "camera_id": "C02"
     },
     {
-      "id": "000258_cam1_0_02",
-      "image_url": "/datasets/RGB/000258_cam1_0_02.jpg", 
+      "id": "000258_cam1_0_08",
+      "image_url": "/datasets/TI/000258_cam1_0_08.jpg", 
       "score": 0.8765,
       "timestamp": "2025-10-20 11:10:00",
       "camera_id": "C01"
@@ -28,7 +28,7 @@
   ],
   "echo": {
     "target_id": "P_005",
-    "query_modality": "NIR",
+    "query_modality": "TI",
     "config": {
       "model_id": "Model_A",
       "sliding_window": 8,
