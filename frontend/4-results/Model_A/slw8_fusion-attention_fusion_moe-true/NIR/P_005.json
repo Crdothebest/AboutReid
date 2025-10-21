@@ -1,0 +1,39 @@
+{
+  "metrics": {
+    "mAP": 0.8231,
+    "rank1": 0.9042
+  },
+  "rank_list": [
+    {
+      "id": "G_1001",
+      "image_url": "/datasets/RGB/G_1001.jpg",
+      "score": 0.9876,
+      "timestamp": "2025-10-20 11:00:00",
+      "camera_id": "C01"
+    },
+    {
+      "id": "G_1002", 
+      "image_url": "/datasets/RGB/G_1002.jpg",
+      "score": 0.9234,
+      "timestamp": "2025-10-20 11:05:00",
+      "camera_id": "C02"
+    },
+    {
+      "id": "G_1003",
+      "image_url": "/datasets/RGB/G_1003.jpg", 
+      "score": 0.8765,
+      "timestamp": "2025-10-20 11:10:00",
+      "camera_id": "C01"
+    }
+  ],
+  "echo": {
+    "target_id": "P_005",
+    "query_modality": "NIR",
+    "config": {
+      "model_id": "Model_A",
+      "sliding_window": 8,
+      "fusion_method": "attention_fusion",
+      "use_moe": true
+    }
+  }
+}

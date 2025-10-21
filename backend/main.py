@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 DATA_ROOT = Path(os.getenv('DATA_ROOT', Path(__file__).resolve().parent.parent))
 MANIFEST_PATH = Path(os.getenv('MODELS_MANIFEST', DATA_ROOT / 'inference_configs' / 'models_manifest.json'))
 RESULTS_ROOT = Path(os.getenv('RESULTS_ROOT', DATA_ROOT / 'results'))
-DATASETS_PUBLIC_ROOT = Path(os.getenv('DATASETS_PUBLIC_ROOT', DATA_ROOT / 'frontend' / '1-testData'))
+DATASETS_PUBLIC_ROOT = Path(os.getenv('DATASETS_PUBLIC_ROOT', DATA_ROOT / 'frontend' / '1-testData' / 'test'))
 
 app = FastAPI(default_response_class=ORJSONResponse)
 
@@ -48,7 +48,9 @@ def get_random_target_id():
 
     candidate_ids = set()
     for modality in modalities:
-        m_dir = DATASETS_PUBLIC_ROOT / 'RGBNT201' / modality
+        # 处理 NI -> NIR 的映射
+        dir_name = 'NI' if modality == 'NIR' else modality
+        m_dir = DATASETS_PUBLIC_ROOT / dir_name
         if m_dir.exists():
             for p in m_dir.glob('*.jpg'):
                 candidate_ids.add(p.stem)
@@ -56,7 +58,11 @@ def get_random_target_id():
         raise HTTPException(status_code=404, detail='no candidate ids in datasets')
 
     target_id = random.choice(sorted(list(candidate_ids)))
-    images = {m: f'/datasets/RGBNT201/{m}/{target_id}.jpg' for m in modalities}
+    # 构建图片URL，注意 NI -> NIR 的映射
+    images = {}
+    for modality in modalities:
+        dir_name = 'NI' if modality == 'NIR' else modality
+        images[modality] = f'/datasets/{dir_name}/{target_id}.jpg'
     return {"target_id": target_id, "images": images}
 
 
