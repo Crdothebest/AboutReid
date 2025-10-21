@@ -57,16 +57,25 @@ def get_random_target_id():
         m_dir = DATASETS_PUBLIC_ROOT / dir_name
         if m_dir.exists():
             for p in m_dir.glob('*.jpg'):
-                candidate_ids.add(p.stem)
+                # 提取基础ID（去掉_cam1_0_00等后缀）
+                base_id = p.stem.split('_')[0]
+                candidate_ids.add(base_id)
     if not candidate_ids:
         raise HTTPException(status_code=404, detail='no candidate ids in datasets')
 
     target_id = random.choice(sorted(list(candidate_ids)))
-    # 构建图片URL，注意 NI -> NIR 的映射
+    # 构建图片URL，注意 NI -> NIR 的映射，使用第一个匹配的文件
     images = {}
     for modality in modalities:
         dir_name = 'NI' if modality == 'NIR' else modality
-        images[modality] = f'/datasets/{dir_name}/{target_id}.jpg'
+        m_dir = DATASETS_PUBLIC_ROOT / dir_name
+        if m_dir.exists():
+            # 查找匹配的文件
+            matching_files = list(m_dir.glob(f'{target_id}_*.jpg'))
+            if matching_files:
+                # 使用第一个匹配的文件
+                filename = matching_files[0].name
+                images[modality] = f'/datasets/{dir_name}/{filename}'
     return {"target_id": target_id, "images": images}
 
 

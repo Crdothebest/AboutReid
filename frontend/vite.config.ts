@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    open: 'chrome', // 指定使用Chrome浏览器打开
     proxy: {
       '/api': 'http://localhost:8001',
       '/datasets': 'http://localhost:8001'

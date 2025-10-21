@@ -10,13 +10,13 @@ type TargetState = {
 
 type ConfigState = {
   modelId?: string;
-  slidingWindow?: number[];
+  slidingWindow?: number[]; // 改为多选
   fusionMethod?: 'concat' | 'mlp' | 'attention_fusion';
   useMoe?: boolean;
   queryModality?: Modality;
   target: TargetState;
   setModelId: (v?: string) => void;
-  setSlidingWindow: (v?: number[]) => void;
+  setSlidingWindow: (v?: number[]) => void; // 改为多选
   setFusionMethod: (v?: 'concat' | 'mlp' | 'attention_fusion') => void;
   setUseMoe: (v?: boolean) => void;
   setQueryModality: (v?: Modality) => void;
@@ -28,10 +28,10 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   modelId: undefined,
   slidingWindow: undefined,
   fusionMethod: undefined,
-  useMoe: undefined,
+  useMoe: false, // 默认为 false
   queryModality: undefined,
   target: {},
-  setModelId: (v) => set({ modelId: v, slidingWindow: undefined, fusionMethod: undefined, useMoe: undefined }),
+  setModelId: (v) => set({ modelId: v, slidingWindow: undefined, fusionMethod: undefined, useMoe: false }),
   setSlidingWindow: (v) => set({ slidingWindow: v }),
   setFusionMethod: (v) => set({ fusionMethod: v }),
   setUseMoe: (v) => set({ useMoe: v }),
