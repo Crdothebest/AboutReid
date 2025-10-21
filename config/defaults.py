@@ -53,6 +53,7 @@ _C.MODEL.CLIP_MULTI_SCALE_SCALES = [4, 8, 16] # sliding window scales for CLIP (
 # Multi-Scale MoE settings
 _C.MODEL.USE_MULTI_SCALE_MOE = False    # whether use multi-scale MoE fusion (默认关闭，保持向后兼容)
 _C.MODEL.MOE_SCALES = [4, 8, 16]        # MoE sliding window scales (与多尺度滑动窗口保持一致)
+_C.MODEL.MOE_NUM_EXPERTS = 3            # MoE expert network number (专家网络数量)
 _C.MODEL.MOE_EXPERT_HIDDEN_DIM = 1024   # MoE expert network hidden dimension
 _C.MODEL.MOE_TEMPERATURE = 1.0          # MoE gating network temperature parameter
 
@@ -76,19 +77,15 @@ _C.MODEL.MOE_DIVERSITY_LOSS_WEIGHT = 0.01 # MoE diversity loss weight
 # 撤销方法：删除以下配置代码
 # Gate Fusion settings
 _C.MODEL.USE_GATE_FUSION = False              # whether use gate fusion mechanism (默认关闭)
-_C.MODEL.GATE_NUM_HEADS = 8                   # number of gate network heads (默认8个门控头)
-_C.MODEL.GATE_DROPOUT = 0.1                   # gate network dropout rate (默认0.1)
+_C.MODEL.GATE_NUM_HEADS = 8                   # gate fusion number of heads
+_C.MODEL.GATE_DROPOUT = 0.1                   # gate fusion dropout
 
-# ========== 新增配置：注意力融合机制设置 ==========
-# 用户修改：添加注意力融合机制配置，支持命令行开关控制
-# 功能：控制是否启用注意力融合机制增强MoE融合效果
-# 基于：注意力融合增强MoE特征融合创新设计
-# 撤销方法：删除以下配置代码
 # Attention Fusion settings
 _C.MODEL.USE_ATTENTION_FUSION = False         # whether use attention fusion mechanism (默认关闭)
-_C.MODEL.ATTENTION_NUM_HEADS = 8              # number of attention heads (默认8个注意力头)
-_C.MODEL.ATTENTION_DROPOUT = 0.1              # attention network dropout rate (默认0.1)
-_C.MODEL.ATTENTION_DIM = 512                  # attention network dimension (默认512维)
+_C.MODEL.ATTENTION_NUM_HEADS = 8              # attention fusion number of heads
+_C.MODEL.ATTENTION_DROPOUT = 0.1              # attention fusion dropout
+_C.MODEL.ATTENTION_DIM = 512                  # attention fusion dimension
+
 
 # If train with label smooth, options: 'on', 'off'
 _C.MODEL.IF_LABELSMOOTH = 'on'
