@@ -1,17 +1,16 @@
 MODEL:
-  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
-  TRANSFORMER_TYPE: 'ViT-B-16'
-  STRIDE_SIZE: [ 16, 16 ]
-  SIE_CAMERA: True
-  DIRECT: 0
-  SIE_COE: 1.0
-  ID_LOSS_WEIGHT: 0.25
-  TRIPLET_LOSS_WEIGHT: 1.0
-  PROMPT: True
-  ADAPTER: True
-  MAMBA: True
-  FROZEN: True
-  FLOPS_TEST: False
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
+  TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
+  STRIDE_SIZE: [ 16, 16 ] # 步长
+  SIE_CAMERA: True # 是否使用相机嵌入
+  DIRECT: 1 # 直接
+  SIE_COE: 1.0 # 相机嵌入系数
+  ID_LOSS_WEIGHT: 0.25 # 分类损失权重
+  TRIPLET_LOSS_WEIGHT: 1.0 # 三元组损失权重
+  PROMPT: True # 是否使用提示
+  ADAPTER: True # 是否使用适配器
+  MAMBA: True # 是否使用Mamba
+  FROZEN: True # 是否冻结
   
   # ========== 多尺度滑动窗口配置：启用多尺度特征提取 ==========
   # 实验目的：启用多尺度滑动窗口，为MoE提供多尺度特征输入
@@ -31,6 +30,12 @@ MODEL:
   USE_GATE_FUSION: False       # 默认禁用门控融合机制（使用传统MLP融合）
   GATE_NUM_HEADS: 8            # 门控网络头数（默认值，不使用）
   GATE_DROPOUT: 0.1            # 门控网络Dropout比例（默认值，不使用）
+  
+  # ========== 注意力融合配置：新增注意力拼接机制 ==========
+  USE_ATTENTION_FUSION: False  # 默认禁用注意力融合机制
+  ATTENTION_NUM_HEADS: 8       # 注意力网络头数
+  ATTENTION_DROPOUT: 0.1       # 注意力网络Dropout比例
+  ATTENTION_DIM: 512           # 注意力网络维度
   
   # ========== 最优MoE参数：基于经验的精心调优组合 ==========
   # 🏆 专家网络隐藏层维度：1024维（经验最优值）
@@ -86,8 +91,8 @@ DATALOADER:
   NUM_WORKERS: 8 # 工作线程数
 
 DATASETS:
-  NAMES: ('RGBNT100')
-  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/'
+  NAMES: ('RGBNT100') # 数据集名称（修改为RGBNT100）
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
 
 SOLVER:
   # 优化器设置
@@ -110,20 +115,20 @@ SOLVER:
   CENTER_LR: 0.5 # 中心学习率
   
   # ========== 最优MoE损失权重：基于经验的精心调优 ==========
-  # 🏆 专家平衡损失权重：0.01（经验最优值）
-  # 原理：0.01促进专家使用平衡，但不过度约束
-  # 经验：0.0专家不平衡，0.1过度约束，0.01最平衡
-  MOE_BALANCE_LOSS_WEIGHT: 0.01 # 🔧 MoE专家平衡损失权重
+  # 🏆 专家平衡损失权重：0.001（经验最优值）
+  # 原理：0.001促进专家使用平衡，但不过度约束
+  # 经验：0.0专家不平衡，0.1过度约束，0.001最平衡
+  MOE_BALANCE_LOSS_WEIGHT: 0.001 # 🔧 MoE专家平衡损失权重（调优：从0.01降低到0.001，减少对主要任务干扰）
   
-  # 🏆 稀疏性损失权重：0.001（经验最优值）
-  # 原理：0.001促进专家选择稀疏性，但不过度稀疏
-  # 经验：0.0选择不稀疏，0.01过度稀疏，0.001最平衡
-  MOE_SPARSITY_LOSS_WEIGHT: 0.001 # 🔧 MoE稀疏性损失权重
+  # 🏆 稀疏性损失权重：0.0001（经验最优值）
+  # 原理：0.0001促进专家选择稀疏性，但不过度稀疏
+  # 经验：0.0选择不稀疏，0.01过度稀疏，0.0001最平衡
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0001 # 🔧 MoE稀疏性损失权重（调优：从0.001降低到0.0001，减少训练不稳定）
   
-  # 🏆 多样性损失权重：0.01（经验最优值）
-  # 原理：0.01促进专家分工多样性，但不过度约束
-  # 经验：0.0分工不明确，0.1过度约束，0.01最平衡
-  MOE_DIVERSITY_LOSS_WEIGHT: 0.01 # 🔧 MoE多样性损失权重
+  # 🏆 多样性损失权重：0.001（经验最优值）
+  # 原理：0.001促进专家分工多样性，但不过度约束
+  # 经验：0.0分工不明确，0.1过度约束，0.001最平衡
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.001 # 🔧 MoE多样性损失权重（调优：从0.01降低到0.001，减少专家分工过度严格）
   
   # 学习率调度
   GAMMA: 0.1 # 衰减率
@@ -136,28 +141,15 @@ SOLVER:
   EVAL_PERIOD: 5 # 验证周期
 
 TEST:
-  IMS_PER_BATCH: 64
-  RE_RANKING: 'no'
-  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth'
-  NECK_FEAT: 'before'
-  FEAT_NORM: 'yes'
-  MISS: "nothing"
+  IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
+  RE_RANKING: 'no' # 是否重新排序
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  NECK_FEAT: 'before' # 颈部特征（RGBNT100适配，从baseline配置继承）
+  FEAT_NORM: 'yes' # 特征归一化
+  MISS: "nothing" # 缺失
 
 # ========== RGBNT100 MoE实验输出目录 ==========
 # 实验目的：为RGBNT100数据集MoE实验设置专门的输出目录
 # 功能：便于对比MoE与基线方法的性能差异
 # 🔥 RGBNT100 MoE实验：多尺度滑动窗口 + 优化MoE融合
-OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/rgbnt100_moe_experiment'
-
-# ========== RGBNT100 MoE实验使用说明 ==========
-# 实验目的：验证优化MoE模块在RGBNT100数据集上的有效性
-# 
-# 🔥 实验配置：
-# - 数据集：RGBNT100（RGB-IR双模态数据集）
-# - 多尺度滑动窗口：启用4×4、8×8、16×16三个尺度
-# - MoE融合：启用专家网络动态融合
-# - 优化参数：经过精心调优的MoE参数
-# 
-# 🔥 执行命令：
-# ./run_experiment.sh --config_file configs/RGBNT100/MambaPro_moe.yml
-# 
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/rgbnt100_moe_experiment' # RGBNT100 MoE实验输出目录
