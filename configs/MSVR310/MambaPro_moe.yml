@@ -62,7 +62,7 @@ DATALOADER:
 DATASETS:
 # 所需要使用的数据集名称
   NAMES: ('MSVR310')
-  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/'
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/msvr310'
 
 SOLVER:
   BASE_LR: 0.00035
