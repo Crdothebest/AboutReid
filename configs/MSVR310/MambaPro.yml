@@ -54,5 +54,6 @@ TEST:
   FEAT_NORM: 'yes'
   MISS: "nothing"
 # 作用：训练过程生成的模型权重、日志文件会保存到这个文件夹
-OUTPUT_DIR: '/home/zubuntu/workspace/outputs/'
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/msvr310_mamba_experiment' # MSVR310 Mamba实验输出目录
+
 
