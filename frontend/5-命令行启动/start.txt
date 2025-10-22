@@ -3,3 +3,4 @@ DATA_ROOT=/Users/a11/Desktop/AboutReid MODELS_MANIFEST=/Users/a11/Desktop/AboutR
 
 前端命令行：
 npm run dev
+
