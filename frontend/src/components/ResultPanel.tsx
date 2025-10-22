@@ -105,30 +105,49 @@ export function ResultPanel({ searchResults }: ResultPanelProps) {
           </div>
         )}
 
-        {searchResults && target.targetId ? (
+        {target.targetId ? (
           <div>
-
-            {/* 检索结果显示区域 */}
-            <div>
-              <Text strong style={{ fontSize: '16px', color: '#262626', marginBottom: '12px', display: 'block' }}>
-                检索结果 (ID: {target.targetId}, 模态: {queryModality || 'RGB'}, 模型: {selectedModel === 'baseline' ? 'Baseline' : '优化模型'}, 指标: {selectedMetric.toUpperCase()})：
-              </Text>
-              
-              {/* 显示对应的图片 */}
-              <div style={{ textAlign: 'center' }}>
+            {/* 检查是否有对应的rank结果 */}
+            {selectedMetric === 'rank10' ? (
+              <div>
+                {/* 显示对应的图片 */}
+                <div style={{ textAlign: 'center' }}>
                 <Image
-                  src={`/datasets/Rank_results/${queryModality || 'RGB'}_rank-${selectedMetric.replace('rank', '')}_results/run_20251017_175911/multimodal_ranked_list_${target.targetId}_top${selectedMetric.replace('rank', '')}_${selectedModel}.png`}
-                  alt={`检索结果 - ${target.targetId} - ${queryModality || 'RGB'} - ${selectedModel}`}
-                  style={{
-                    maxWidth: '100%',
-                    height: 'auto',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                  }}
-                  fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHANwDrkl1AuO+pmgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAwqADAAQAAAABAAAAwwAAAAD9b/HnAAAHlklEQVR4Ae3dP3Ik1RnG4W+FgYxN"
-                />
+                  src={`http://localhost:8001/api/rank_image/${target.targetId}/${queryModality || 'RGB'}/${selectedMetric.replace('rank', '')}/${selectedModel === 'baseline' ? 'baseline' : 'your_model'}`}
+                    alt={`检索结果 - ${target.targetId} - ${queryModality || 'RGB'} - ${selectedModel === 'baseline' ? 'Baseline' : '优化模型'}`}
+                    style={{
+                      maxWidth: '100%',
+                      height: 'auto',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                    }}
+                    fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHANwDrkl1AuO+pmgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAwqADAAQAAAABAAAAwwAAAAD9b/HnAAAHlklEQVR4Ae3dP3Ik1RnG4W+FgYxN"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '300px',
+                color: '#666',
+                fontSize: '16px',
+                textAlign: 'center',
+                background: '#f5f5f5',
+                borderRadius: '8px',
+                padding: '20px'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                <div style={{ fontSize: '18px', fontWeight: '600', color: '#262626', marginBottom: '8px' }}>
+                  暂无可用的 {selectedMetric.toUpperCase()} 结果
+                </div>
+                <div style={{ fontSize: '14px', color: '#8c8c8c' }}>
+                  目前只有 Rank-10 的结果可用，请选择 Rank-10 查看检索结果
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{

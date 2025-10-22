@@ -1,0 +1,6 @@
+# 主要用于记载data数据集中图片的路径
+
+RGB的路径：/home/zubuntu/workspace/yzy/MambaPro/data/RGBNT201/test/RGB
+NIT的路径：/home/zubuntu/workspace/yzy/MambaPro/data/RGBNT201/test/NI
+TI的路径：/home/zubuntu/workspace/yzy/MambaPro/data/RGBNT201/test/TI
+

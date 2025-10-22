@@ -12,6 +12,7 @@ DATA_ROOT = Path(os.getenv('DATA_ROOT', Path(__file__).resolve().parent.parent))
 MANIFEST_PATH = Path(os.getenv('MODELS_MANIFEST', DATA_ROOT / 'inference_configs' / 'models_manifest.json'))
 RESULTS_ROOT = Path(os.getenv('RESULTS_ROOT', DATA_ROOT / 'results'))
 DATASETS_PUBLIC_ROOT = Path(os.getenv('DATASETS_PUBLIC_ROOT', DATA_ROOT / 'frontend' / '1-testData' / 'test'))
+RANK_RESULTS_ROOT = Path(os.getenv('RANK_RESULTS_ROOT', DATA_ROOT / 'Rank_results'))
 
 app = FastAPI(default_response_class=ORJSONResponse)
 
@@ -29,6 +30,62 @@ if DATASETS_PUBLIC_ROOT.exists():
 # 挂载结果图片目录
 if RESULTS_ROOT.exists():
     app.mount('/datasets/results', StaticFiles(directory=str(RESULTS_ROOT)), name='results')
+
+# 挂载Rank结果图片目录
+if RANK_RESULTS_ROOT.exists():
+    app.mount('/datasets/Rank_results', StaticFiles(directory=str(RANK_RESULTS_ROOT), html=True), name='rank_results')
+    print(f"✅ Rank results directory mounted: {RANK_RESULTS_ROOT}")
+    print(f"✅ Mounted at: /datasets/Rank_results")
+else:
+    print(f"❌ Rank results directory not found: {RANK_RESULTS_ROOT}")
+
+# 添加一个专门的静态文件路由作为备用
+@app.get('/datasets/Rank_results/{file_path:path}')
+def serve_rank_image(file_path: str):
+    """直接提供rank结果图片"""
+    import os
+    full_path = RANK_RESULTS_ROOT / file_path
+    if full_path.exists() and full_path.is_file():
+        from fastapi.responses import FileResponse
+        return FileResponse(str(full_path))
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="File not found")
+
+# 添加一个简单的测试路由
+@app.get('/test_rank_image')
+def test_rank_image():
+    """测试rank图片访问"""
+    from fastapi.responses import FileResponse
+    test_file = RANK_RESULTS_ROOT / "RGB_rank-10_results" / "run_20251017_175911" / "multimodal_ranked_list_000258_top10_baseline.png"
+    if test_file.exists():
+        return FileResponse(str(test_file))
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Test file not found")
+
+# 添加一个专门的图片服务端点
+@app.get('/api/rank_image/{target_id}/{modality}/{rank}/{model}')
+def get_rank_image(target_id: str, modality: str, rank: str, model: str):
+    """获取rank结果图片"""
+    from fastapi.responses import FileResponse
+    from fastapi import HTTPException
+    
+    try:
+        # 构建文件路径
+        padded_target_id = target_id.zfill(6)  # Python equivalent of padStart(6, '0')
+        file_path = RANK_RESULTS_ROOT / f"{modality}_rank-{rank}_results" / "run_20251017_175911" / f"multimodal_ranked_list_{padded_target_id}_top{rank}_{model}.png"
+        
+        print(f"Looking for file: {file_path}")
+        print(f"File exists: {file_path.exists()}")
+        
+        if file_path.exists():
+            return FileResponse(str(file_path))
+        else:
+            raise HTTPException(status_code=404, detail=f"Image not found: {file_path}")
+    except Exception as e:
+        print(f"Error in get_rank_image: {e}")
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 
 @app.get('/api/get_models')
@@ -138,8 +195,91 @@ def reid_rank_query(payload: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get('/api/test_rank_file')
+def test_rank_file(target_id: str = "000258", modality: str = "RGB", rank: str = "10", model: str = "baseline"):
+    """测试rank文件是否存在"""
+    file_path = RANK_RESULTS_ROOT / f"{modality}_rank-{rank}_results" / "run_20251017_175911" / f"multimodal_ranked_list_{target_id}_top{rank}_{model}.png"
+    
+    # 列出父目录中的所有文件
+    parent_dir = file_path.parent
+    files_in_dir = []
+    if parent_dir.exists():
+        files_in_dir = [f.name for f in parent_dir.glob("*.png")]
+    
+    return {
+        "file_path": str(file_path),
+        "exists": file_path.exists(),
+        "parent_dir": str(file_path.parent),
+        "parent_exists": file_path.parent.exists(),
+        "files_in_parent_dir": files_in_dir,  # 显示所有文件
+        "total_files_count": len(files_in_dir),
+        "rank_results_root": str(RANK_RESULTS_ROOT),
+        "rank_results_root_exists": RANK_RESULTS_ROOT.exists()
+    }
+
+@app.get('/api/list_rank_files')
+def list_rank_files(modality: str = "RGB", rank: str = "10"):
+    """列出指定模态和rank的所有可用文件"""
+    results_dir = RANK_RESULTS_ROOT / f"{modality}_rank-{rank}_results" / "run_20251017_175911"
+    
+    if not results_dir.exists():
+        return {
+            "error": f"Directory not found: {results_dir}",
+            "files": [],
+            "total_count": 0
+        }
+    
+    # 获取所有PNG文件
+    png_files = list(results_dir.glob("*.png"))
+    files_info = []
+    
+    for file_path in png_files:
+        files_info.append({
+            "filename": file_path.name,
+            "file_path": str(file_path),
+            "exists": file_path.exists(),
+            "size": file_path.stat().st_size if file_path.exists() else 0
+        })
+    
+    return {
+        "modality": modality,
+        "rank": rank,
+        "directory": str(results_dir),
+        "files": files_info,
+        "total_count": len(files_info)
+    }
+
 @app.get('/')
 def root():
-    return { 'ok': True, 'DATA_ROOT': str(DATA_ROOT), 'RESULTS_ROOT': str(RESULTS_ROOT) }
+    return { 
+        'ok': True, 
+        'DATA_ROOT': str(DATA_ROOT),
+        'RESULTS_ROOT': str(RESULTS_ROOT),
+        'RANK_RESULTS_ROOT': str(RANK_RESULTS_ROOT),
+        'RANK_RESULTS_EXISTS': RANK_RESULTS_ROOT.exists()
+    }
+
+@app.get('/api/debug_static')
+def debug_static():
+    """调试静态文件挂载"""
+    return {
+        'rank_results_root': str(RANK_RESULTS_ROOT),
+        'rank_results_exists': RANK_RESULTS_ROOT.exists(),
+        'rank_results_files': list(RANK_RESULTS_ROOT.glob('*')) if RANK_RESULTS_ROOT.exists() else [],
+        'mounted_paths': [
+            '/datasets/Rank_results',
+            '/datasets/results'
+        ]
+    }
+
+@app.get('/api/test_image')
+def test_image():
+    """测试图片文件访问"""
+    test_file = RANK_RESULTS_ROOT / "RGB_rank-10_results" / "run_20251017_175911" / "multimodal_ranked_list_000258_top10_baseline.png"
+    return {
+        'file_path': str(test_file),
+        'exists': test_file.exists(),
+        'size': test_file.stat().st_size if test_file.exists() else 0
+    }
 
 
