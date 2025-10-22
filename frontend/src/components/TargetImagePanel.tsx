@@ -186,7 +186,7 @@ export function TargetImagePanel({ onSearch }: TargetImagePanelProps) {
                                 flexDirection: 'column',
                                 justifyContent: 'space-between'
                             }}>
-                                <Text type="secondary" style={{ fontSize: '14px', fontWeight: '600', color: '#52c41a' }}>🟢 TI</Text>
+                                <Text type="secondary" style={{ fontSize: '14px', fontWeight: '600', color: '#52c41a' }}>🟢 TIR</Text>
                                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     {target.targetId && target.images?.TI ? (
                                         <Image
