@@ -1,6 +1,7 @@
-import { Button, Card, Space, Typography, message, Image, Row, Col } from 'antd';
+import { Button, Card, Space, Typography, message, Image, Row, Col, Radio } from 'antd';
 import { getRandomTargetId } from '../api/reid';
 import { useConfigStore } from '../store/config';
+import { useState } from 'react';
 
 const { Title, Text } = Typography;
 
@@ -10,6 +11,7 @@ interface TargetImagePanelProps {
 
 export function TargetImagePanel({ onSearch }: TargetImagePanelProps) {
     const { target, setTarget } = useConfigStore();
+    const [selectedModality, setSelectedModality] = useState<'RGB' | 'NIR' | 'TI'>('RGB');
 
     const handleRandom = async () => {
         try {
@@ -59,6 +61,7 @@ export function TargetImagePanel({ onSearch }: TargetImagePanelProps) {
                     </Text>
                 </Space>
 
+
                 {/* 三模态图片展示 */}
                 <div>
                     <Text strong style={{ fontSize: '16px', color: '#262626' }}>📸 目标图片：</Text>
@@ -105,6 +108,16 @@ export function TargetImagePanel({ onSearch }: TargetImagePanelProps) {
                                         </div>
                                     )}
                                 </div>
+                                {/* RGB 单选按钮 */}
+                                <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+                                    <Radio 
+                                        value="RGB" 
+                                        checked={selectedModality === 'RGB'}
+                                        onChange={() => setSelectedModality('RGB')}
+                                        disabled={!target.targetId}
+                                    >
+                                    </Radio>
+                                </div>
                             </div>
                         </Col>
                         <Col span={8}>
@@ -148,6 +161,16 @@ export function TargetImagePanel({ onSearch }: TargetImagePanelProps) {
                                             <Text type="secondary">待加载</Text>
                                         </div>
                                     )}
+                                </div>
+                                {/* NIR 单选按钮 */}
+                                <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+                                    <Radio 
+                                        value="NIR" 
+                                        checked={selectedModality === 'NIR'}
+                                        onChange={() => setSelectedModality('NIR')}
+                                        disabled={!target.targetId}
+                                    >
+                                    </Radio>
                                 </div>
                             </div>
                         </Col>
@@ -193,6 +216,16 @@ export function TargetImagePanel({ onSearch }: TargetImagePanelProps) {
                                         </div>
                                     )}
                                 </div>
+                                {/* TI 单选按钮 */}
+                                <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+                                    <Radio 
+                                        value="TI" 
+                                        checked={selectedModality === 'TI'}
+                                        onChange={() => setSelectedModality('TI')}
+                                        disabled={!target.targetId}
+                                    >
+                                    </Radio>
+                                </div>
                             </div>
                         </Col>
                     </Row>
@@ -231,6 +264,53 @@ export function TargetImagePanel({ onSearch }: TargetImagePanelProps) {
                         </div>
                     )}
                 </div>
+
+                {/* 当前检索设置显示 */}
+                {target.targetId && (
+                    <div style={{ 
+                        marginTop: '20px', 
+                        padding: '16px', 
+                        background: 'linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%)', 
+                        borderRadius: '12px', 
+                        border: '2px solid #b7eb8f',
+                        boxShadow: '0 2px 8px rgba(82, 196, 26, 0.1)'
+                    }}>
+                        <Text strong style={{ fontSize: '16px', color: '#262626', marginBottom: '12px', display: 'block' }}>
+                            📋 当前检索设置
+                        </Text>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <div style={{ textAlign: 'center', padding: '8px' }}>
+                                    <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                                        目标ID
+                                    </Text>
+                                    <Text strong style={{ fontSize: '14px', color: '#1890ff' }}>
+                                        {target.targetId}
+                                    </Text>
+                                </div>
+                            </Col>
+                            <Col span={12}>
+                                <div style={{ textAlign: 'center', padding: '8px' }}>
+                                    <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                                        选择模态
+                                    </Text>
+                                    <Text strong style={{ 
+                                        fontSize: '14px', 
+                                        color: selectedModality === 'RGB' ? '#ff4d4f' : 
+                                               selectedModality === 'NIR' ? '#faad14' : '#52c41a'
+                                    }}>
+                                        {selectedModality}
+                                    </Text>
+                                </div>
+                            </Col>
+                        </Row>
+                        <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                            <Text type="secondary" style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                                点击"进行检索"后将使用以上设置进行检索
+                            </Text>
+                        </div>
+                    </div>
+                )}
             </Space>
         </Card>
     );

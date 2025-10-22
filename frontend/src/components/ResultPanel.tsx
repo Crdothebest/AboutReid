@@ -1,5 +1,6 @@
-import { Card, Typography, Divider, Select, Row, Col } from 'antd';
+import { Card, Typography, Select, Row, Col, Button, Image, Space } from 'antd';
 import { useState } from 'react';
+import { useConfigStore } from '../store/config';
 
 const { Title, Text } = Typography;
 
@@ -9,21 +10,8 @@ interface ResultPanelProps {
 
 export function ResultPanel({ searchResults }: ResultPanelProps) {
   const [selectedMetric, setSelectedMetric] = useState<string>('rank1');
-
-  const getAccuracyValue = () => {
-    if (!searchResults?.metrics) return 0;
-    switch (selectedMetric) {
-      case 'rank1':
-        return searchResults.metrics.rank1 || 0;
-      case 'rank5':
-        return searchResults.metrics.rank5 || 0;
-      case 'rank10':
-        return searchResults.metrics.rank10 || 0;
-      default:
-        return 0;
-    }
-  };
-
+  const [selectedModel, setSelectedModel] = useState<'baseline' | 'your_model'>('baseline');
+  const { target, queryModality } = useConfigStore();
 
   return (
     <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -47,86 +35,100 @@ export function ResultPanel({ searchResults }: ResultPanelProps) {
           flexDirection: 'column',
           border: 'none'
         }}
-      >
-        {searchResults ? (
+        >
+        {/* 检索指标选择器 - 始终显示 */}
+        <div style={{ marginBottom: '20px' }}>
+          <Row gutter={16} align="middle">
+            <Col>
+              <Text strong style={{ fontSize: '16px', color: '#262626' }}>📈 选择检索指标：</Text>
+              <div style={{ marginTop: '8px' }}>
+                <Select
+                  value={selectedMetric}
+                  onChange={setSelectedMetric}
+                  style={{ width: '200px' }}
+                  options={[
+                    { label: 'Rank-1', value: 'rank1' },
+                    { label: 'Rank-5', value: 'rank5' },
+                    { label: 'Rank-10', value: 'rank10' }
+                  ]}
+                />
+              </div>
+            </Col>
+          </Row>
+        </div>
+
+        {/* 模型效果选择按钮 */}
+        <div style={{ marginBottom: '16px' }}>
+          <Text strong style={{ fontSize: '14px', color: '#262626', marginBottom: '8px', display: 'block' }}>
+            🎯 选择模型效果：
+          </Text>
+          <Space>
+            <Button
+              type={selectedModel === 'baseline' ? 'primary' : 'default'}
+              onClick={() => setSelectedModel('baseline')}
+              style={{
+                width: '120px',
+                height: '40px',
+                borderRadius: '8px',
+                background: selectedModel === 'baseline' ? 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)' : undefined,
+                border: selectedModel === 'baseline' ? 'none' : '1px solid #d9d9d9',
+                color: selectedModel === 'baseline' ? '#fff' : '#262626',
+                fontWeight: '500'
+              }}
+            >
+              📊 Baseline效果
+            </Button>
+            <Button
+              type={selectedModel === 'your_model' ? 'primary' : 'default'}
+              onClick={() => setSelectedModel('your_model')}
+              style={{
+                width: '120px',
+                height: '40px',
+                borderRadius: '8px',
+                background: selectedModel === 'your_model' ? 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)' : undefined,
+                border: selectedModel === 'your_model' ? 'none' : '1px solid #d9d9d9',
+                color: selectedModel === 'your_model' ? '#fff' : '#262626',
+                fontWeight: '500'
+              }}
+            >
+              🚀 优化效果
+            </Button>
+          </Space>
+        </div>
+
+        {/* 当前检索设置显示 - 压缩为一行小字 */}
+        {target.targetId && (
+          <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+            <Text type="secondary" style={{ fontSize: '12px', color: '#8c8c8c' }}>
+              当前设置：ID {target.targetId} | 模态 {queryModality || 'RGB'} | 指标 {selectedMetric.toUpperCase()} | 效果 {selectedModel === 'baseline' ? 'Baseline模型' : '优化模型'}
+            </Text>
+          </div>
+        )}
+
+        {searchResults && target.targetId ? (
           <div>
-            {/* 检索指标选择和准确度 */}
-            <div style={{ marginBottom: '20px' }}>
-              <Row gutter={16} align="middle">
-                <Col>
-                  <Text strong style={{ fontSize: '16px', color: '#262626' }}>📈 选择检索指标：</Text>
-                  <div style={{ marginTop: '8px' }}>
-                    <Select
-                      value={selectedMetric}
-                      onChange={setSelectedMetric}
-                      style={{ width: '200px' }}
-                      options={[
-                        { label: 'Rank-1', value: 'rank1' },
-                        { label: 'Rank-5', value: 'rank5' },
-                        { label: 'Rank-10', value: 'rank10' }
-                      ]}
-                    />
-                  </div>
-                </Col>
-                <Col>
-                  <div style={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    borderRadius: '12px',
-                    padding: '12px 16px',
-                    textAlign: 'center',
-                    border: 'none',
-                    minWidth: '180px',
-                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}>
-                    {/* 背景装饰 */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '-10px',
-                      right: '-10px',
-                      width: '40px',
-                      height: '40px',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      borderRadius: '50%',
-                      opacity: 0.6
-                    }} />
-                    <div style={{
-                      position: 'absolute',
-                      bottom: '-5px',
-                      left: '-5px',
-                      width: '20px',
-                      height: '20px',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      borderRadius: '50%',
-                      opacity: 0.4
-                    }} />
 
-                    <div style={{
-                      fontSize: '16px',
-                      fontWeight: '700',
-                      color: '#ffffff',
-                      marginBottom: '2px',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                    }}>
-                      {(getAccuracyValue() * 100).toFixed(1)}%
-                    </div>
-                    <div style={{
-                      fontSize: '10px',
-                      color: 'rgba(255, 255, 255, 0.8)',
-                      fontWeight: '500',
-                      letterSpacing: '0.5px'
-                    }}>
-                      {selectedMetric.toUpperCase()} 准确率
-                    </div>
-                  </div>
-                </Col>
-              </Row>
+            {/* 检索结果显示区域 */}
+            <div>
+              <Text strong style={{ fontSize: '16px', color: '#262626', marginBottom: '12px', display: 'block' }}>
+                检索结果 (ID: {target.targetId}, 模态: {queryModality || 'RGB'}, 模型: {selectedModel === 'baseline' ? 'Baseline' : '优化模型'}, 指标: {selectedMetric.toUpperCase()})：
+              </Text>
+              
+              {/* 显示对应的图片 */}
+              <div style={{ textAlign: 'center' }}>
+                <Image
+                  src={`/datasets/Rank_results/${queryModality || 'RGB'}_rank-${selectedMetric.replace('rank', '')}_results/run_20251017_175911/multimodal_ranked_list_${target.targetId}_top${selectedMetric.replace('rank', '')}_${selectedModel}.png`}
+                  alt={`检索结果 - ${target.targetId} - ${queryModality || 'RGB'} - ${selectedModel}`}
+                  style={{
+                    maxWidth: '100%',
+                    height: 'auto',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  }}
+                  fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHANwDrkl1AuO+pmgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAwqADAAQAAAABAAAAwwAAAAD9b/HnAAAHlklEQVR4Ae3dP3Ik1RnG4W+FgYxN"
+                />
+              </div>
             </div>
-
-            <Divider />
-
-
           </div>
         ) : (
           <div style={{

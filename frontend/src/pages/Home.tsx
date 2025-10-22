@@ -234,7 +234,7 @@ export default function Home() {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        <ConfigPanel />
+        <ConfigPanel onSubmit={handleSubmit} />
       </div>
 
       {/* 第二列：训练模型 */}

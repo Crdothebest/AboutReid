@@ -1,13 +1,16 @@
-import { useEffect } from 'react';
-import { Card, Checkbox, Divider, Form, Radio, Select, Switch, Typography } from 'antd';
+import { useEffect, useState } from 'react';
+import { Card, Checkbox, Divider, Form, Radio, Select, Switch, Typography, Button, Space, Row, Col, Image } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { getModels } from '../api/reid';
+import { getModels, getRandomTargetId } from '../api/reid';
 import { useConfigStore } from '../store/config';
 
 const { Title, Text } = Typography;
 
-export function ConfigPanel() {
+export function ConfigPanel({ onSubmit }: { onSubmit: () => void }) {
   const [form] = Form.useForm();
+  const [target, setTarget] = useState<{ targetId?: string; images?: { RGB?: string; NIR?: string; TI?: string } }>({});
+  const [selectedModality, setSelectedModality] = useState<'RGB' | 'NIR' | 'TI'>('RGB');
+  
   const {
     modelId,
     slidingWindow,
@@ -48,6 +51,33 @@ export function ConfigPanel() {
     });
   }, [form, modelId, slidingWindow, fusionMethod, useMoe, queryModality]);
 
+  const handleRandom = async () => {
+    try {
+      const data = await getRandomTargetId();
+      setTarget({ targetId: data.target_id, images: data.images });
+    } catch (e) {
+      console.error('获取随机目标失败', e);
+    }
+  };
+
+  const handleRankQuery = () => {
+    if (!target.targetId) {
+      console.error('请先抽取目标图片');
+      return;
+    }
+    if (!modelId) {
+      console.error('请先选择模型');
+      return;
+    }
+    if (!selectedModality) {
+      console.error('请先选择查询模态');
+      return;
+    }
+    
+    // 设置查询模态并触发提交
+    setQueryModality(selectedModality);
+    onSubmit();
+  };
 
   return (
     <Card
@@ -176,7 +206,7 @@ export function ConfigPanel() {
           textAlign: 'center'
         }}>
           <Text type="secondary" style={{ fontSize: '14px', lineHeight: '1.5' }}>
-            配置完成后，训练结果将显示在右侧"训练模型"卡片中
+            配置完成后，检索结果将显示在右侧"检索结果"卡片中
           </Text>
         </div>
       </Form>

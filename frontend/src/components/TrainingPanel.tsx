@@ -1,4 +1,5 @@
-import { Card, Typography, Tag, Space, Divider, Progress, Button } from 'antd';
+import { Card, Typography, Tag, Space, Divider, Progress, Button, Select } from 'antd';
+import { useState } from 'react';
 
 const { Title, Text } = Typography;
 
@@ -10,6 +11,8 @@ interface TrainingPanelProps {
 }
 
 export function TrainingPanel({ result, progress, isPending, onStartTraining }: TrainingPanelProps) {
+    const [selectedRank, setSelectedRank] = useState<'rank1' | 'rank5' | 'rank10'>('rank1');
+    
     return (
         <Card
             title={<Title level={4} style={{ margin: 0, color: '#000000' }}>🚀 训练模型</Title>}
@@ -178,7 +181,7 @@ export function TrainingPanel({ result, progress, isPending, onStartTraining }: 
                         color: '#262626',
                         marginBottom: '16px'
                     }}>
-                        准备训练模型
+                        准备训练模型！
                     </div>
                     <div style={{
                         fontSize: '14px',
@@ -188,6 +191,7 @@ export function TrainingPanel({ result, progress, isPending, onStartTraining }: 
                     }}>
                         配置完成后点击"训练模型"开始训练
                     </div>
+                    
                     <Button
                         type="primary"
                         onClick={onStartTraining}
