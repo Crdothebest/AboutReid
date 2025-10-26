@@ -1,6 +1,7 @@
-后端命令行：
-DATA_ROOT=/Users/a11/Desktop/AboutReid MODELS_MANIFEST=/Users/a11/Desktop/AboutReid/frontend/3-configs/models_manifest.json RESULTS_ROOT=/Users/a11/Desktop/AboutReid/frontend/4-results DATASETS_PUBLIC_ROOT=/Users/a11/Desktop/AboutReid/frontend/1-testData/test /Users/a11/Library/Python/3.9/bin/uvicorn backend.main:app --reload --port 8001
+# 后端
+cd backend
+python simple_server.py
 
-前端命令行：
+# 前端（新开一个终端）
+cd frontend  
 npm run dev
-

@@ -35,7 +35,7 @@ export function ResultPanel({ searchResults }: ResultPanelProps) {
           flexDirection: 'column',
           border: 'none'
         }}
-        >
+      >
         {/* 检索指标选择器 - 始终显示 */}
         <div style={{ marginBottom: '20px' }}>
           <Row gutter={16} align="middle">
@@ -108,12 +108,12 @@ export function ResultPanel({ searchResults }: ResultPanelProps) {
         {target.targetId ? (
           <div>
             {/* 检查是否有对应的rank结果 */}
-            {selectedMetric === 'rank10' ? (
+            {(selectedMetric === 'rank1' || selectedMetric === 'rank5' || selectedMetric === 'rank10') ? (
               <div>
                 {/* 显示对应的图片 */}
                 <div style={{ textAlign: 'center' }}>
-                <Image
-                  src={`http://localhost:8001/api/rank_image/${target.targetId}/${queryModality || 'RGB'}/${selectedMetric.replace('rank', '')}/${selectedModel === 'baseline' ? 'baseline' : 'your_model'}`}
+                  <Image
+                    src={`http://localhost:8001/api/rank_image/${target.targetId}/${queryModality || 'RGB'}/${selectedMetric.replace('rank', '')}/${selectedModel === 'baseline' ? 'baseline' : 'your_model'}`}
                     alt={`检索结果 - ${target.targetId} - ${queryModality || 'RGB'} - ${selectedModel === 'baseline' ? 'Baseline' : '优化模型'}`}
                     style={{
                       maxWidth: '100%',
