@@ -1,0 +1,10 @@
+实验ID: experiment_20251016_110945
+开始时间: 2025年 10月 16日 星期四 11:37:37 CST
+命令: python train_net.py --config_file results/everyExperiments/experiment_20251016_110945/configs/experiment_config.yml 2>&1 | tee results/everyExperiments/experiment_20251016_110945/logs/train_log.txt
+参数: 
+状态: 完成
+目录: results/everyExperiments/experiment_20251016_110945
+训练日志: results/everyExperiments/experiment_20251016_110945/logs/train_log.txt
+模型权重: results/everyExperiments/experiment_20251016_110945/models/MambaProbest.pth
+配置文件: results/everyExperiments/experiment_20251016_110945/configs/experiment_config.yml
+原始配置文件: /home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251015_132633/configs/experiment_config.yml
