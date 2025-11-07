@@ -46,6 +46,7 @@ def parse_log_file(log_file_path):
         'val_rank1': [],
         'val_rank5': [],
         'val_rank10': [],
+        'dataset_name': 'Unknown',  # 数据集名称
     }
     
     # 尝试多种编码方式读取文件
@@ -61,6 +62,23 @@ def parse_log_file(log_file_path):
     
     if lines is None:
         raise ValueError(f"无法读取日志文件: {log_file_path}，尝试了多种编码方式都失败")
+    
+    # 解析数据集名称
+    for line in lines:
+        # 匹配数据集名称：DATASETS: NAMES: ('RGBNT201') 或 DATASETS: NAMES: ('MSVR310')
+        if 'DATASETS:' in line or 'NAMES:' in line:
+            # 尝试提取数据集名称
+            dataset_match = re.search(r"NAMES:\s*\(['\"]?(\w+)['\"]?\)", line)
+            if dataset_match:
+                metrics['dataset_name'] = dataset_match.group(1)
+            # 也尝试匹配单独的数据集名称行
+            elif 'RGBNT201' in line or 'RGBNT100' in line or 'MSVR310' in line:
+                if 'RGBNT201' in line:
+                    metrics['dataset_name'] = 'RGBNT201'
+                elif 'RGBNT100' in line:
+                    metrics['dataset_name'] = 'RGBNT100'
+                elif 'MSVR310' in line:
+                    metrics['dataset_name'] = 'MSVR310'
     
     # 解析训练指标
     for line in lines:
@@ -185,7 +203,11 @@ def plot_training_curves(metrics, save_path=None, show_plot=True):
         show_plot: 是否显示图片
     """
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-    fig.suptitle('训练曲线可视化', fontsize=16, fontweight='bold')
+    
+    # 构建标题，包含数据集信息
+    dataset_name = metrics.get('dataset_name', 'Unknown')
+    title = f'训练曲线可视化 - 数据集: {dataset_name}'
+    fig.suptitle(title, fontsize=16, fontweight='bold')
     
     # 1. 训练损失
     ax1 = axes[0, 0]
