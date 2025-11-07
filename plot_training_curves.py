@@ -48,8 +48,19 @@ def parse_log_file(log_file_path):
         'val_rank10': [],
     }
     
-    with open(log_file_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
+    # 尝试多种编码方式读取文件
+    encodings = ['utf-8', 'gbk', 'gb2312', 'latin-1', 'cp1252']
+    lines = None
+    for encoding in encodings:
+        try:
+            with open(log_file_path, 'r', encoding=encoding, errors='ignore') as f:
+                lines = f.readlines()
+            break
+        except UnicodeDecodeError:
+            continue
+    
+    if lines is None:
+        raise ValueError(f"无法读取日志文件: {log_file_path}，尝试了多种编码方式都失败")
     
     # 解析训练指标
     for line in lines:
@@ -72,34 +83,68 @@ def parse_log_file(log_file_path):
                 metrics['train_losses'].append(loss)
                 metrics['train_accuracies'].append(acc)
                 metrics['train_learning_rates'].append(lr)
-        
-        # 匹配验证结果：Validation Results - Epoch: 10
+    
+    # 解析验证指标 - 改进版本：按epoch分组解析
+    current_val_epoch = None
+    current_map = None
+    current_rank1 = None
+    current_rank5 = None
+    current_rank10 = None
+    
+    for i, line in enumerate(lines):
+        # 匹配验证结果开始：Validation Results - Epoch: 10
         if 'Validation Results - Epoch:' in line:
             epoch_match = re.search(r'Epoch:\s+(\d+)', line)
             if epoch_match:
-                val_epoch = int(epoch_match.group(1))
-                metrics['val_epochs'].append(val_epoch)
+                # 如果之前有未保存的验证结果，先保存
+                if current_val_epoch is not None:
+                    if current_map is not None:
+                        metrics['val_epochs'].append(current_val_epoch)
+                        metrics['val_maps'].append(current_map)
+                        if current_rank1 is not None:
+                            metrics['val_rank1'].append(current_rank1)
+                        if current_rank5 is not None:
+                            metrics['val_rank5'].append(current_rank5)
+                        if current_rank10 is not None:
+                            metrics['val_rank10'].append(current_rank10)
+                
+                # 开始新的验证epoch
+                current_val_epoch = int(epoch_match.group(1))
+                current_map = None
+                current_rank1 = None
+                current_rank5 = None
+                current_rank10 = None
         
-        # 匹配mAP：mAP: 45.2%
-        if 'mAP:' in line and '%' in line:
+        # 匹配mAP：mAP: 45.2% (必须在Validation Results之后)
+        elif current_val_epoch is not None and 'mAP:' in line and '%' in line and 'Best mAP' not in line:
             map_match = re.search(r'mAP:\s+([\d.]+)%', line)
-            if map_match and metrics['val_epochs']:
-                map_val = float(map_match.group(1)) / 100.0  # 转换为小数
-                metrics['val_maps'].append(map_val)
+            if map_match:
+                current_map = float(map_match.group(1)) / 100.0  # 转换为小数
         
         # 匹配Rank-k：CMC curve, Rank-1  :45.2%
-        if 'CMC curve' in line:
+        elif current_val_epoch is not None and 'CMC curve' in line:
             rank_match = re.search(r'Rank-(\d+)\s*:([\d.]+)%', line)
-            if rank_match and metrics['val_epochs']:
+            if rank_match:
                 rank_k = int(rank_match.group(1))
                 rank_val = float(rank_match.group(2)) / 100.0  # 转换为小数
                 
                 if rank_k == 1:
-                    metrics['val_rank1'].append(rank_val)
+                    current_rank1 = rank_val
                 elif rank_k == 5:
-                    metrics['val_rank5'].append(rank_val)
+                    current_rank5 = rank_val
                 elif rank_k == 10:
-                    metrics['val_rank10'].append(rank_val)
+                    current_rank10 = rank_val
+    
+    # 保存最后一个验证结果
+    if current_val_epoch is not None and current_map is not None:
+        metrics['val_epochs'].append(current_val_epoch)
+        metrics['val_maps'].append(current_map)
+        if current_rank1 is not None:
+            metrics['val_rank1'].append(current_rank1)
+        if current_rank5 is not None:
+            metrics['val_rank5'].append(current_rank5)
+        if current_rank10 is not None:
+            metrics['val_rank10'].append(current_rank10)
     
     # 处理训练指标：每个epoch可能有多个迭代记录，取平均值
     if metrics['train_epochs']:
@@ -247,10 +292,66 @@ def plot_training_curves(metrics, save_path=None, show_plot=True):
         plt.close()
 
 
+def find_log_from_pth(pth_path):
+    """
+    根据pth文件路径自动查找对应的训练日志文件
+    
+    Args:
+        pth_path: pth文件路径
+        
+    Returns:
+        str: 训练日志文件路径，如果找不到返回None
+    """
+    pth_path = os.path.abspath(pth_path)
+    
+    # 如果pth文件不存在，返回None
+    if not os.path.exists(pth_path):
+        return None
+    
+    pth_dir = os.path.dirname(pth_path)
+    
+    # 策略1: 在同一目录下查找 train_log.txt
+    log_path = os.path.join(pth_dir, 'train_log.txt')
+    if os.path.exists(log_path):
+        return log_path
+    
+    # 策略2: 在父目录的 logs 子目录下查找
+    parent_dir = os.path.dirname(pth_dir)
+    log_path = os.path.join(parent_dir, 'logs', 'train_log.txt')
+    if os.path.exists(log_path):
+        return log_path
+    
+    # 策略3: 在 models 目录的父目录的 logs 目录下查找
+    if 'models' in pth_dir:
+        parent_dir = os.path.dirname(pth_dir)
+        log_path = os.path.join(parent_dir, 'logs', 'train_log.txt')
+        if os.path.exists(log_path):
+            return log_path
+    
+    # 策略4: 查找 experiment_info.txt，从中读取日志路径
+    info_path = os.path.join(parent_dir, 'experiment_info.txt')
+    if os.path.exists(info_path):
+        try:
+            with open(info_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                # 查找训练日志路径
+                log_match = re.search(r'训练日志:\s*(.+)', content)
+                if log_match:
+                    log_path = log_match.group(1).strip()
+                    if os.path.exists(log_path):
+                        return log_path
+        except:
+            pass
+    
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description='绘制训练曲线')
-    parser.add_argument('--log_file', type=str, required=True,
+    parser.add_argument('--log_file', type=str, default=None,
                        help='训练日志文件路径 (train_log.txt)')
+    parser.add_argument('--pth_file', type=str, default=None,
+                       help='模型权重文件路径 (.pth)，将自动查找对应的训练日志')
     parser.add_argument('--output', type=str, default=None,
                        help='输出图片路径（可选，默认保存在日志文件同目录）')
     parser.add_argument('--no_show', action='store_true',
@@ -258,10 +359,30 @@ def main():
     
     args = parser.parse_args()
     
+    # 确定日志文件路径
+    log_file_path = None
+    
+    if args.pth_file:
+        # 如果提供了pth文件，尝试自动查找对应的训练日志
+        print(f"🔍 根据pth文件查找训练日志: {args.pth_file}")
+        log_file_path = find_log_from_pth(args.pth_file)
+        if log_file_path:
+            print(f"✅ 找到训练日志: {log_file_path}")
+        else:
+            print(f"❌ 无法自动找到对应的训练日志文件")
+            print(f"   请手动指定训练日志路径: --log_file <路径>")
+            return
+    elif args.log_file:
+        log_file_path = args.log_file
+    else:
+        print("❌ 错误: 必须提供 --log_file 或 --pth_file 参数")
+        parser.print_help()
+        return
+    
     # 解析日志文件
-    print(f"📊 正在解析日志文件: {args.log_file}")
+    print(f"📊 正在解析日志文件: {log_file_path}")
     try:
-        metrics = parse_log_file(args.log_file)
+        metrics = parse_log_file(log_file_path)
         
         # 打印统计信息
         print("\n📈 提取到的指标统计:")
@@ -273,15 +394,25 @@ def main():
         if metrics['val_epochs']:
             print(f"  验证数据: {len(metrics['val_epochs'])} 个epoch")
             if metrics['val_maps']:
-                print(f"  mAP范围: {min(metrics['val_maps']):.4f} ~ {max(metrics['val_maps']):.4f}")
+                print(f"  mAP范围: {min(metrics['val_maps'])*100:.2f}% ~ {max(metrics['val_maps'])*100:.2f}%")
+                print(f"  最佳mAP: {max(metrics['val_maps'])*100:.2f}% (Epoch {metrics['val_epochs'][metrics['val_maps'].index(max(metrics['val_maps']))]})")
             if metrics['val_rank1']:
-                print(f"  Rank-1范围: {min(metrics['val_rank1']):.4f} ~ {max(metrics['val_rank1']):.4f}")
+                print(f"  Rank-1范围: {min(metrics['val_rank1'])*100:.2f}% ~ {max(metrics['val_rank1'])*100:.2f}%")
+                print(f"  最佳Rank-1: {max(metrics['val_rank1'])*100:.2f}% (Epoch {metrics['val_epochs'][metrics['val_rank1'].index(max(metrics['val_rank1']))]})")
+            if metrics['val_rank5']:
+                print(f"  Rank-5范围: {min(metrics['val_rank5'])*100:.2f}% ~ {max(metrics['val_rank5'])*100:.2f}%")
+                print(f"  最佳Rank-5: {max(metrics['val_rank5'])*100:.2f}% (Epoch {metrics['val_epochs'][metrics['val_rank5'].index(max(metrics['val_rank5']))]})")
+            if metrics['val_rank10']:
+                print(f"  Rank-10范围: {min(metrics['val_rank10'])*100:.2f}% ~ {max(metrics['val_rank10'])*100:.2f}%")
+                print(f"  最佳Rank-10: {max(metrics['val_rank10'])*100:.2f}% (Epoch {metrics['val_epochs'][metrics['val_rank10'].index(max(metrics['val_rank10']))]})")
+        else:
+            print("  ⚠️  未找到验证数据，请检查日志文件是否包含验证结果")
         
         # 确定输出路径
         if args.output:
             save_path = args.output
         else:
-            log_dir = os.path.dirname(args.log_file)
+            log_dir = os.path.dirname(log_file_path)
             save_path = os.path.join(log_dir, 'training_curves.png')
         
         # 绘制曲线
