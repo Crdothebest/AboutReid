@@ -78,6 +78,11 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
         # 默认值：False（不启用多尺度处理）
         self.use_clip_multi_scale = getattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE', False)
         
+        # 🔥 新增：T2T-ViT多尺度滑动窗口配置
+        # 功能：从配置文件读取T2T-ViT多尺度滑动窗口设置
+        # 默认值：False（不启用多尺度处理）
+        self.use_multi_scale = getattr(cfg.MODEL, 'USE_MULTI_SCALE', False)
+        
         if cfg.MODEL.TRANSFORMER_TYPE == 'vit_base_patch16_224':
             # 标准ViT分支（保持原有功能）
             self.base = factory[cfg.MODEL.TRANSFORMER_TYPE](img_size=cfg.INPUT.SIZE_TRAIN, sie_xishu=cfg.MODEL.SIE_COE,
