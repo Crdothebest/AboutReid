@@ -1,0 +1,214 @@
+2025-11-07 16:37:04,310 MambaPro INFO: Saving model in the path :/home/zubuntu/workspace/yzy/MambaPro/outputs/msvr310_mamba_experiment
+2025-11-07 16:37:04,310 MambaPro INFO: Namespace(config_file='configs/MSVR310/MambaPro_moe.yml', fea_cft=0, opts=[], local_rank=0, use_multi_scale=False, no_multi_scale=False, use_moe=False, disable_moe=False, no_moe=False, use_attention=False, disable_attention=False, attention_heads=8, attention_dropout=0.1)
+2025-11-07 16:37:04,310 MambaPro INFO: 🔥 MoE模块状态: 启用
+2025-11-07 16:37:04,310 MambaPro INFO: 🔥 多尺度滑动窗口状态: 启用
+2025-11-07 16:37:04,310 MambaPro INFO: 🔥 MoE滑动窗口尺度: [4, 8, 16]
+2025-11-07 16:37:04,310 MambaPro INFO: Loaded configuration file configs/MSVR310/MambaPro_moe.yml
+2025-11-07 16:37:04,310 MambaPro INFO: 
+MODEL:
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
+  # Transformer backbone 的预训练权重（.pth）的位置
+  
+  TRANSFORMER_TYPE: 't2t_vit_t_24'  # 修改为T2T-ViT-24模型
+  STRIDE_SIZE: [ 16, 16 ]
+  SIE_CAMERA: True
+  DIRECT: 0
+  SIE_COE: 1.0
+  ID_LOSS_WEIGHT: 0.25
+  TRIPLET_LOSS_WEIGHT: 1.0
+  PROMPT: True
+  ADAPTER: True
+  MAMBA: True
+  FROZEN: True
+  
+  # 新增：多尺度滑动窗口配置
+  USE_MULTI_SCALE: True  # 启用多尺度滑动窗口特征提取
+  MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度配置
+  
+  # ========== CLIP多尺度滑动窗口配置 ==========
+  USE_CLIP_MULTI_SCALE: True       # 启用CLIP多尺度滑动窗口特征提取
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # CLIP滑动窗口尺度配置
+  
+  # ========== MoE专家网络配置 ==========
+  USE_MULTI_SCALE_MOE: True       # 启用多尺度MoE特征融合
+  MOE_SCALES: [4, 8, 16]          # MoE滑动窗口尺度配置
+  MOE_NUM_EXPERTS: 3               # MoE专家网络数量
+  MOE_EXPERT_HIDDEN_DIM: 1024      # MoE专家网络隐藏层维度
+  MOE_TEMPERATURE: 0.8             # MoE门控网络温度参数
+  MOE_EXPERT_LAYERS: 2              # MoE专家网络层数
+  MOE_GATE_LAYERS: 2                # MoE门控网络层数
+  MOE_EXPERT_DROPOUT: 0.1           # MoE专家网络Dropout
+  MOE_GATE_DROPOUT: 0.1             # MoE门控网络Dropout
+  MOE_EXPERT_THRESHOLD: 0.1         # MoE专家激活阈值
+  MOE_RESIDUAL_WEIGHT: 0.85         # MoE残差连接权重
+  
+  # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
+  USE_GATE_FUSION: False           # 默认禁用门控融合机制（使用传统MLP融合）
+  GATE_NUM_HEADS: 8                 # 门控网络头数（默认值，不使用）
+  GATE_DROPOUT: 0.1                 # 门控网络Dropout比例（默认值，不使用）
+  
+  # ========== 注意力融合配置：新增注意力拼接机制 ==========
+  USE_ATTENTION_FUSION: False      # 默认禁用注意力融合机制
+  ATTENTION_NUM_HEADS: 8            # 注意力网络头数
+  ATTENTION_DROPOUT: 0.1            # 注意力网络Dropout比例
+  ATTENTION_DIM: 512                # 注意力网络维度
+  
+
+INPUT:
+  SIZE_TRAIN: [ 128, 256 ]
+  SIZE_TEST: [ 128, 256 ]
+  PROB: 0.5 # random horizontal flip
+  RE_PROB: 0.5 # random erasing
+  PADDING: 10
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 8 # or 14
+
+DATASETS:
+# 所需要使用的数据集名称
+  NAMES: ('MSVR310')
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/'  # 数据集根目录（父目录，代码会自动拼接msvr310）
+
+SOLVER:
+  BASE_LR: 0.00035
+  WARMUP_ITERS: 10
+  MAX_EPOCHS: 60
+  OPTIMIZER_NAME: 'Adam'
+  STEPS: [ 30, 50 ]
+  GAMMA: 0.1
+  IMS_PER_BATCH: 32
+  
+  # ========== MoE损失权重配置 ==========
+  MOE_BALANCE_LOSS_WEIGHT: 0.005      # MoE专家平衡损失权重
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0005    # MoE稀疏性损失权重
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.005    # MoE多样性损失权重
+
+TEST:
+# 指定测试/推理阶段要加载的模型权重（通常是你训练好的最佳模型）。
+  IMS_PER_BATCH: 32
+  RE_RANKING: 'no'
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth'
+  NECK_FEAT: 'before'
+  FEAT_NORM: 'yes'
+  MISS: "nothing"
+# 作用：训练过程生成的模型权重、日志文件会保存到这个文件夹
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/msvr310_mamba_experiment' # MSVR310 Mamba实验输出目录
+
+
+
+2025-11-07 16:37:04,310 MambaPro INFO: Running with config:
+DATALOADER:
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 8
+  SAMPLER: softmax_triplet
+DATASETS:
+  NAMES: MSVR310
+  ROOT_DIR: /home/zubuntu/workspace/yzy/MambaPro/data/
+INPUT:
+  PADDING: 10
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  PROB: 0.5
+  RE_PROB: 0.5
+  SIZE_TEST: [128, 256]
+  SIZE_TRAIN: [128, 256]
+MODEL:
+  ADAPTER: True
+  ATTENTION_DIM: 512
+  ATTENTION_DROPOUT: 0.1
+  ATTENTION_NUM_HEADS: 8
+  ATT_DROP_RATE: 0.0
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]
+  DEVICE: cuda
+  DEVICE_ID: 0
+  DIRECT: 0
+  DIST_TRAIN: False
+  DROP_OUT: 0.0
+  DROP_PATH: 0.1
+  FLOPS_TEST: False
+  FROZEN: True
+  GATE_DROPOUT: 0.1
+  GATE_NUM_HEADS: 8
+  ID_LOSS_TYPE: softmax
+  ID_LOSS_WEIGHT: 0.25
+  IF_LABELSMOOTH: on
+  IF_WITH_CENTER: no
+  LAYER: -1
+  MAMBA: True
+  MAMBA_BI: False
+  METRIC_LOSS_TYPE: triplet
+  MOE_BALANCE_LOSS_WEIGHT: 0.01
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.01
+  MOE_EXPERT_DROPOUT: 0.1
+  MOE_EXPERT_HIDDEN_DIM: 1024
+  MOE_EXPERT_LAYERS: 2
+  MOE_EXPERT_THRESHOLD: 0.1
+  MOE_GATE_DROPOUT: 0.1
+  MOE_GATE_LAYERS: 2
+  MOE_NUM_EXPERTS: 3
+  MOE_RESIDUAL_WEIGHT: 0.85
+  MOE_SCALES: [4, 8, 16]
+  MOE_SPARSITY_LOSS_WEIGHT: 0.001
+  MOE_TEMPERATURE: 0.8
+  MULTI_SCALE_SCALES: [4, 8, 16]
+  NAME: MambaPro
+  NECK: bnneck
+  NO_MARGIN: True
+  PREFIX_NUM: 1
+  PRETRAIN_PATH_T: /home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt
+  PROMPT: True
+  SIE_CAMERA: True
+  SIE_COE: 1.0
+  SIE_VIEW: False
+  STRIDE_SIZE: [16, 16]
+  TRANSFORMER_TYPE: t2t_vit_t_24
+  TRIPLET_LOSS_WEIGHT: 1.0
+  USE_ATTENTION_FUSION: False
+  USE_CLIP_MULTI_SCALE: True
+  USE_GATE_FUSION: False
+  USE_MULTI_SCALE: True
+  USE_MULTI_SCALE_MOE: True
+OUTPUT_DIR: /home/zubuntu/workspace/yzy/MambaPro/outputs/msvr310_mamba_experiment
+SOLVER:
+  BASE_LR: 0.00035
+  BIAS_LR_FACTOR: 2
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  CHECKPOINT_PERIOD: 60
+  CLUSTER_MARGIN: 0.3
+  COSINE_MARGIN: 0.5
+  COSINE_SCALE: 30
+  EVAL_PERIOD: 1
+  GAMMA: 0.1
+  IMS_PER_BATCH: 32
+  LARGE_FC_LR: False
+  LOG_PERIOD: 10
+  MARGIN: 0.3
+  MAX_EPOCHS: 60
+  MOE_BALANCE_LOSS_WEIGHT: 0.005
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.005
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0005
+  MOMENTUM: 0.9
+  OPTIMIZER_NAME: Adam
+  RANGE_ALPHA: 0
+  RANGE_BETA: 1
+  RANGE_K: 2
+  RANGE_LOSS_WEIGHT: 1
+  RANGE_MARGIN: 0.3
+  SEED: 1111
+  STEPS: (30, 50)
+  WARMUP_FACTOR: 0.01
+  WARMUP_ITERS: 10
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.0001
+  WEIGHT_DECAY_BIAS: 0.0001
+TEST:
+  FEAT: 0
+  FEAT_NORM: yes
+  IMS_PER_BATCH: 32
+  MISS: nothing
+  NECK_FEAT: before
+  RE_RANKING: no
+  WEIGHT: /home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth
