@@ -317,6 +317,12 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             self.feat_dim = 768  # ViT 基本维度
         elif 'ViT-B-16' in cfg.MODEL.TRANSFORMER_TYPE:
             self.feat_dim = 512  # CLIP ViT-B/16 维度
+        elif 't2t_vit_t_24' in cfg.MODEL.TRANSFORMER_TYPE or 't2t_vit_t_14' in cfg.MODEL.TRANSFORMER_TYPE:
+            self.feat_dim = 512  # T2T-ViT 维度（embed_dim=512）
+        else:
+            # 默认值，如果都不匹配则使用512
+            self.feat_dim = 512
+            print(f"⚠️  警告: 未识别的 TRANSFORMER_TYPE '{cfg.MODEL.TRANSFORMER_TYPE}'，使用默认特征维度 512")
         self.BACKBONE = build_transformer(num_classes, cfg, camera_num, view_num, factory,feat_dim=self.feat_dim)  # 共享骨干
         self.num_classes = num_classes
         self.cfg = cfg
