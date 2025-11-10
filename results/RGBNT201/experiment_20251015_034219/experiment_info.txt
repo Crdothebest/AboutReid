@@ -1,7 +1,0 @@
-实验ID: experiment_20251015_034219
-开始时间: 2025年 10月 15日 星期三 03:42:19 CST
-命令: python train_net.py --config_file results/everyExperiments/experiment_20251015_034219/configs/experiment_config.yml 2>&1 | tee results/everyExperiments/experiment_20251015_034219/logs/train_log.txt
-参数: 
-状态: 运行中
-目录: results/everyExperiments/experiment_20251015_034219
-原始配置文件: /home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251014_184036/configs/experiment_config.yml
