@@ -372,7 +372,7 @@ def main():
             old_score = stat['old'][m]
             new_score = stat['new'][m]
             improvement = old_score - new_score
-            print(f"       ▸ {m:<3} | 旧模型: {old_score:2d}/{top_k}   新模型: {new_score:2d}/{top_k}   优势: +{improvement}")
+            print(f"       ▸ {m:<3} | 旧模型: {old_score:2d}/{top_k}  模型: {new_score:2d}/{top_k}   优势: +{improvement}")
 
 
 
