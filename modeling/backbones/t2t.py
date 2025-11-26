@@ -486,31 +486,15 @@ class T2T_ViT(nn.Module):
         4. 处理位置编码尺寸不匹配的情况
         5. 复制匹配的权重参数
         """
-        param_dict = torch.load(model_path, map_location='cpu')
+        param_dict = torch.load(model_path)
         
-        # 处理 TorchScript 模型：如果是 TorchScript 对象，尝试获取其 state_dict
-        if isinstance(param_dict, torch.jit.ScriptModule) or hasattr(param_dict, 'state_dict'):
-            try:
-                param_dict = param_dict.state_dict()
-            except:
-                # 如果无法获取 state_dict，尝试直接使用模型参数
-                if hasattr(param_dict, 'named_parameters'):
-                    param_dict = {k: v for k, v in param_dict.named_parameters()}
-                else:
-                    raise ValueError(f"无法从 TorchScript 模型中提取权重: {model_path}")
-        
-        # 适配不同的权重字典格式（使用安全的方式检查键）
-        if isinstance(param_dict, dict):
-            if 'model' in param_dict:
-                param_dict = param_dict['model']
-            if isinstance(param_dict, dict) and 'state_dict' in param_dict:
-                param_dict = param_dict['state_dict']
-            if isinstance(param_dict, dict) and 'state_dict_ema' in param_dict:
-                param_dict = param_dict['state_dict_ema']
-        
-        # 确保 param_dict 是字典类型
-        if not isinstance(param_dict, dict):
-            raise TypeError(f"加载的权重文件格式不正确，期望字典类型，但得到 {type(param_dict)}: {model_path}")
+        # 适配不同的权重字典格式
+        if 'model' in param_dict:
+            param_dict = param_dict['model']
+        if 'state_dict' in param_dict:
+            param_dict = param_dict['state_dict']
+        if 'state_dict_ema' in param_dict:
+            param_dict = param_dict['state_dict_ema']
             
         for k, v in param_dict.items():
             # 跳过分类头和蒸馏分支权重

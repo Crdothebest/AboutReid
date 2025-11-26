@@ -1,0 +1,2416 @@
+双模型模式 - Top-10 Ranked List可视化结果汇总
+============================================================
+运行时间: 2025-10-17 16:46:48
+输出目录: RGB_rank-10_results/run_20251017_163923
+时间戳编号: 163923
+模态: RGB
+您的模型: mybest_model/experiment_20251015_132633/models/MambaProbest.pth
+Baseline模型: /home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth
+配置文件: configs/RGBNT201/MambaPro_moe.yml
+数据集: data/RGBNT201
+Top-K: 10
+处理Query数量: 399
+
+总体统计:
+  您的模型总体准确率: 2601/3990 (65.19%)
+  Baseline模型总体准确率: 2461/3990 (61.68%)
+  总体性能提升: 140 个正确匹配
+
+详细结果:
+--------------------------------------------------
+注意：可视化图中绿色框表示正确匹配，红色框表示错误匹配
+
+Query 000258:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000258:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000258_RGB_top10_your_model.png
+  Baseline图: ranked_list_000258_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 1/10 (10.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 1/10 (10.00%)
+  Baseline模型: 1/10 (10.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 1/10 (10.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 0/10 (0.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 1/10 (10.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 1/10 (10.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 2/10 (20.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 1/10 (10.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000260:
+  您的模型: 1/10 (10.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000260_RGB_top10_your_model.png
+  Baseline图: ranked_list_000260_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000269:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000269_RGB_top10_your_model.png
+  Baseline图: ranked_list_000269_RGB_top10_baseline.png
+
+Query 000270:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000270_RGB_top10_your_model.png
+  Baseline图: ranked_list_000270_RGB_top10_baseline.png
+
+Query 000270:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000270_RGB_top10_your_model.png
+  Baseline图: ranked_list_000270_RGB_top10_baseline.png
+
+Query 000270:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000270_RGB_top10_your_model.png
+  Baseline图: ranked_list_000270_RGB_top10_baseline.png
+
+Query 000270:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000270_RGB_top10_your_model.png
+  Baseline图: ranked_list_000270_RGB_top10_baseline.png
+
+Query 000270:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000270_RGB_top10_your_model.png
+  Baseline图: ranked_list_000270_RGB_top10_baseline.png
+
+Query 000270:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000270_RGB_top10_your_model.png
+  Baseline图: ranked_list_000270_RGB_top10_baseline.png
+
+Query 000270:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000270_RGB_top10_your_model.png
+  Baseline图: ranked_list_000270_RGB_top10_baseline.png
+
+Query 000270:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000270_RGB_top10_your_model.png
+  Baseline图: ranked_list_000270_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000271:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000271_RGB_top10_your_model.png
+  Baseline图: ranked_list_000271_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000272:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000272_RGB_top10_your_model.png
+  Baseline图: ranked_list_000272_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 2/10 (20.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 2/10 (20.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 2/10 (20.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000273:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000273_RGB_top10_your_model.png
+  Baseline图: ranked_list_000273_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000274:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000274_RGB_top10_your_model.png
+  Baseline图: ranked_list_000274_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000275:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000275_RGB_top10_your_model.png
+  Baseline图: ranked_list_000275_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000276:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000276_RGB_top10_your_model.png
+  Baseline图: ranked_list_000276_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 2/10 (20.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000277:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000277_RGB_top10_your_model.png
+  Baseline图: ranked_list_000277_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000278:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000278_RGB_top10_your_model.png
+  Baseline图: ranked_list_000278_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000279:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000279_RGB_top10_your_model.png
+  Baseline图: ranked_list_000279_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000280:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000280_RGB_top10_your_model.png
+  Baseline图: ranked_list_000280_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000282:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000282_RGB_top10_your_model.png
+  Baseline图: ranked_list_000282_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000283:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000283_RGB_top10_your_model.png
+  Baseline图: ranked_list_000283_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000284:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000284_RGB_top10_your_model.png
+  Baseline图: ranked_list_000284_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000285:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000285_RGB_top10_your_model.png
+  Baseline图: ranked_list_000285_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000286:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000286_RGB_top10_your_model.png
+  Baseline图: ranked_list_000286_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000287:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000287_RGB_top10_your_model.png
+  Baseline图: ranked_list_000287_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 1/10 (10.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000288:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000288_RGB_top10_your_model.png
+  Baseline图: ranked_list_000288_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000289:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000289_RGB_top10_your_model.png
+  Baseline图: ranked_list_000289_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 0/10 (0.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 1/10 (10.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000290:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 0/10 (0.00%)
+  您的模型图: ranked_list_000290_RGB_top10_your_model.png
+  Baseline图: ranked_list_000290_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000291:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000291_RGB_top10_your_model.png
+  Baseline图: ranked_list_000291_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000292:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000292_RGB_top10_your_model.png
+  Baseline图: ranked_list_000292_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000293:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000293_RGB_top10_your_model.png
+  Baseline图: ranked_list_000293_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 1/10 (10.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 1/10 (10.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 0/10 (0.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000294:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000294_RGB_top10_your_model.png
+  Baseline图: ranked_list_000294_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 10/10 (100.00%)
+  Baseline模型: 0/10 (0.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000295:
+  您的模型: 2/10 (20.00%)
+  Baseline模型: 2/10 (20.00%)
+  您的模型图: ranked_list_000295_RGB_top10_your_model.png
+  Baseline图: ranked_list_000295_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 2/10 (20.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 1/10 (10.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 3/10 (30.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 6/10 (60.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000298:
+  您的模型: 3/10 (30.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000298_RGB_top10_your_model.png
+  Baseline图: ranked_list_000298_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 5/10 (50.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 4/10 (40.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 9/10 (90.00%)
+  Baseline模型: 10/10 (100.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 4/10 (40.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 6/10 (60.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 8/10 (80.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 5/10 (50.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 7/10 (70.00%)
+  Baseline模型: 7/10 (70.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+
+Query 000299:
+  您的模型: 8/10 (80.00%)
+  Baseline模型: 9/10 (90.00%)
+  您的模型图: ranked_list_000299_RGB_top10_your_model.png
+  Baseline图: ranked_list_000299_RGB_top10_baseline.png
+

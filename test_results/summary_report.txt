@@ -1,0 +1,21 @@
+ReID模型Top-10 Ranked List可视化结果汇总
+==================================================
+模态: RGB
+模型: mybest_model/experiment_20251015_132633/models/MambaProbest.pth
+数据集: data/RGBNT201
+Top-K: 10
+
+Query: 000258
+正确匹配数: 5/10
+可视化文件: ranked_list_000258_RGB_top10.png
+详细结果:
+  Rank 1: 000258 (Score: 141.604) ✓
+  Rank 2: 000258 (Score: 139.656) ✓
+  Rank 3: 000295 (Score: 139.551) ✗
+  Rank 4: 000295 (Score: 139.110) ✗
+  Rank 5: 000288 (Score: 139.027) ✗
+  Rank 6: 000258 (Score: 138.398) ✓
+  Rank 7: 000258 (Score: 137.720) ✓
+  Rank 8: 000258 (Score: 137.417) ✓
+  Rank 9: 000295 (Score: 136.906) ✗
+  Rank 10: 000294 (Score: 136.185) ✗

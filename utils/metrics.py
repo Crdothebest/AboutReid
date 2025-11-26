@@ -55,7 +55,7 @@ def eval_func_msrv(distmat, q_pids, g_pids, q_camids, g_camids, q_sceneids, g_sc
     query_arg = np.argsort(q_pids, axis=0)  # 按照查询的pid（身份标签）排序
     result = g_pids[indices]  # 根据排序的索引获取数据库的身份标签
     gall_re = result[query_arg]  # 按照查询身份标签排序数据库的结果
-    gall_re = gall_re.astype(np.str)  # 转换为字符串类型
+    gall_re = gall_re.astype(str)  # 转换为字符串类型
 
     result = gall_re[:, :100]  # 取出前100个最匹配的数据库样本（最大排名100）
 
@@ -229,7 +229,7 @@ class R1_mAP():
         m, n = qf.shape[0], gf.shape[0]
         distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
                   torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
-        distmat.addmm_(1, -2, qf, gf.t())
+        distmat.addmm_(qf, gf.t(), beta=1, alpha=-2)
         distmat = distmat.cpu().numpy()
         cmc, mAP = eval_func_msrv(distmat, q_pids, g_pids, q_camids, g_camids, q_sceneids, g_sceneids)
         return cmc, mAP, distmat, self.pids, self.camids, qf, gf

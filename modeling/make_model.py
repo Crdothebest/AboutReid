@@ -78,6 +78,11 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
         # 默认值：False（不启用多尺度处理）
         self.use_clip_multi_scale = getattr(cfg.MODEL, 'USE_CLIP_MULTI_SCALE', False)
         
+        # 🔥 新增：T2T-ViT多尺度滑动窗口配置
+        # 功能：从配置文件读取T2T-ViT多尺度滑动窗口设置
+        # 默认值：False（不启用多尺度处理）
+        self.use_multi_scale = getattr(cfg.MODEL, 'USE_MULTI_SCALE', False)
+        
         if cfg.MODEL.TRANSFORMER_TYPE == 'vit_base_patch16_224':
             # 标准ViT分支（保持原有功能）
             self.base = factory[cfg.MODEL.TRANSFORMER_TYPE](img_size=cfg.INPUT.SIZE_TRAIN, sie_xishu=cfg.MODEL.SIE_COE,
@@ -96,12 +101,16 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
         elif cfg.MODEL.TRANSFORMER_TYPE == 't2t_vit_t_24':
             # 新增：T2T-ViT-24模型处理
             # 功能：创建T2T-ViT-24模型，支持多尺度滑动窗口
+            # 使用getattr获取配置参数，如果不存在则使用默认值
+            drop_path_rate = getattr(cfg.MODEL, 'DROP_PATH', 0.1)  # 默认0.1
+            drop_rate = getattr(cfg.MODEL, 'DROP_RATE', 0.0)  # 默认0.0
+            attn_drop_rate = getattr(cfg.MODEL, 'ATT_DROP_RATE', 0.0)  # 默认0.0
             self.base = factory[cfg.MODEL.TRANSFORMER_TYPE](
                 img_size=cfg.INPUT.SIZE_TRAIN,
                 stride_size=cfg.MODEL.STRIDE_SIZE,
-                drop_path_rate=cfg.MODEL.DROP_PATH,
-                drop_rate=cfg.MODEL.DROP_RATE,
-                attn_drop_rate=cfg.MODEL.ATT_DROP_RATE,
+                drop_path_rate=drop_path_rate,
+                drop_rate=drop_rate,
+                attn_drop_rate=attn_drop_rate,
                 camera=self.camera_num,
                 view=self.view_num,
                 sie_xishu=cfg.MODEL.SIE_COE,
@@ -317,6 +326,12 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             self.feat_dim = 768  # ViT 基本维度
         elif 'ViT-B-16' in cfg.MODEL.TRANSFORMER_TYPE:
             self.feat_dim = 512  # CLIP ViT-B/16 维度
+        elif 't2t_vit_t_24' in cfg.MODEL.TRANSFORMER_TYPE or 't2t_vit_t_14' in cfg.MODEL.TRANSFORMER_TYPE:
+            self.feat_dim = 512  # T2T-ViT 维度（embed_dim=512）
+        else:
+            # 默认值，如果都不匹配则使用512
+            self.feat_dim = 512
+            print(f"⚠️  警告: 未识别的 TRANSFORMER_TYPE '{cfg.MODEL.TRANSFORMER_TYPE}'，使用默认特征维度 512")
         self.BACKBONE = build_transformer(num_classes, cfg, camera_num, view_num, factory,feat_dim=self.feat_dim)  # 共享骨干
         self.num_classes = num_classes
         self.cfg = cfg
