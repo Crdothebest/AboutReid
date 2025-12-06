@@ -185,7 +185,8 @@ def load_clip_to_cpu(cfg, backbone_name, h_resolution, w_resolution, vision_stri
         h_resolution, w_resolution: 输入图像的分辨率
         vision_stride_size: 图像编码器的步幅大小
     """
-    model_path = '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'  # 预训练 CLIP 模型的路径
+    # 从配置文件读取预训练模型路径，如果没有配置则使用默认路径
+    model_path = getattr(cfg.MODEL, 'PRETRAIN_PATH_T', '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt')
 
     try:
         # 优先尝试加载 JIT 编译好的 TorchScript 模型
