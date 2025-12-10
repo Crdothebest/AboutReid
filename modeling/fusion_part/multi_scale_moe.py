@@ -520,8 +520,10 @@ class MultiScaleMoE(nn.Module):
         #      - 无需训练门控网络，计算开销小，但灵活性低
         #
         # 如果使用固定权重，则不创建门控网络
+        # 注意：gate_input_dim 需要始终定义，因为后续打印语句会使用它
+        gate_input_dim = feat_dim * len(scales)  # 1536维（3个尺度×512维）
+        
         if not self.use_fixed_weights:
-            gate_input_dim = feat_dim * len(scales)  # 1536维（3个尺度×512维）
             self.gating_network = GatingNetwork(
                 input_dim=gate_input_dim,
                 num_experts=self.num_experts,
@@ -588,7 +590,10 @@ class MultiScaleMoE(nn.Module):
         print(f"   - 特征维度: {feat_dim}")
         print(f"   - 滑动窗口尺度: {scales}")
         print(f"   - 专家数量: {self.num_experts}")
-        print(f"   - 门控输入维度: {gate_input_dim}")
+        if not self.use_fixed_weights:
+            print(f"   - 门控输入维度: {gate_input_dim}")
+        else:
+            print(f"   - 门控网络: 已禁用（使用固定权重模式）")
         print(f"   - 专家隐藏层维度: {expert_hidden_dim}")
     
     def forward(self, multi_scale_features):
