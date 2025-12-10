@@ -261,6 +261,14 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     print(f"   ⚠️  固定权重模式未启用，将使用动态门控网络")
                 
                 # 🔥 Top-k 路由参数
+                # 先检查参数是否存在
+                if hasattr(cfg.MODEL, 'MOE_USE_TOP_K_ROUTING'):
+                    use_top_k_routing_raw = cfg.MODEL.MOE_USE_TOP_K_ROUTING
+                    print(f"🔍 make_model.py: 从 cfg.MODEL 读取 MOE_USE_TOP_K_ROUTING = {use_top_k_routing_raw} (类型: {type(use_top_k_routing_raw)})")
+                else:
+                    use_top_k_routing_raw = False
+                    print(f"⚠️  make_model.py: cfg.MODEL 中没有 MOE_USE_TOP_K_ROUTING，使用默认值 False")
+                
                 use_top_k_routing = getattr(cfg.MODEL, 'MOE_USE_TOP_K_ROUTING', False)
                 top_k = getattr(cfg.MODEL, 'MOE_TOP_K', 2)
                 top_k_mode = getattr(cfg.MODEL, 'MOE_TOP_K_MODE', 'soft')
@@ -268,7 +276,7 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 # 处理字符串类型的布尔值
                 if isinstance(use_top_k_routing, str):
                     use_top_k_routing = use_top_k_routing.lower() in ['true', '1', 'yes']
-                    print(f"🔧 make_model.py: 修正 MOE_USE_TOP_K_ROUTING 字符串 -> {use_top_k_routing}")
+                    print(f"🔧 make_model.py: 修正 MOE_USE_TOP_K_ROUTING 字符串 '{use_top_k_routing_raw}' -> {use_top_k_routing}")
                 elif isinstance(use_top_k_routing, bool):
                     print(f"🔍 make_model.py: MOE_USE_TOP_K_ROUTING = {use_top_k_routing} (类型: {type(use_top_k_routing)})")
                 else:
@@ -283,10 +291,15 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                         top_k_mode = 'soft'
                 
                 # 🔥 调试输出：显示最终参数值
-                print(f"🔍 make_model.py: Top-k 路由最终参数:")
-                print(f"   - use_top_k_routing = {use_top_k_routing} (类型: {type(use_top_k_routing)})")
+                print(f"🔍 make_model.py: Top-k 路由最终参数（传递给 CLIPMultiScaleMoE 之前）:")
+                print(f"   - use_top_k_routing = {use_top_k_routing} (类型: {type(use_top_k_routing)}, 值: {bool(use_top_k_routing)})")
                 print(f"   - top_k = {top_k} (类型: {type(top_k)})")
                 print(f"   - top_k_mode = {top_k_mode} (类型: {type(top_k_mode)})")
+                
+                # 🔥 关键验证：确保 use_top_k_routing 是布尔值
+                if not isinstance(use_top_k_routing, bool):
+                    print(f"⚠️  警告: use_top_k_routing 不是布尔值，强制转换: {use_top_k_routing} -> {bool(use_top_k_routing)}")
+                    use_top_k_routing = bool(use_top_k_routing)
                 
                 # 初始化多尺度MoE模块：使用所有配置参数
                 self.clip_multi_scale_moe = CLIPMultiScaleMoE(

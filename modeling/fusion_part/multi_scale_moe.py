@@ -478,6 +478,12 @@ class MultiScaleMoE(nn.Module):
         self.expert_hidden_dim = expert_hidden_dim
         self.expert_layers = expert_layers
         
+        # 🔥 调试输出：显示 MultiScaleMoE 接收到的 Top-k 路由参数
+        print(f"🔍 MultiScaleMoE.__init__: 接收到的 Top-k 路由参数:")
+        print(f"   - use_top_k_routing = {self.use_top_k_routing} (类型: {type(self.use_top_k_routing)}, 值: {bool(self.use_top_k_routing)})")
+        print(f"   - top_k = {self.top_k} (类型: {type(self.top_k)})")
+        print(f"   - top_k_mode = {self.top_k_mode} (类型: {type(self.top_k_mode)})")
+        
         # 🔥 Top-k 路由参数验证
         if self.use_top_k_routing:
             if self.top_k < 1 or self.top_k > self.num_experts:
@@ -487,6 +493,7 @@ class MultiScaleMoE(nn.Module):
             print(f"🔥 Top-k 路由：已启用 (k={self.top_k}, mode={self.top_k_mode})")
         else:
             print("🔥 Top-k 路由：已禁用 (使用传统软路由)")
+            print(f"   ⚠️  调试信息: use_top_k_routing = {self.use_top_k_routing}, 类型 = {type(self.use_top_k_routing)}")
         
         # 🔥 门控加权-预处理模块（可选）
         if self.use_gate_fusion:
@@ -1243,6 +1250,17 @@ class CLIPMultiScaleMoE(nn.Module):
         super(CLIPMultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
         self.scales = scales
+        
+        # 🔥 调试输出：显示接收到的 Top-k 路由参数
+        print(f"🔍 CLIPMultiScaleMoE.__init__: 接收到的 Top-k 路由参数:")
+        print(f"   - use_top_k_routing = {use_top_k_routing} (类型: {type(use_top_k_routing)}, 值: {bool(use_top_k_routing)})")
+        print(f"   - top_k = {top_k} (类型: {type(top_k)})")
+        print(f"   - top_k_mode = {top_k_mode} (类型: {type(top_k_mode)})")
+        
+        # 🔥 关键验证：确保 use_top_k_routing 是布尔值
+        if not isinstance(use_top_k_routing, bool):
+            print(f"⚠️  警告: CLIPMultiScaleMoE 接收到的 use_top_k_routing 不是布尔值，强制转换: {use_top_k_routing} -> {bool(use_top_k_routing)}")
+            use_top_k_routing = bool(use_top_k_routing)
         
         # 🔥 多尺度滑动窗口处理（复用现有实现）
         from .clip_multi_scale_sliding_window import CLIPMultiScaleSlidingWindow
