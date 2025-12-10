@@ -38,6 +38,13 @@ class ExpertNetwork(nn.Module):
         """
         super(ExpertNetwork, self).__init__()
         
+        # 🔧 修复：保存参数为实例属性，用于后续显示和调试
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.dropout = dropout
+        
         # ========== 可配置层数的MLP专家网络：特征增强处理器 ==========
         # 🔥 功能：对单个尺度的特征进行增强处理，提升表达能力
         # 🎯 作用：特征增强 - 让每个尺度的特征变得更"聪明"
@@ -360,6 +367,9 @@ class MultiScaleMoE(nn.Module):
         self.residual_weight = residual_weight
         self.use_gate_fusion = use_gate_fusion
         self.use_attention_fusion = use_attention_fusion
+        # 🔧 修复：保存专家网络参数，用于后续显示
+        self.expert_hidden_dim = expert_hidden_dim
+        self.expert_layers = expert_layers
         
         # 🔥 门控融合模块（可选）
         if self.use_gate_fusion:
@@ -552,8 +562,21 @@ class MultiScaleMoE(nn.Module):
         if not hasattr(self, '_expert_processing_called'):
             print(f"🎯 专家网络处理：使用门控网络和专家网络")
             print(f"   - 专家数量: {len(self.experts)}")
-            print(f"   - 专家隐藏层维度: {self.experts[0].hidden_dim if hasattr(self.experts[0], 'hidden_dim') else 'N/A'}")
-            print(f"   - 专家层数: {self.experts[0].num_layers if hasattr(self.experts[0], 'num_layers') else 'N/A'}")
+            # 🔧 修复：从保存的属性或专家网络实例中获取信息
+            if hasattr(self, 'expert_hidden_dim'):
+                print(f"   - 专家隐藏层维度: {self.expert_hidden_dim}")
+            elif hasattr(self.experts[0], 'hidden_dim'):
+                print(f"   - 专家隐藏层维度: {self.experts[0].hidden_dim}")
+            else:
+                print(f"   - 专家隐藏层维度: N/A")
+            
+            if hasattr(self, 'expert_layers'):
+                print(f"   - 专家层数: {self.expert_layers}")
+            elif hasattr(self.experts[0], 'num_layers'):
+                print(f"   - 专家层数: {self.experts[0].num_layers}")
+            else:
+                print(f"   - 专家层数: N/A")
+            
             print(f"   - 门控网络计算专家权重")
             print(f"   - 专家网络处理多尺度特征")
             print(f"   - 加权融合得到最终特征")
