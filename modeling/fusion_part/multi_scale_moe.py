@@ -413,7 +413,8 @@ class MultiScaleMoE(nn.Module):
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
                  expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
                  gate_num_heads=8, use_attention_fusion=False, attention_num_heads=8,
-                 attention_dropout=0.1, attention_dim=512, init_weights=None):
+                 attention_dropout=0.1, attention_dim=512, init_weights=None,
+                 use_fixed_weights=False, fixed_weights=None):
         """
         初始化多尺度MoE模块
         
@@ -435,6 +436,19 @@ class MultiScaleMoE(nn.Module):
             attention_dropout (float): 注意力网络Dropout比例
             attention_dim (int): 注意力网络维度
             init_weights (list, optional): 专家初始权重列表，如 [0.35, 0.3, 0.35]
+            use_fixed_weights (bool): 是否使用固定权重模式
+                - True: 使用固定权重，禁用门控网络，专家权重固定不变
+                - False: 使用门控网络动态计算权重（默认）
+                使用场景：
+                  1. 调试：排除门控网络影响，专注于专家网络性能
+                  2. 对比实验：对比固定权重 vs 动态权重的效果
+                  3. 跨域鲁棒性：固定权重可能在跨域场景下更稳定
+            fixed_weights (list, optional): 固定权重列表，如 [0.33, 0.33, 0.34]
+                - 仅在 use_fixed_weights=True 时生效
+                - 长度必须等于专家数量（len(scales)）
+                - 权重会自动归一化，无需手动确保和为1.0
+                - 示例：[0.33, 0.33, 0.34] 表示三个专家权重分别为33%、33%、34%
+                - 如果为None且use_fixed_weights=True，会抛出ValueError
         """
         super(MultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -444,6 +458,8 @@ class MultiScaleMoE(nn.Module):
         self.residual_weight = residual_weight
         self.use_gate_fusion = use_gate_fusion
         self.use_attention_fusion = use_attention_fusion
+        self.use_fixed_weights = use_fixed_weights
+        self.fixed_weights = fixed_weights
         # 🔧 修复：保存专家网络参数，用于后续显示
         self.expert_hidden_dim = expert_hidden_dim
         self.expert_layers = expert_layers
@@ -488,15 +504,72 @@ class MultiScaleMoE(nn.Module):
             self.experts.append(expert)
         
         # 🔥 门控网络：根据多尺度特征计算专家权重（使用配置参数）
-        gate_input_dim = feat_dim * len(scales)  # 1536维（3个尺度×512维）
-        self.gating_network = GatingNetwork(
-            input_dim=gate_input_dim,
-            num_experts=self.num_experts,
-            temperature=temperature,
-            dropout=gate_dropout,
-            num_layers=gate_layers,
-            init_weights=init_weights
-        )
+        # 
+        # 功能说明：
+        #   - 动态权重模式（use_fixed_weights=False）：创建门控网络，根据输入特征动态计算专家权重
+        #   - 固定权重模式（use_fixed_weights=True）：不创建门控网络，直接使用预设的固定权重
+        #
+        # 两种模式的区别：
+        #   1. 动态权重模式：
+        #      - 门控网络会根据每个样本的特征自动调整专家权重
+        #      - 权重会随训练过程学习优化
+        #      - 需要训练门控网络参数，计算开销较大
+        #   2. 固定权重模式：
+        #      - 所有样本使用相同的固定权重
+        #      - 权重不随训练改变，门控网络被禁用
+        #      - 无需训练门控网络，计算开销小，但灵活性低
+        #
+        # 如果使用固定权重，则不创建门控网络
+        if not self.use_fixed_weights:
+            gate_input_dim = feat_dim * len(scales)  # 1536维（3个尺度×512维）
+            self.gating_network = GatingNetwork(
+                input_dim=gate_input_dim,
+                num_experts=self.num_experts,
+                temperature=temperature,
+                dropout=gate_dropout,
+                num_layers=gate_layers,
+                init_weights=init_weights
+            )
+        else:
+            # ========== 固定权重模式初始化 ==========
+            # 功能：当 use_fixed_weights=True 时，不创建门控网络，使用预设的固定权重
+            # 
+            # 实现步骤：
+            #   1. 验证固定权重参数的有效性
+            #   2. 将固定权重转换为tensor并归一化
+            #   3. 保存为实例属性，供前向传播使用
+            #
+            # 参数验证：
+            #   - fixed_weights 不能为 None
+            #   - fixed_weights 长度必须等于专家数量
+            #   - 权重会自动归一化，确保和为1.0（即使输入权重和不为1.0）
+            #
+            self.gating_network = None
+            
+            # 步骤1：验证固定权重参数
+            if fixed_weights is None:
+                raise ValueError(
+                    "use_fixed_weights=True but fixed_weights is None. "
+                    "Please provide fixed_weights, e.g., [0.33, 0.33, 0.34]"
+                )
+            if len(fixed_weights) != self.num_experts:
+                raise ValueError(
+                    f"fixed_weights length {len(fixed_weights)} != num_experts {self.num_experts}. "
+                    f"Please provide {self.num_experts} weights for {self.num_experts} experts."
+                )
+            
+            # 步骤2：归一化固定权重
+            # 说明：即使输入的权重和不为1.0，也会自动归一化
+            # 例如：[0.5, 0.5, 0.5] 会被归一化为 [0.33, 0.33, 0.34]
+            fixed_weights_tensor = torch.tensor(fixed_weights, dtype=torch.float32)
+            fixed_weights_tensor = fixed_weights_tensor / fixed_weights_tensor.sum()
+            self.fixed_weights_tensor = fixed_weights_tensor
+            
+            # 步骤3：输出提示信息
+            print(f"🔥 固定权重模式：已启用")
+            print(f"   - 固定权重值: {fixed_weights_tensor.tolist()}")
+            print(f"   - 专家数量: {self.num_experts}")
+            print(f"   - 注意：门控网络已禁用，权重不会随训练改变")
         
         # ========== MLP最终融合层：专家输出融合器 ==========
         # 🔥 功能：将MoE专家网络的输出进行最终融合处理
@@ -667,11 +740,57 @@ class MultiScaleMoE(nn.Module):
         
         # 🔥 门控网络处理提示（仅在第一次调用时显示）
         if not hasattr(self, '_gating_network_called'):
-            print(f"🎯 门控网络处理：计算专家权重")
+            if self.use_fixed_weights:
+                print(f"🎯 固定权重模式：使用固定权重（不使用门控网络）")
+                print(f"   - 权重值: {self.fixed_weights_tensor.tolist()}")
+                print(f"   - 说明：所有样本使用相同的固定权重，权重不随训练改变")
+            else:
+                print(f"🎯 门控网络处理：计算专家权重")
+                print(f"   - 说明：根据输入特征动态计算专家权重，权重会随训练优化")
             self._gating_network_called = True
         
-        # ========== MLP门控网络调用：计算专家权重 ==========
-        expert_weights = self.gating_network(concat_features)  # [B, num_experts]
+        # ========== 计算专家权重 ==========
+        # 功能：根据配置模式计算专家权重
+        #
+        # 两种模式：
+        #   1. 固定权重模式（use_fixed_weights=True）：
+        #      - 所有样本使用相同的固定权重
+        #      - 权重不依赖输入特征，不随训练改变
+        #      - 实现：将固定权重tensor扩展到batch维度 [B, num_experts]
+        #   2. 动态权重模式（use_fixed_weights=False）：
+        #      - 每个样本根据其特征动态计算权重
+        #      - 权重通过门控网络学习得到，会随训练优化
+        #      - 实现：门控网络处理拼接特征，输出权重 [B, num_experts]
+        #
+        if self.use_fixed_weights:
+            # ========== 固定权重模式：使用预设的固定权重 ==========
+            # 实现步骤：
+            #   1. 获取batch大小
+            #   2. 将固定权重tensor从 [num_experts] 扩展到 [B, num_experts]
+            #   3. 确保权重tensor在正确的设备上（CPU/GPU）
+            #
+            # 特点：
+            #   - 所有样本使用相同的权重分布
+            #   - 权重不依赖输入特征，计算开销小
+            #   - 适合调试、对比实验、跨域鲁棒性测试
+            #
+            B = multi_scale_features[0].shape[0]
+            # 将固定权重扩展到batch维度：[num_experts] -> [B, num_experts]
+            expert_weights = self.fixed_weights_tensor.unsqueeze(0).expand(B, -1).to(multi_scale_features[0].device)
+        else:
+            # ========== 动态权重模式：使用门控网络计算权重 ==========
+            # 实现步骤：
+            #   1. 门控网络接收拼接的多尺度特征 [B, feat_dim * num_scales]
+            #   2. 门控网络输出专家权重 [B, num_experts]
+            #   3. 权重通过Softmax归一化，确保和为1.0
+            #
+            # 特点：
+            #   - 每个样本根据其特征动态调整权重
+            #   - 权重会随训练过程学习优化
+            #   - 需要训练门控网络参数，计算开销较大
+            #   - 适合需要自适应权重的场景
+            #
+            expert_weights = self.gating_network(concat_features)  # [B, num_experts]
         
         # ========== MLP专家网络调用：处理各尺度特征 ==========
         expert_outputs = []
@@ -891,7 +1010,8 @@ class CLIPMultiScaleMoE(nn.Module):
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
                  expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
                  gate_num_heads=8, use_attention_fusion=False, attention_num_heads=8,
-                 attention_dropout=0.1, attention_dim=512, init_weights=None):
+                 attention_dropout=0.1, attention_dim=512, init_weights=None,
+                 use_fixed_weights=False, fixed_weights=None):
         """
         初始化CLIP多尺度MoE模块
         
@@ -913,6 +1033,19 @@ class CLIPMultiScaleMoE(nn.Module):
             attention_dropout (float): 注意力网络Dropout比例
             attention_dim (int): 注意力网络维度
             init_weights (list, optional): 专家初始权重列表，如 [0.35, 0.3, 0.35]
+            use_fixed_weights (bool): 是否使用固定权重模式
+                - True: 使用固定权重，禁用门控网络，专家权重固定不变
+                - False: 使用门控网络动态计算权重（默认）
+                使用场景：
+                  1. 调试：排除门控网络影响，专注于专家网络性能
+                  2. 对比实验：对比固定权重 vs 动态权重的效果
+                  3. 跨域鲁棒性：固定权重可能在跨域场景下更稳定
+            fixed_weights (list, optional): 固定权重列表，如 [0.33, 0.33, 0.34]
+                - 仅在 use_fixed_weights=True 时生效
+                - 长度必须等于专家数量（len(scales)）
+                - 权重会自动归一化，无需手动确保和为1.0
+                - 示例：[0.33, 0.33, 0.34] 表示三个专家权重分别为33%、33%、34%
+                - 如果为None且use_fixed_weights=True，会抛出ValueError
         """
         super(CLIPMultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -940,7 +1073,9 @@ class CLIPMultiScaleMoE(nn.Module):
             attention_num_heads=attention_num_heads,
             attention_dropout=attention_dropout,
             attention_dim=attention_dim,
-            init_weights=init_weights
+            init_weights=init_weights,
+            use_fixed_weights=use_fixed_weights,
+            fixed_weights=fixed_weights
         )
         
         print(f"🔥 CLIP多尺度MoE模块初始化完成:")

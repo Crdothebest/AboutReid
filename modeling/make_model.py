@@ -178,6 +178,38 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 residual_weight = getattr(cfg.MODEL, 'MOE_RESIDUAL_WEIGHT', 1.0)
                 init_weights = getattr(cfg.MODEL, 'MOE_INIT_WEIGHTS', None)
                 
+                # ========== 固定权重模式参数读取 ==========
+                # 功能：从配置文件读取固定权重相关参数
+                #
+                # MOE_USE_FIXED_WEIGHTS:
+                #   - 类型：bool
+                #   - 默认值：False（使用动态门控网络）
+                #   - 说明：控制是否使用固定权重模式
+                #   - 命令行示例：MODEL.MOE_USE_FIXED_WEIGHTS True
+                #
+                # MOE_FIXED_WEIGHTS:
+                #   - 类型：list of float
+                #   - 默认值：[0.33, 0.33, 0.34]（三个专家均等权重）
+                #   - 说明：固定权重值，仅在USE_FIXED_WEIGHTS=True时生效
+                #   - 格式要求：
+                #     * 长度必须等于专家数量（MOE_NUM_EXPERTS）
+                #     * 权重会自动归一化，无需手动确保和为1.0
+                #     * 示例：[0.33, 0.33, 0.34] 或 [0.5, 0.3, 0.2]
+                #   - 命令行示例：MODEL.MOE_FIXED_WEIGHTS "[0.33,0.33,0.34]"
+                #
+                # 使用场景：
+                #   1. 调试实验：固定权重可以排除门控网络影响，专注于专家网络性能
+                #   2. 性能对比：对比固定权重 vs 动态权重的效果差异
+                #   3. 跨域鲁棒性：固定权重可能在跨域场景下更稳定
+                #
+                # 注意事项：
+                #   - 当USE_FIXED_WEIGHTS=True时，门控网络将被禁用，不参与训练
+                #   - 固定权重不会随训练改变，始终保持预设值
+                #   - 建议同时禁用MoE辅助Loss（BALANCE_LOSS_WEIGHT=0.0等）
+                #
+                use_fixed_weights = getattr(cfg.MODEL, 'MOE_USE_FIXED_WEIGHTS', False)
+                fixed_weights = getattr(cfg.MODEL, 'MOE_FIXED_WEIGHTS', [0.33, 0.33, 0.34])
+                
                 # 初始化多尺度MoE模块：使用所有配置参数
                 self.clip_multi_scale_moe = CLIPMultiScaleMoE(
                     feat_dim=512, 
@@ -196,7 +228,9 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     attention_num_heads=self.attention_num_heads,
                     attention_dropout=self.attention_dropout,
                     attention_dim=self.attention_dim,
-                    init_weights=init_weights
+                    init_weights=init_weights,
+                    use_fixed_weights=use_fixed_weights,
+                    fixed_weights=fixed_weights
                 )
                 # 初始化专家权重历史记录（用于分析）
                 self.expert_weights_history = []

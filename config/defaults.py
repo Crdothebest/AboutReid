@@ -75,6 +75,25 @@ _C.MODEL.MOE_EXPERT_THRESHOLD = 0.1      # MoE expert activation threshold
 _C.MODEL.MOE_RESIDUAL_WEIGHT = 1.0       # MoE residual connection weight
 _C.MODEL.MOE_INIT_WEIGHTS = None         # MoE expert initial weights (optional, e.g., [0.35, 0.3, 0.35])
 
+# ========== 固定权重模式配置 ==========
+# 功能：控制是否使用固定专家权重，替代门控网络的动态权重计算
+# 使用场景：
+#   1. 调试和实验：固定权重可以排除门控网络的影响，专注于专家网络性能
+#   2. 性能对比：对比固定权重 vs 动态权重的效果差异
+#   3. 跨域鲁棒性：固定权重可能在某些跨域场景下更稳定
+# 注意事项：
+#   - 当 USE_FIXED_WEIGHTS=True 时，门控网络将被禁用，不参与训练
+#   - 固定权重会自动归一化，确保和为1.0
+#   - 固定权重数量必须等于专家数量（MOE_NUM_EXPERTS）
+# 命令行示例：
+#   MODEL.MOE_USE_FIXED_WEIGHTS True
+#   MODEL.MOE_FIXED_WEIGHTS "[0.33,0.33,0.34]"
+_C.MODEL.MOE_USE_FIXED_WEIGHTS = False   # 是否使用固定专家权重（True=固定权重，False=动态门控网络）
+_C.MODEL.MOE_FIXED_WEIGHTS = [0.33, 0.33, 0.34]  # 固定权重值（仅在USE_FIXED_WEIGHTS=True时生效）
+                                                  # 格式：列表，长度必须等于专家数量
+                                                  # 示例：[0.33, 0.33, 0.34] 表示三个专家权重分别为33%、33%、34%
+                                                  # 注意：权重会自动归一化，无需手动确保和为1.0
+
 # MoE损失权重参数
 _C.MODEL.MOE_BALANCE_LOSS_WEIGHT = 0.01  # MoE expert balance loss weight
 _C.MODEL.MOE_SPARSITY_LOSS_WEIGHT = 0.001 # MoE sparsity loss weight
