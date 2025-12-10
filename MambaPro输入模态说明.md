@@ -244,3 +244,6 @@ TI_tokens = self.BACKBONE(TI, modality='tir')
 - **模型前向**：`modeling/make_model.py` - `MambaPro.forward()`
 - **训练循环**：`engine/processor.py` - `do_train()`
 
+
+
+
