@@ -177,11 +177,27 @@ def do_train(cfg,
                                 if getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False):
                                     weight_info = f" (动态权重: 平衡={moe_loss_dict.get('moe_balance_weight', 'N/A'):.4f}, 多样性={moe_loss_dict.get('moe_diversity_weight', 'N/A'):.4f})"
                                 
+                                # 🔥 新增：检查多样性损失是否激活
+                                diversity_loss_value = moe_loss_dict['moe_diversity_loss']
+                                diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
+                                
                                 print(f"🔥 MoE损失: 平衡={moe_loss_dict['moe_balance_loss']:.4f}, "
                                       f"稀疏性={moe_loss_dict['moe_sparsity_loss']:.4f}, "
-                                      f"多样性={moe_loss_dict['moe_diversity_loss']:.4f}{weight_info}")
+                                      f"多样性={moe_loss_dict['moe_diversity_loss']:.4f} {diversity_status}{weight_info}")
                                 print(f"   📊 专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}], "
                                       f"权重变化标准差: {weight_std:.6f}, 有梯度: {has_grad}")
+                                
+                                # 🔥 新增：详细MoE Loss日志，检查多样性损失是否成功激活
+                                if n_iter % 500 == 0:  # 每500个iteration打印一次详细日志
+                                    print(f"📋 MoE Loss 详细日志 (Epoch {epoch}, Iter {n_iter}):")
+                                    print(f"   - 平衡损失 (L_Bal): {moe_loss_dict['moe_balance_loss']:.6f}")
+                                    print(f"   - 稀疏性损失 (L_Spar): {moe_loss_dict['moe_sparsity_loss']:.6f}")
+                                    print(f"   - 多样性损失 (L_Div): {moe_loss_dict['moe_diversity_loss']:.6f} {'✅ 已激活' if diversity_loss_value > 1e-6 else '⚠️ 未激活(0.0)'}")
+                                    print(f"   - 总损失 (L_Total): {moe_loss_dict['moe_total_loss']:.6f}")
+                                    if 'moe_balance_weight' in moe_loss_dict:
+                                        print(f"   - 损失权重: 平衡={moe_loss_dict['moe_balance_weight']:.4f}, "
+                                              f"稀疏性={moe_loss_dict.get('moe_sparsity_weight', 'N/A')}, "
+                                              f"多样性={moe_loss_dict['moe_diversity_weight']:.4f}")
 
             # 反传 + 参数更新（混合精度）
             scaler.scale(loss).backward()
