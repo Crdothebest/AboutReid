@@ -24,8 +24,8 @@ MODEL:
   MOE_SCALES: [4, 8, 16]       # MoE滑动窗口尺度（与多尺度滑动窗口保持一致）
   
   # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
+  # 注意：门控融合使用MLP门控网络，不需要GATE_NUM_HEADS参数
   USE_GATE_FUSION: False
-  GATE_NUM_HEADS: 8
   GATE_DROPOUT: 0.1
   
   # ========== 优化MoE参数：提升专家网络性能 ==========
