@@ -14,13 +14,27 @@ from config import cfg
 
 
 def set_seed(seed):
+    """
+    设置随机种子，确保实验可复现
+    
+    Args:
+        seed (int): 随机种子值
+    
+    【注意】
+    - deterministic=True 和 benchmark=True 不能同时为True
+    - 如果追求完全可复现：设置 deterministic=True, benchmark=False（会降低性能）
+    - 如果追求性能：设置 deterministic=False, benchmark=True（可能不完全可复现）
+    - 当前设置：deterministic=True, benchmark=False（优先可复现性）
+    """
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = True
+    # 🔧 修复：deterministic 和 benchmark 不能同时为 True
+    # 如果 deterministic=True，则 benchmark 必须为 False 才能确保完全可复现
+    torch.backends.cudnn.deterministic = True  # 确保cuDNN使用确定性算法
+    torch.backends.cudnn.benchmark = False     # 禁用自动选择算法（与deterministic互斥）
 
 # 训练主函数
 if __name__ == '__main__':
