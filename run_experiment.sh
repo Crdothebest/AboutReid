@@ -45,14 +45,28 @@ echo "🆔 实验ID: $EXPERIMENT_ID"
 # 检查是否有--config_file参数
 CONFIG_FILE="configs/RGBNT201/MambaPro_moe.yml"  # 默认配置
 
-# 处理--config_file参数
-if [[ "$1" == "--config_file" ]]; then
-    CONFIG_FILE="$2"
-    shift 2  # 移除--config_file和配置文件路径
-    echo "📋 使用指定配置文件: $CONFIG_FILE"
-else
-    echo "📋 使用默认配置文件: $CONFIG_FILE"
-fi
+# 🔧 新增：收集 --opts 参数（用于传递给 train_net.py）
+OPTS_ARGS=()
+
+# 处理--config_file参数和--opts参数
+while [ $# -gt 0 ]; do
+    if [[ "$1" == "--config_file" ]]; then
+        CONFIG_FILE="$2"
+        shift 2  # 移除--config_file和配置文件路径
+        echo "📋 使用指定配置文件: $CONFIG_FILE"
+    elif [[ "$1" == "--opts" ]]; then
+        shift 1  # 移除 --opts
+        # 收集 --opts 后面的所有参数，直到遇到下一个 -- 开头的参数或结束
+        while [ $# -gt 0 ] && [[ ! "$1" =~ ^-- ]]; do
+            OPTS_ARGS+=("$1")
+            shift 1
+        done
+        echo "📋 检测到 --opts 参数，将传递给 train_net.py: ${OPTS_ARGS[@]}"
+    else
+        # 其他参数保留，稍后处理
+        break
+    fi
+done
 
 # 检查配置文件是否存在
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -289,10 +303,16 @@ else
 fi
 
 # 构建训练命令 - 使用修改后的配置文件
-# 这里直接写明，命令行的运行是走 train_net.py 文件
-# 由于参数已经在配置文件中动态修改，这里只需要使用配置文件
-# 🔥 重要：添加日志重定向，确保训练输出保存到日志文件
-CMD="python train_net.py --config_file $MODIFIED_CONFIG 2>&1 | tee $EXPERIMENT_DIR/logs/train_log.txt"
+# 🔧 修复：添加 --opts 参数支持
+# train_net.py 使用 opts 位置参数（nargs=argparse.REMAINDER），所以需要将 --opts 后面的参数作为位置参数传递
+if [ ${#OPTS_ARGS[@]} -gt 0 ]; then
+    # 如果有 --opts 参数，将其作为位置参数传递给 train_net.py
+    CMD="python train_net.py --config_file $MODIFIED_CONFIG ${OPTS_ARGS[@]} 2>&1 | tee $EXPERIMENT_DIR/logs/train_log.txt"
+    echo "✅ 将 --opts 参数传递给 train_net.py: ${OPTS_ARGS[@]}"
+else
+    # 没有 --opts 参数，使用默认命令
+    CMD="python train_net.py --config_file $MODIFIED_CONFIG 2>&1 | tee $EXPERIMENT_DIR/logs/train_log.txt"
+fi
 
 # 显示将要执行的完整命令
 echo "🔧 执行命令: $CMD"
