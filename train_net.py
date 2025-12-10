@@ -78,13 +78,28 @@ if __name__ == '__main__':
             cfg.merge_from_list(args.opts) # 从命令行合并配置（最高优先级）
             print(f"✅ 通过 --opts 修改配置（最高优先级）: {args.opts}")
             
-            # 🔥 新增：验证关键MoE Loss权重是否被正确覆盖
+            # 🔥 新增：验证关键MoE参数是否被正确覆盖
+            # 1. 验证固定权重参数
+            if 'MODEL.MOE_USE_FIXED_WEIGHTS' in args.opts:
+                use_fixed_weights = getattr(cfg.MODEL, 'MOE_USE_FIXED_WEIGHTS', None)
+                fixed_weights = getattr(cfg.MODEL, 'MOE_FIXED_WEIGHTS', None)
+                print(f"🔍 验证固定权重参数（命令行覆盖后）:")
+                print(f"   - MOE_USE_FIXED_WEIGHTS: {use_fixed_weights} (类型: {type(use_fixed_weights)})")
+                print(f"   - MOE_FIXED_WEIGHTS: {fixed_weights} (类型: {type(fixed_weights)})")
+                if use_fixed_weights != True:
+                    print(f"   ⚠️  警告：MOE_USE_FIXED_WEIGHTS 应该为 True，但实际值为 {use_fixed_weights}")
+            
+            # 2. 验证MoE Loss权重
             if 'SOLVER.MOE_BALANCE_LOSS_WEIGHT' in args.opts or 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT' in args.opts:
                 balance_weight = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', None)
                 diversity_weight = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT', None)
                 print(f"🔍 验证MoE Loss权重（命令行覆盖后）:")
-                print(f"   - 平衡损失权重: {balance_weight}")
-                print(f"   - 多样性损失权重: {diversity_weight}")
+                print(f"   - 平衡损失权重: {balance_weight} (类型: {type(balance_weight)})")
+                print(f"   - 多样性损失权重: {diversity_weight} (类型: {type(diversity_weight)})")
+                if balance_weight != 0.0:
+                    print(f"   ⚠️  警告：MOE_BALANCE_LOSS_WEIGHT 应该为 0.0，但实际值为 {balance_weight}")
+                if diversity_weight != 0.0:
+                    print(f"   ⚠️  警告：MOE_DIVERSITY_LOSS_WEIGHT 应该为 0.0，但实际值为 {diversity_weight}")
         except Exception as e:
             print(f"❌ --opts 参数解析错误: {e}")
             print(f"   请检查参数路径是否正确（如 MODEL.MOE_TEMPERATURE 或 SOLVER.MOE_BALANCE_LOSS_WEIGHT）")

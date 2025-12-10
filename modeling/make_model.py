@@ -207,8 +207,42 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 #   - 固定权重不会随训练改变，始终保持预设值
                 #   - 建议同时禁用MoE辅助Loss（BALANCE_LOSS_WEIGHT=0.0等）
                 #
-                use_fixed_weights = getattr(cfg.MODEL, 'MOE_USE_FIXED_WEIGHTS', False)
-                fixed_weights = getattr(cfg.MODEL, 'MOE_FIXED_WEIGHTS', [0.33, 0.33, 0.34])
+                # ========== 固定权重模式参数读取（修复：确保命令行参数生效） ==========
+                # 🔥 修复：使用hasattr检查配置项是否存在，确保命令行参数能正确覆盖
+                # 🔥 修复：YACS可能将字符串"True"解析为字符串，需要显式转换为布尔值
+                if hasattr(cfg.MODEL, 'MOE_USE_FIXED_WEIGHTS'):
+                    use_fixed_weights_raw = cfg.MODEL.MOE_USE_FIXED_WEIGHTS
+                    # 处理YACS可能将"True"解析为字符串的情况
+                    if isinstance(use_fixed_weights_raw, str):
+                        use_fixed_weights = use_fixed_weights_raw.lower() in ('true', '1', 'yes')
+                    else:
+                        use_fixed_weights = bool(use_fixed_weights_raw)
+                else:
+                    use_fixed_weights = False  # 默认值
+                
+                if hasattr(cfg.MODEL, 'MOE_FIXED_WEIGHTS'):
+                    fixed_weights_raw = cfg.MODEL.MOE_FIXED_WEIGHTS
+                    # 处理YACS可能将列表解析为字符串的情况
+                    if isinstance(fixed_weights_raw, str):
+                        # 解析字符串列表，如 "[0.33,0.33,0.34]"
+                        import ast
+                        try:
+                            fixed_weights = ast.literal_eval(fixed_weights_raw)
+                        except:
+                            fixed_weights = [0.33, 0.33, 0.34]
+                    else:
+                        fixed_weights = fixed_weights_raw
+                else:
+                    fixed_weights = [0.33, 0.33, 0.34]  # 默认值
+                
+                # 🔥 新增：验证固定权重参数（调试输出）
+                print(f"🔍 固定权重参数验证:")
+                print(f"   - MOE_USE_FIXED_WEIGHTS: {use_fixed_weights} (类型: {type(use_fixed_weights)})")
+                print(f"   - MOE_FIXED_WEIGHTS: {fixed_weights} (类型: {type(fixed_weights)})")
+                if use_fixed_weights:
+                    print(f"   ✅ 固定权重模式已启用，将禁用门控网络")
+                else:
+                    print(f"   ⚠️  固定权重模式未启用，将使用动态门控网络")
                 
                 # 初始化多尺度MoE模块：使用所有配置参数
                 self.clip_multi_scale_moe = CLIPMultiScaleMoE(

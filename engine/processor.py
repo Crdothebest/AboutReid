@@ -119,10 +119,32 @@ def do_train(cfg,
                             # 🔥 新增：动态损失权重调度
                             # 功能：根据训练阶段动态调整MoE损失权重
                             # 原理：早期epoch降低专家约束权重（让模型先学习主任务），后期epoch提高权重（防止专家固化）
-                            dynamic_balance_weight = None
-                            dynamic_diversity_weight = None
+                            # 🔥 修复：确保命令行设置的0.0权重有最高优先级
+                            # 配置优先级：命令行参数 > 动态调度 > 默认值
                             
-                            if getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False):
+                            # 首先读取命令行设置的静态权重（最高优先级）
+                            static_balance_weight = None
+                            static_diversity_weight = None
+                            if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'):
+                                static_balance_weight = cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT
+                            if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'):
+                                static_diversity_weight = cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT
+                            
+                            # 🔥 修复：检查是否启用动态调度（需要显式检查，因为可能是字符串）
+                            use_dynamic_loss_weight = getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False)
+                            # 处理YACS可能将"False"解析为字符串的情况
+                            if isinstance(use_dynamic_loss_weight, str):
+                                use_dynamic_loss_weight = use_dynamic_loss_weight.lower() not in ('false', '0', 'no')
+                            else:
+                                use_dynamic_loss_weight = bool(use_dynamic_loss_weight)
+                            
+                            # 🔥 修复：如果命令行设置了0.0，直接使用0.0，跳过动态调度（最高优先级）
+                            if static_balance_weight == 0.0 and static_diversity_weight == 0.0:
+                                dynamic_balance_weight = 0.0
+                                dynamic_diversity_weight = 0.0
+                                if n_iter % 500 == 0:  # 每500次迭代打印一次
+                                    print(f"🔒 命令行强制禁用所有MoE Loss（权重=0.0），跳过动态调度")
+                            elif use_dynamic_loss_weight:
                                 # 计算动态权重
                                 max_epochs = cfg.SOLVER.MAX_EPOCHS
                                 warmup_epochs = getattr(cfg.SOLVER, 'MOE_LOSS_WEIGHT_WARMUP_EPOCHS', 5)
@@ -155,18 +177,23 @@ def do_train(cfg,
                                 diversity_start = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_START', 0.001)
                                 diversity_end = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_END', 0.1)
                                 dynamic_diversity_weight = diversity_start + (diversity_end - diversity_start) * weight_factor
+                                
+                                # 🔥 修复：如果命令行设置了静态权重，使用静态权重覆盖动态权重
+                                if static_balance_weight is not None:
+                                    dynamic_balance_weight = static_balance_weight
+                                if static_diversity_weight is not None:
+                                    dynamic_diversity_weight = static_diversity_weight
+                            else:
+                                # 未启用动态调度，使用命令行设置的静态权重
+                                dynamic_balance_weight = static_balance_weight
+                                dynamic_diversity_weight = static_diversity_weight
                             
-                            # 🔥 修复：确保命令行设置的0.0权重不被动态调度覆盖（最高优先级）
+                            # 🔥 最终验证：确保命令行设置的0.0权重不被覆盖（最高优先级）
                             # 配置优先级：命令行参数 > 动态调度 > 默认值
-                            # 如果命令行明确设置了权重为0.0，则强制使用0.0，忽略动态调度
-                            if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'):
-                                if cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT == 0.0:
-                                    dynamic_diversity_weight = 0.0
-                                    print(f"🔒 命令行强制禁用多样性损失（权重=0.0），忽略动态调度")
-                            if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'):
-                                if cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT == 0.0:
-                                    dynamic_balance_weight = 0.0
-                                    print(f"🔒 命令行强制禁用平衡损失（权重=0.0），忽略动态调度")
+                            if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT') and cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT == 0.0:
+                                dynamic_diversity_weight = 0.0
+                            if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT') and cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT == 0.0:
+                                dynamic_balance_weight = 0.0
                             
                             # 调用MoE损失函数，传入动态权重
                             moe_loss, moe_loss_dict = loss_fn.moe_loss_fn(
