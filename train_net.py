@@ -56,7 +56,17 @@ if __name__ == '__main__':
 
     if args.config_file != "":
         cfg.merge_from_file(args.config_file) # 从配置文件合并配置
-    cfg.merge_from_list(args.opts) # 从命令行合并配置
+    
+    # 🔧 修复：确保 --opts 参数正确生效
+    if args.opts:
+        try:
+            cfg.merge_from_list(args.opts) # 从命令行合并配置
+            print(f"✅ 通过 --opts 修改配置: {args.opts}")
+        except Exception as e:
+            print(f"❌ --opts 参数解析错误: {e}")
+            print(f"   请检查参数路径是否正确（如 MODEL.MOE_TEMPERATURE 或 SOLVER.MOE_BALANCE_LOSS_WEIGHT）")
+            raise
+    
     cfg.TEST.FEAT = args.fea_cft # 设置特征选择
     
     # 🔥 新增：命令行参数覆盖配置文件设置
