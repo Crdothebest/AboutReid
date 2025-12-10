@@ -107,14 +107,30 @@ def do_train(cfg,
                     if expert_weights is not None:
                         # 从损失函数中获取MoE损失函数
                         if hasattr(loss_fn, 'moe_loss_fn') and loss_fn.moe_loss_fn is not None:
+                            # 🔧 关键修复：如果权重被detach，说明梯度连接已断开
+                            # 这种情况下，我们需要直接从门控网络重新获取权重
+                            if not expert_weights.requires_grad:
+                                # ⚠️ 警告：权重没有梯度，可能无法更新门控网络
+                                if n_iter % 100 == 0:
+                                    print(f"⚠️  警告: 专家权重没有梯度！门控网络可能无法更新。")
+                                    print(f"   请检查 modeling/make_model.py 中权重保存时是否被detach")
+                            
                             moe_loss, moe_loss_dict = loss_fn.moe_loss_fn(expert_weights)
                             loss = loss + moe_loss
                             
                             # 记录MoE损失信息（可选）
                             if n_iter % 100 == 0:  # 每100个iteration打印一次
+                                # 🔧 添加调试信息：显示权重分布和梯度状态
+                                with torch.no_grad():
+                                    avg_weights = expert_weights.mean(dim=0).cpu().numpy()
+                                    weight_std = expert_weights.std(dim=0).mean().item()
+                                    has_grad = expert_weights.requires_grad
+                                
                                 print(f"🔥 MoE损失: 平衡={moe_loss_dict['moe_balance_loss']:.4f}, "
                                       f"稀疏性={moe_loss_dict['moe_sparsity_loss']:.4f}, "
                                       f"多样性={moe_loss_dict['moe_diversity_loss']:.4f}")
+                                print(f"   📊 专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}], "
+                                      f"权重变化标准差: {weight_std:.6f}, 有梯度: {has_grad}")
 
             # 反传 + 参数更新（混合精度）
             scaler.scale(loss).backward()

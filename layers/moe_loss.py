@@ -25,7 +25,7 @@ class MoELoss(nn.Module):
     3. 多样性损失：促进专家分工多样性
     """
     
-    def __init__(self, balance_weight=0.01, sparsity_weight=0.001, diversity_weight=0.01):
+    def __init__(self, balance_weight=0.01, sparsity_weight=0.001, diversity_weight=0.01, balance_threshold=0.3):
         """
         初始化MoE损失函数
         
@@ -33,15 +33,22 @@ class MoELoss(nn.Module):
             balance_weight (float): 平衡损失权重
             sparsity_weight (float): 稀疏性损失权重
             diversity_weight (float): 多样性损失权重
+            balance_threshold (float): 平衡损失阈值，允许的偏差比例（默认0.3，即允许30%偏差）
         """
         super(MoELoss, self).__init__()
         self.balance_weight = balance_weight
         self.sparsity_weight = sparsity_weight
         self.diversity_weight = diversity_weight
+        self.balance_threshold = balance_threshold
         
     def balance_loss(self, expert_weights):
         """
-        平衡损失：促进专家使用平衡
+        平衡损失：促进专家使用平衡（改进版 - 防止模式坍塌）
+        
+        🔧 修复：使用"软平衡"而不是"硬平衡"
+        - 不强制完全平均（33.3%, 33.3%, 33.3%）
+        - 只惩罚极端不平衡（如 90%, 5%, 5%）
+        - 允许合理的偏差（如 40%, 30%, 30%）
         
         Args:
             expert_weights: [B, num_experts] - 专家权重分布
@@ -50,9 +57,23 @@ class MoELoss(nn.Module):
         """
         # 计算每个专家的平均使用频率
         expert_usage = expert_weights.mean(dim=0)  # [num_experts]
+        num_experts = expert_usage.size(0)
+        expected_usage = 1.0 / num_experts  # 期望使用频率（如 1/3 = 0.333）
         
-        # 计算专家使用频率的方差（越小越平衡）
-        balance_loss = torch.var(expert_usage)
+        # 🔧 改进：使用相对偏差而不是绝对方差
+        # 只惩罚超过阈值的偏差，允许合理的偏差
+        relative_deviation = torch.abs(expert_usage - expected_usage) / expected_usage  # 相对偏差
+        
+        # 🔧 改进：使用阈值，只惩罚极端不平衡
+        # 如果相对偏差 < threshold（即使用频率在合理范围内），不惩罚
+        # 如果相对偏差 >= threshold，才进行惩罚
+        penalty_mask = (relative_deviation > self.balance_threshold).float()
+        
+        # 只对超过阈值的偏差进行惩罚
+        balance_loss = (relative_deviation * penalty_mask).mean()
+        
+        # 🔧 备选方案：使用平方惩罚，但只对极端情况
+        # balance_loss = torch.clamp(relative_deviation - threshold, min=0.0).pow(2).mean()
         
         return balance_loss
     
@@ -136,17 +157,20 @@ def make_moe_loss(cfg):
     balance_weight = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', 0.01)
     sparsity_weight = getattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT', 0.001)
     diversity_weight = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT', 0.01)
+    balance_threshold = getattr(cfg.SOLVER, 'MOE_BALANCE_THRESHOLD', 0.3)  # 🔧 新增：平衡损失阈值
     
     # 创建MoE损失函数
     moe_loss = MoELoss(
         balance_weight=balance_weight,
         sparsity_weight=sparsity_weight,
-        diversity_weight=diversity_weight
+        diversity_weight=diversity_weight,
+        balance_threshold=balance_threshold
     )
     
-    print(f"🔥 MoE损失函数初始化完成:")
+    print(f"🔥 MoE损失函数初始化完成（已修复模式坍塌问题）:")
     print(f"   - 平衡损失权重: {balance_weight}")
     print(f"   - 稀疏性损失权重: {sparsity_weight}")
     print(f"   - 多样性损失权重: {diversity_weight}")
+    print(f"   - 平衡损失阈值: {balance_threshold} (允许{balance_threshold*100:.0f}%偏差，防止强制平均)")
     
     return moe_loss

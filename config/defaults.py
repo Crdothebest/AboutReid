@@ -217,6 +217,7 @@ _C.SOLVER.IMS_PER_BATCH = 128  # You can adjust it to 64
 _C.SOLVER.MOE_BALANCE_LOSS_WEIGHT = 0.01  # MoE expert balance loss weight
 _C.SOLVER.MOE_SPARSITY_LOSS_WEIGHT = 0.001 # MoE sparsity loss weight
 _C.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT = 0.01 # MoE diversity loss weight
+_C.SOLVER.MOE_BALANCE_THRESHOLD = 0.3      # MoE balance loss threshold (允许30%偏差，防止模式坍塌)
 
 # ---------------------------------------------------------------------------- #
 # TEST

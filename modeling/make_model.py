@@ -273,7 +273,8 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                         self.expert_weights_history.append(expert_weights.detach().cpu())
                     
                     # 🔥 保存专家权重用于MoE损失计算
-                    self.current_expert_weights = expert_weights
+                    # 注意：必须保留梯度，否则MoE损失无法反向传播更新门控网络
+                    self.current_expert_weights = expert_weights  # 保留梯度，不detach
                 else:
                     # 🔥 使用传统MLP融合多尺度特征
                     # 核心算法：4x4/8x8/16x16滑动窗口 → MLP特征融合

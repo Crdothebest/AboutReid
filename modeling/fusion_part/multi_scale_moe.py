@@ -173,9 +173,20 @@ class GatingNetwork(nn.Module):
     
     def _init_weights(self):
         """初始化权重"""
+        # 🔧 改进：如果设置了初始权重，需要特殊处理输出层
+        has_init_weights = (self.init_weights is not None)
+        
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
+                # 🔧 改进：如果设置了初始权重，且这是输出层，使用更小的权重初始化
+                # 这样偏置的影响会更明显，初始权重更容易生效
+                if has_init_weights and m is self.gate_output:
+                    # 输出层权重初始化为接近0，让偏置主导初始行为
+                    nn.init.normal_(m.weight, mean=0.0, std=0.01)  # 很小的权重
+                else:
+                    # 其他层正常初始化
+                    nn.init.xavier_uniform_(m.weight)
+                
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
         
@@ -191,15 +202,24 @@ class GatingNetwork(nn.Module):
             # 确保权重和为1（归一化）
             init_weights_tensor = init_weights_tensor / init_weights_tensor.sum()
             
-            # 转换为 logits：log(weights) - log(weights.mean())
-            # 这样可以使得 Softmax 后的分布接近初始权重
+            # 转换为 logits：log(weights)
+            # 🔧 改进：使用缩放因子增强偏置的影响
+            # 因为 Softmax 对 logits 的差异敏感，我们需要确保偏置的影响足够大
             logits = torch.log(init_weights_tensor + 1e-8)  # 添加小值避免 log(0)
+            
+            # 🔧 改进：使用缩放因子，确保初始权重的影响足够强
+            # 如果输入特征经过归一化，logits 的尺度需要相应调整
+            # 这里使用一个缩放因子（如 2.0）来增强偏置的影响
+            scale_factor = 2.0  # 可以调整，值越大初始权重影响越强
+            logits = logits * scale_factor
             
             # 设置输出层偏置
             if self.gate_output.bias is not None:
                 self.gate_output.bias.data = logits
                 
             print(f"✅ 门控网络初始权重已设置: {self.init_weights}")
+            print(f"   - 输出层权重初始化: 小权重 (std=0.01)，让偏置主导")
+            print(f"   - 偏置缩放因子: {scale_factor}，增强初始权重影响")
     
     def forward(self, x):
         """
