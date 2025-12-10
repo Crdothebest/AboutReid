@@ -60,7 +60,7 @@ def do_train(cfg,
         evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM)
 
     scaler = amp.GradScaler()                           # 混合精度：缩放器
-    best_index = {'mAP': 0, "Rank-1": 0, 'Rank-5': 0, 'Rank-10': 0}  # 记录最好指标
+    best_index = {'mAP': 0, "Rank-1": 0, 'Rank-5': 0, 'Rank-10': 0, 'best_epoch': 0}  # 记录最好指标和对应epoch
 
     # =========================
     # 主训练循环
@@ -308,9 +308,24 @@ def do_train(cfg,
                                 ## 论文里的评价指标 cmc map
                     cmc, mAP, _, _, _, _, _ = evaluator.compute()  # 在这里计算
                     logger.info("Validation Results - Epoch: {}".format(epoch))
-                    logger.info("mAP: {:.1%}".format(mAP))
+                    logger.info("Current mAP: {:.1%}".format(mAP))
                     for r in [1, 5, 10]:   # 还可以加 234 等，可以看到别的值
                         logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))  # 打印日至
+                    
+                    # 🔥 新增：更新并输出最佳指标（分布式训练）
+                    if mAP >= best_index['mAP']:
+                        best_index['mAP']     = mAP
+                        best_index['Rank-1']  = cmc[0]
+                        best_index['Rank-5']  = cmc[4]
+                        best_index['Rank-10'] = cmc[9]
+                        best_index['best_epoch'] = epoch
+                        logger.info("🎯 New Best! Saving model...")
+                        torch.save(model.state_dict(),
+                                   os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
+                    logger.info("Best mAP: {:.1%} (Epoch {})".format(best_index['mAP'], best_index['best_epoch']))
+                    logger.info("Best Rank-1: {:.1%}".format(best_index['Rank-1']))
+                    logger.info("Best Rank-5: {:.1%}".format(best_index['Rank-5']))
+                    logger.info("Best Rank-10: {:.1%}".format(best_index['Rank-10']))
                     torch.cuda.empty_cache()
             else:
                 model.eval()
@@ -329,19 +344,21 @@ def do_train(cfg,
                             evaluator.update((feat, vid, camid))
                 cmc, mAP, _, _, _, _, _ = evaluator.compute()
                 logger.info("Validation Results - Epoch: {}".format(epoch))
-                logger.info("mAP: {:.1%}".format(mAP))
+                logger.info("Current mAP: {:.1%}".format(mAP))
                 for r in [1, 5, 10]:
                     logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
 
-                # 维护最佳指标并保存 best.pth（仅非分布式分支）
+                # 🔥 维护最佳指标并保存 best.pth（仅非分布式分支）
                 if mAP >= best_index['mAP']:
                     best_index['mAP']     = mAP
                     best_index['Rank-1']  = cmc[0]
                     best_index['Rank-5']  = cmc[4]
                     best_index['Rank-10'] = cmc[9]
+                    best_index['best_epoch'] = epoch
+                    logger.info("🎯 New Best! Saving model...")
                     torch.save(model.state_dict(),
                                os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
-                logger.info("Best mAP: {:.1%}".format(best_index['mAP']))
+                logger.info("Best mAP: {:.1%} (Epoch {})".format(best_index['mAP'], best_index['best_epoch']))
                 logger.info("Best Rank-1: {:.1%}".format(best_index['Rank-1']))
                 logger.info("Best Rank-5: {:.1%}".format(best_index['Rank-5']))
                 logger.info("Best Rank-10: {:.1%}".format(best_index['Rank-10']))
