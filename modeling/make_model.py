@@ -169,11 +169,13 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             # 功能：从配置文件读取注意力融合设置，支持注意力融合机制开关
             # 🔧 修复：处理YACS可能将"True"解析为字符串的情况
             use_attention_fusion_raw = getattr(cfg.MODEL, 'USE_ATTENTION_FUSION', False)
+            print(f"🔍 [make_model] 读取 USE_ATTENTION_FUSION: {use_attention_fusion_raw} (类型: {type(use_attention_fusion_raw)})")
             if isinstance(use_attention_fusion_raw, str):
                 self.use_attention_fusion = use_attention_fusion_raw.lower() in ('true', '1', 'yes')
-                print(f"🔍 注意力融合参数修正: '{use_attention_fusion_raw}' -> {self.use_attention_fusion}")
+                print(f"🔍 [make_model] 注意力融合参数修正: '{use_attention_fusion_raw}' -> {self.use_attention_fusion}")
             else:
                 self.use_attention_fusion = bool(use_attention_fusion_raw)
+                print(f"🔍 [make_model] 注意力融合参数（布尔值）: {self.use_attention_fusion}")
             
             self.attention_num_heads = getattr(cfg.MODEL, 'ATTENTION_NUM_HEADS', 8)
             self.attention_dropout = getattr(cfg.MODEL, 'ATTENTION_DROPOUT', 0.1)

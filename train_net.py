@@ -75,8 +75,27 @@ if __name__ == '__main__':
     # 配置加载优先级：默认值 < YAML文件 < 命令行参数（--opts）
     if args.opts:
         try:
+            print(f"🔍 原始 --opts 参数: {args.opts}")
             cfg.merge_from_list(args.opts) # 从命令行合并配置（最高优先级）
-            print(f"✅ 通过 --opts 修改配置（最高优先级）: {args.opts}")
+            print(f"✅ 通过 --opts 修改配置（最高优先级）")
+            
+            # 🔧 立即修正布尔值参数（在merge_from_list之后立即处理）
+            # 处理YACS可能将"True"/"False"解析为字符串的情况
+            if hasattr(cfg.MODEL, 'USE_ATTENTION_FUSION'):
+                val = cfg.MODEL.USE_ATTENTION_FUSION
+                if isinstance(val, str):
+                    cfg.MODEL.USE_ATTENTION_FUSION = val.lower() in ('true', '1', 'yes')
+                    print(f"🔧 立即修正 USE_ATTENTION_FUSION: '{val}' -> {cfg.MODEL.USE_ATTENTION_FUSION}")
+                else:
+                    print(f"🔍 USE_ATTENTION_FUSION = {val} (类型: {type(val)})")
+            
+            if hasattr(cfg.MODEL, 'USE_GATE_FUSION'):
+                val = cfg.MODEL.USE_GATE_FUSION
+                if isinstance(val, str):
+                    cfg.MODEL.USE_GATE_FUSION = val.lower() in ('true', '1', 'yes')
+                    print(f"🔧 立即修正 USE_GATE_FUSION: '{val}' -> {cfg.MODEL.USE_GATE_FUSION}")
+                else:
+                    print(f"🔍 USE_GATE_FUSION = {val} (类型: {type(val)})")
             
             # 🔥 新增：验证关键MoE参数是否被正确覆盖
             # 1. 验证固定权重参数
@@ -99,33 +118,33 @@ if __name__ == '__main__':
                 if balance_weight != 0.0:
                     print(f"   ⚠️  警告：MOE_BALANCE_LOSS_WEIGHT 应该为 0.0，但实际值为 {balance_weight}")
             
-            # 3. 验证注意力融合参数
-            if 'MODEL.USE_ATTENTION_FUSION' in args.opts:
-                use_attention_fusion = getattr(cfg.MODEL, 'USE_ATTENTION_FUSION', None)
-                print(f"🔍 验证注意力融合参数（命令行覆盖后）:")
-                print(f"   - USE_ATTENTION_FUSION: {use_attention_fusion} (类型: {type(use_attention_fusion)})")
-                # 处理YACS可能将"True"解析为字符串的情况
-                if isinstance(use_attention_fusion, str):
-                    use_attention_fusion_bool = use_attention_fusion.lower() in ('true', '1', 'yes')
-                    print(f"   - 字符串转换为布尔值: {use_attention_fusion_bool}")
-                    cfg.MODEL.USE_ATTENTION_FUSION = use_attention_fusion_bool
-                    print(f"   ✅ 已修正为: {cfg.MODEL.USE_ATTENTION_FUSION}")
-                elif use_attention_fusion != True:
-                    print(f"   ⚠️  警告：USE_ATTENTION_FUSION 应该为 True，但实际值为 {use_attention_fusion}")
+            # 3. 验证并修正所有布尔值参数（通用处理）
+            # 处理YACS可能将"True"/"False"解析为字符串的情况
+            bool_params = [
+                'MODEL.USE_ATTENTION_FUSION',
+                'MODEL.USE_GATE_FUSION',
+                'MODEL.MOE_USE_FIXED_WEIGHTS'
+            ]
+            for param_name in bool_params:
+                if hasattr(cfg, param_name.split('.')[0]):
+                    section = getattr(cfg, param_name.split('.')[0])
+                    if hasattr(section, param_name.split('.')[1]):
+                        param_value = getattr(section, param_name.split('.')[1])
+                        if isinstance(param_value, str):
+                            param_bool = param_value.lower() in ('true', '1', 'yes')
+                            setattr(section, param_name.split('.')[1], param_bool)
+                            print(f"🔍 布尔值参数修正: {param_name} = '{param_value}' -> {param_bool}")
+                        elif isinstance(param_value, bool):
+                            # 已经是布尔值，确保正确
+                            print(f"🔍 布尔值参数检查: {param_name} = {param_value} (类型: {type(param_value)})")
             
-            # 4. 验证门控融合参数
-            if 'MODEL.USE_GATE_FUSION' in args.opts:
-                use_gate_fusion = getattr(cfg.MODEL, 'USE_GATE_FUSION', None)
-                print(f"🔍 验证门控融合参数（命令行覆盖后）:")
-                print(f"   - USE_GATE_FUSION: {use_gate_fusion} (类型: {type(use_gate_fusion)})")
-                # 处理YACS可能将"True"解析为字符串的情况
-                if isinstance(use_gate_fusion, str):
-                    use_gate_fusion_bool = use_gate_fusion.lower() in ('true', '1', 'yes')
-                    print(f"   - 字符串转换为布尔值: {use_gate_fusion_bool}")
-                    cfg.MODEL.USE_GATE_FUSION = use_gate_fusion_bool
-                    print(f"   ✅ 已修正为: {cfg.MODEL.USE_GATE_FUSION}")
-                if diversity_weight != 0.0:
-                    print(f"   ⚠️  警告：MOE_DIVERSITY_LOSS_WEIGHT 应该为 0.0，但实际值为 {diversity_weight}")
+            # 4. 验证注意力融合参数（详细输出）
+            use_attention_fusion = getattr(cfg.MODEL, 'USE_ATTENTION_FUSION', False)
+            print(f"🔍 最终注意力融合参数: USE_ATTENTION_FUSION = {use_attention_fusion} (类型: {type(use_attention_fusion)})")
+            
+            # 5. 验证门控融合参数（详细输出）
+            use_gate_fusion = getattr(cfg.MODEL, 'USE_GATE_FUSION', False)
+            print(f"🔍 最终门控融合参数: USE_GATE_FUSION = {use_gate_fusion} (类型: {type(use_gate_fusion)})")
         except Exception as e:
             print(f"❌ --opts 参数解析错误: {e}")
             print(f"   请检查参数路径是否正确（如 MODEL.MOE_TEMPERATURE 或 SOLVER.MOE_BALANCE_LOSS_WEIGHT）")
