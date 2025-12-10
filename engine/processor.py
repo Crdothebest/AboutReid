@@ -12,6 +12,7 @@ MambaPro 训练与推理处理器（中文说明）
 import logging
 import os
 import time
+import math
 import torch
 import torch.nn as nn
 from utils.meter import AverageMeter            # 记录/平滑指标（loss/acc等）
@@ -115,7 +116,52 @@ def do_train(cfg,
                                     print(f"⚠️  警告: 专家权重没有梯度！门控网络可能无法更新。")
                                     print(f"   请检查 modeling/make_model.py 中权重保存时是否被detach")
                             
-                            moe_loss, moe_loss_dict = loss_fn.moe_loss_fn(expert_weights)
+                            # 🔥 新增：动态损失权重调度
+                            # 功能：根据训练阶段动态调整MoE损失权重
+                            # 原理：早期epoch降低专家约束权重（让模型先学习主任务），后期epoch提高权重（防止专家固化）
+                            dynamic_balance_weight = None
+                            dynamic_diversity_weight = None
+                            
+                            if getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False):
+                                # 计算动态权重
+                                max_epochs = cfg.SOLVER.MAX_EPOCHS
+                                warmup_epochs = getattr(cfg.SOLVER, 'MOE_LOSS_WEIGHT_WARMUP_EPOCHS', 5)
+                                schedule_type = getattr(cfg.SOLVER, 'MOE_LOSS_WEIGHT_SCHEDULE_TYPE', 'cosine')
+                                
+                                # 计算当前epoch的进度（0.0到1.0）
+                                if epoch <= warmup_epochs:
+                                    # 预热期：使用起始权重
+                                    progress = 0.0
+                                else:
+                                    # 调度期：计算进度
+                                    progress = min(1.0, (epoch - warmup_epochs) / (max_epochs - warmup_epochs))
+                                
+                                # 根据调度类型计算权重插值
+                                if schedule_type == 'linear':
+                                    # 线性调度：直接线性插值
+                                    weight_factor = progress
+                                elif schedule_type == 'cosine':
+                                    # 余弦调度：使用余弦函数平滑过渡
+                                    weight_factor = 0.5 * (1 - math.cos(math.pi * progress))
+                                else:
+                                    # 默认使用线性调度
+                                    weight_factor = progress
+                                
+                                # 计算动态权重
+                                balance_start = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT_START', 0.001)
+                                balance_end = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT_END', 0.1)
+                                dynamic_balance_weight = balance_start + (balance_end - balance_start) * weight_factor
+                                
+                                diversity_start = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_START', 0.001)
+                                diversity_end = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_END', 0.1)
+                                dynamic_diversity_weight = diversity_start + (diversity_end - diversity_start) * weight_factor
+                            
+                            # 调用MoE损失函数，传入动态权重
+                            moe_loss, moe_loss_dict = loss_fn.moe_loss_fn(
+                                expert_weights,
+                                balance_weight=dynamic_balance_weight,
+                                diversity_weight=dynamic_diversity_weight
+                            )
                             loss = loss + moe_loss
                             
                             # 记录MoE损失信息（可选）
@@ -126,9 +172,14 @@ def do_train(cfg,
                                     weight_std = expert_weights.std(dim=0).mean().item()
                                     has_grad = expert_weights.requires_grad
                                 
+                                # 显示动态权重信息（如果启用）
+                                weight_info = ""
+                                if getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False):
+                                    weight_info = f" (动态权重: 平衡={moe_loss_dict.get('moe_balance_weight', 'N/A'):.4f}, 多样性={moe_loss_dict.get('moe_diversity_weight', 'N/A'):.4f})"
+                                
                                 print(f"🔥 MoE损失: 平衡={moe_loss_dict['moe_balance_loss']:.4f}, "
                                       f"稀疏性={moe_loss_dict['moe_sparsity_loss']:.4f}, "
-                                      f"多样性={moe_loss_dict['moe_diversity_loss']:.4f}")
+                                      f"多样性={moe_loss_dict['moe_diversity_loss']:.4f}{weight_info}")
                                 print(f"   📊 专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}], "
                                       f"权重变化标准差: {weight_std:.6f}, 有梯度: {has_grad}")
 

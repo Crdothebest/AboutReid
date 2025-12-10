@@ -260,6 +260,40 @@ _C.SOLVER.MOE_SPARSITY_LOSS_WEIGHT = 0.001 # MoE sparsity loss weight
 _C.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT = 0.01 # MoE diversity loss weight
 _C.SOLVER.MOE_BALANCE_THRESHOLD = 0.3      # MoE balance loss threshold (允许30%偏差，防止模式坍塌)
 
+# ========================================================================
+# 【MoE动态损失权重调度配置】
+# ========================================================================
+# 
+# 【功能】在训练过程中动态调整MoE损失权重，解决训练阶段冲突问题
+# 
+# 【问题背景】
+# 训练早期：模型需要专注于主任务（ID Loss），过早的专家约束会干扰学习
+# 训练后期：专家容易"固化"（某个专家垄断），需要加强平衡损失约束
+# 
+# 【解决方案】
+# 实现动态权重调度：早期低权重（让模型先学习），后期高权重（防止固化）
+# 
+# 【调度策略】
+# - 线性调度：从起始权重线性增长到目标权重
+# - 余弦调度：使用余弦函数平滑过渡（推荐）
+# 
+# 【参数说明】
+# - MOE_USE_DYNAMIC_LOSS_WEIGHT: 是否启用动态权重调度（默认False，保持向后兼容）
+# - MOE_BALANCE_LOSS_WEIGHT_START: 平衡损失起始权重（早期epoch使用）
+# - MOE_BALANCE_LOSS_WEIGHT_END: 平衡损失目标权重（后期epoch使用）
+# - MOE_DIVERSITY_LOSS_WEIGHT_START: 多样性损失起始权重
+# - MOE_DIVERSITY_LOSS_WEIGHT_END: 多样性损失目标权重
+# - MOE_LOSS_WEIGHT_WARMUP_EPOCHS: 权重调度预热epoch数（前N个epoch保持起始权重）
+# - MOE_LOSS_WEIGHT_SCHEDULE_TYPE: 调度类型（'linear'或'cosine'，默认'cosine'）
+# 
+_C.SOLVER.MOE_USE_DYNAMIC_LOSS_WEIGHT = False  # 是否启用动态权重调度（默认关闭，保持向后兼容）
+_C.SOLVER.MOE_BALANCE_LOSS_WEIGHT_START = 0.001  # 平衡损失起始权重（早期epoch，较小值）
+_C.SOLVER.MOE_BALANCE_LOSS_WEIGHT_END = 0.1      # 平衡损失目标权重（后期epoch，较大值）
+_C.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT_START = 0.001  # 多样性损失起始权重
+_C.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT_END = 0.1      # 多样性损失目标权重
+_C.SOLVER.MOE_LOSS_WEIGHT_WARMUP_EPOCHS = 5       # 权重调度预热epoch数（前5个epoch保持起始权重）
+_C.SOLVER.MOE_LOSS_WEIGHT_SCHEDULE_TYPE = 'cosine'  # 调度类型：'linear'或'cosine'
+
 # ---------------------------------------------------------------------------- #
 # TEST
 # ---------------------------------------------------------------------------- #

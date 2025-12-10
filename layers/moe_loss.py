@@ -121,26 +121,44 @@ class MoELoss(nn.Module):
         
         return diversity_loss
     
-    def forward(self, expert_weights):
+    def forward(self, expert_weights, balance_weight=None, sparsity_weight=None, diversity_weight=None):
         """
         计算MoE总损失
+        
+        🔥 新增：支持动态权重调度
+        - 如果传入动态权重参数，使用动态权重；否则使用初始化时的固定权重
+        - 目的：在训练过程中动态调整损失权重，早期关注主任务，后期加强专家约束
+        
+        Args:
+            expert_weights: [B, num_experts] - 专家权重分布
+            balance_weight (float, optional): 动态平衡损失权重，如果为None则使用self.balance_weight
+            sparsity_weight (float, optional): 动态稀疏性损失权重，如果为None则使用self.sparsity_weight
+            diversity_weight (float, optional): 动态多样性损失权重，如果为None则使用self.diversity_weight
         """
         # 计算各项损失
         balance_loss = self.balance_loss(expert_weights)
         sparsity_loss = self.sparsity_loss(expert_weights)
         diversity_loss = self.diversity_loss(expert_weights)
         
-        # 加权求和
-        total_loss = (self.balance_weight * balance_loss + 
-                     self.sparsity_weight * sparsity_loss + 
-                     self.diversity_weight * diversity_loss)
+        # 🔥 动态权重选择：如果传入动态权重，使用动态权重；否则使用固定权重
+        balance_w = balance_weight if balance_weight is not None else self.balance_weight
+        sparsity_w = sparsity_weight if sparsity_weight is not None else self.sparsity_weight
+        diversity_w = diversity_weight if diversity_weight is not None else self.diversity_weight
         
-        # 返回损失字典
+        # 加权求和
+        total_loss = (balance_w * balance_loss + 
+                     sparsity_w * sparsity_loss + 
+                     diversity_w * diversity_loss)
+        
+        # 返回损失字典（包含实际使用的权重，便于调试）
         loss_dict = {
             'moe_balance_loss': balance_loss.item(),
             'moe_sparsity_loss': sparsity_loss.item(),
             'moe_diversity_loss': diversity_loss.item(),
-            'moe_total_loss': total_loss.item()
+            'moe_total_loss': total_loss.item(),
+            'moe_balance_weight': balance_w,  # 记录实际使用的权重
+            'moe_sparsity_weight': sparsity_w,
+            'moe_diversity_weight': diversity_w
         }
         
         return total_loss, loss_dict
