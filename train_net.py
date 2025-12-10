@@ -76,6 +76,17 @@ if __name__ == '__main__':
     if args.opts:
         try:
             print(f"🔍 原始 --opts 参数: {args.opts}")
+            # 🔥 检查 Top-k 路由参数是否在 --opts 中
+            if 'MODEL.MOE_USE_TOP_K_ROUTING' in args.opts:
+                idx = args.opts.index('MODEL.MOE_USE_TOP_K_ROUTING')
+                if idx + 1 < len(args.opts):
+                    val = args.opts[idx + 1]
+                    print(f"🔍 在 --opts 中找到 MOE_USE_TOP_K_ROUTING = '{val}' (位置: {idx})")
+                else:
+                    print(f"⚠️  警告: MOE_USE_TOP_K_ROUTING 在 --opts 中但没有值")
+            else:
+                print(f"⚠️  警告: MOE_USE_TOP_K_ROUTING 不在 --opts 参数中")
+            
             cfg.merge_from_list(args.opts) # 从命令行合并配置（最高优先级）
             print(f"✅ 通过 --opts 修改配置（最高优先级）")
             
