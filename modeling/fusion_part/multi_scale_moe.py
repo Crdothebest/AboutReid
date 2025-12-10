@@ -205,7 +205,7 @@ class GatingNetwork(nn.Module):
     
     def _init_weights(self):
         """
-        初始化权重
+        初始化权重修改
         
         🔧 修复：解决模式坍塌的关键修改
         - 隐藏层：Xavier初始化，适合LayerNorm + GELU
