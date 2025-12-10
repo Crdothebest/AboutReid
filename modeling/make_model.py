@@ -155,12 +155,26 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             # 🔥 新增：门控融合配置
             # 功能：从配置文件读取门控融合设置，支持门控融合机制开关
             # 注意：门控融合使用MLP门控网络，不需要num_heads参数
-            self.use_gate_fusion = getattr(cfg.MODEL, 'USE_GATE_FUSION', False)
+            # 🔧 修复：处理YACS可能将"True"解析为字符串的情况
+            use_gate_fusion_raw = getattr(cfg.MODEL, 'USE_GATE_FUSION', False)
+            if isinstance(use_gate_fusion_raw, str):
+                self.use_gate_fusion = use_gate_fusion_raw.lower() in ('true', '1', 'yes')
+                print(f"🔍 门控融合参数修正: '{use_gate_fusion_raw}' -> {self.use_gate_fusion}")
+            else:
+                self.use_gate_fusion = bool(use_gate_fusion_raw)
+            
             self.gate_dropout = getattr(cfg.MODEL, 'GATE_DROPOUT', 0.1)
             
             # 🔥 新增：注意力融合配置
             # 功能：从配置文件读取注意力融合设置，支持注意力融合机制开关
-            self.use_attention_fusion = getattr(cfg.MODEL, 'USE_ATTENTION_FUSION', False)
+            # 🔧 修复：处理YACS可能将"True"解析为字符串的情况
+            use_attention_fusion_raw = getattr(cfg.MODEL, 'USE_ATTENTION_FUSION', False)
+            if isinstance(use_attention_fusion_raw, str):
+                self.use_attention_fusion = use_attention_fusion_raw.lower() in ('true', '1', 'yes')
+                print(f"🔍 注意力融合参数修正: '{use_attention_fusion_raw}' -> {self.use_attention_fusion}")
+            else:
+                self.use_attention_fusion = bool(use_attention_fusion_raw)
+            
             self.attention_num_heads = getattr(cfg.MODEL, 'ATTENTION_NUM_HEADS', 8)
             self.attention_dropout = getattr(cfg.MODEL, 'ATTENTION_DROPOUT', 0.1)
             self.attention_dim = getattr(cfg.MODEL, 'ATTENTION_DIM', 512)

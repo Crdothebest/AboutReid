@@ -98,6 +98,32 @@ if __name__ == '__main__':
                 print(f"   - 多样性损失权重: {diversity_weight} (类型: {type(diversity_weight)})")
                 if balance_weight != 0.0:
                     print(f"   ⚠️  警告：MOE_BALANCE_LOSS_WEIGHT 应该为 0.0，但实际值为 {balance_weight}")
+            
+            # 3. 验证注意力融合参数
+            if 'MODEL.USE_ATTENTION_FUSION' in args.opts:
+                use_attention_fusion = getattr(cfg.MODEL, 'USE_ATTENTION_FUSION', None)
+                print(f"🔍 验证注意力融合参数（命令行覆盖后）:")
+                print(f"   - USE_ATTENTION_FUSION: {use_attention_fusion} (类型: {type(use_attention_fusion)})")
+                # 处理YACS可能将"True"解析为字符串的情况
+                if isinstance(use_attention_fusion, str):
+                    use_attention_fusion_bool = use_attention_fusion.lower() in ('true', '1', 'yes')
+                    print(f"   - 字符串转换为布尔值: {use_attention_fusion_bool}")
+                    cfg.MODEL.USE_ATTENTION_FUSION = use_attention_fusion_bool
+                    print(f"   ✅ 已修正为: {cfg.MODEL.USE_ATTENTION_FUSION}")
+                elif use_attention_fusion != True:
+                    print(f"   ⚠️  警告：USE_ATTENTION_FUSION 应该为 True，但实际值为 {use_attention_fusion}")
+            
+            # 4. 验证门控融合参数
+            if 'MODEL.USE_GATE_FUSION' in args.opts:
+                use_gate_fusion = getattr(cfg.MODEL, 'USE_GATE_FUSION', None)
+                print(f"🔍 验证门控融合参数（命令行覆盖后）:")
+                print(f"   - USE_GATE_FUSION: {use_gate_fusion} (类型: {type(use_gate_fusion)})")
+                # 处理YACS可能将"True"解析为字符串的情况
+                if isinstance(use_gate_fusion, str):
+                    use_gate_fusion_bool = use_gate_fusion.lower() in ('true', '1', 'yes')
+                    print(f"   - 字符串转换为布尔值: {use_gate_fusion_bool}")
+                    cfg.MODEL.USE_GATE_FUSION = use_gate_fusion_bool
+                    print(f"   ✅ 已修正为: {cfg.MODEL.USE_GATE_FUSION}")
                 if diversity_weight != 0.0:
                     print(f"   ⚠️  警告：MOE_DIVERSITY_LOSS_WEIGHT 应该为 0.0，但实际值为 {diversity_weight}")
         except Exception as e:
