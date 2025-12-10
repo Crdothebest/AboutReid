@@ -258,6 +258,7 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 if hasattr(self, 'use_multi_scale_moe') and self.use_multi_scale_moe and hasattr(self, 'clip_multi_scale_moe'):
                     # 🔥 使用MoE融合多尺度特征
                     # 核心算法：4x4/8x8/16x16滑动窗口 → MoE专家网络 → 动态权重融合
+                    # 🎯 Step 4: 传递epoch给MoE模块，激活温度调度
                     multi_scale_feature, expert_weights = self.clip_multi_scale_moe(patch_tokens)  # [B, 512], [B, 3]
                     
                     # 🔥 MoE融合完成提示（仅在第一次调用时显示）
