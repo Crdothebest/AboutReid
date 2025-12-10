@@ -60,7 +60,7 @@ def do_train(cfg,
         evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM)
 
     scaler = amp.GradScaler()                           # 混合精度：缩放器
-    best_index = {'mAP': 0, "Rank-1": 0, 'Rank-5': 0, 'Rank-10': 0, 'best_epoch': 0}  # 记录最好指标和对应epoch
+    best_index = {'mAP': 0, "Rank-1": 0, 'Rank-5': 0, 'Rank-10': 0, 'best_epoch': 0, 'best_expert_weights': None}  # 记录最好指标和对应epoch及专家权重
     # 🔥 新增：记录每次验证的current和best值（用于趋势分析）
     validation_history = {
         'epochs': [],
@@ -325,17 +325,6 @@ def do_train(cfg,
                     for r in [1, 5, 10]:   # 还可以加 234 等，可以看到别的值
                         logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))  # 打印日至
                     
-                    # 🔥 新增：更新并输出最佳指标（分布式训练）
-                    if mAP >= best_index['mAP']:
-                        best_index['mAP']     = mAP
-                        best_index['Rank-1']  = cmc[0]
-                        best_index['Rank-5']  = cmc[4]
-                        best_index['Rank-10'] = cmc[9]
-                        best_index['best_epoch'] = epoch
-                        logger.info("🎯 New Best! Saving model...")
-                        torch.save(model.state_dict(),
-                                   os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
-                    
                     # 🔥 新增：获取当前验证的专家权重分布
                     current_expert_weights = None
                     if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'current_expert_weights'):
@@ -345,6 +334,18 @@ def do_train(cfg,
                             with torch.no_grad():
                                 avg_weights = expert_weights.mean(dim=0).cpu().numpy()
                                 current_expert_weights = avg_weights.tolist()
+                    
+                    # 🔥 新增：更新并输出最佳指标（分布式训练）
+                    if mAP >= best_index['mAP']:
+                        best_index['mAP']     = mAP
+                        best_index['Rank-1']  = cmc[0]
+                        best_index['Rank-5']  = cmc[4]
+                        best_index['Rank-10'] = cmc[9]
+                        best_index['best_epoch'] = epoch
+                        best_index['best_expert_weights'] = current_expert_weights.copy() if current_expert_weights else None
+                        logger.info("🎯 New Best! Saving model...")
+                        torch.save(model.state_dict(),
+                                   os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
                     
                     # 🔥 新增：记录当前验证的current和best值
                     validation_history['epochs'].append(epoch)
@@ -399,10 +400,21 @@ def do_train(cfg,
                     else:
                         logger.info("⚠️  专家权重分布: 未获取到（可能未启用MoE模块）")
                     
-                    logger.info("Best mAP: {:.1%} (Epoch {})".format(best_index['mAP'], best_index['best_epoch']))
-                    logger.info("Best Rank-1: {:.1%}".format(best_index['Rank-1']))
-                    logger.info("Best Rank-5: {:.1%}".format(best_index['Rank-5']))
-                    logger.info("Best Rank-10: {:.1%}".format(best_index['Rank-10']))
+                    # 🔥 新增：输出Best值的完整信息（包括mAP、Rank和专家权重占比）
+                    logger.info("=" * 60)
+                    logger.info("🏆 Best Results Summary (Epoch {}):".format(best_index['best_epoch']))
+                    logger.info("   Best mAP: {:.1%}".format(best_index['mAP']))
+                    logger.info("   Best Rank-1: {:.1%}".format(best_index['Rank-1']))
+                    logger.info("   Best Rank-5: {:.1%}".format(best_index['Rank-5']))
+                    logger.info("   Best Rank-10: {:.1%}".format(best_index['Rank-10']))
+                    if best_index['best_expert_weights'] is not None:
+                        weights = best_index['best_expert_weights']
+                        logger.info("   🎯 Best Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(weights[0], weights[1], weights[2]))
+                        logger.info("   📊 Expert Weight Percentages: [{:.1f}%, {:.1f}%, {:.1f}%]".format(
+                            weights[0] * 100, weights[1] * 100, weights[2] * 100))
+                    else:
+                        logger.info("   ⚠️  Expert Weights: Not available (MoE may not be enabled)")
+                    logger.info("=" * 60)
                     torch.cuda.empty_cache()
             else:
                 model.eval()
@@ -425,17 +437,6 @@ def do_train(cfg,
                 for r in [1, 5, 10]:
                     logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
 
-                # 🔥 维护最佳指标并保存 best.pth（仅非分布式分支）
-                if mAP >= best_index['mAP']:
-                    best_index['mAP']     = mAP
-                    best_index['Rank-1']  = cmc[0]
-                    best_index['Rank-5']  = cmc[4]
-                    best_index['Rank-10'] = cmc[9]
-                    best_index['best_epoch'] = epoch
-                    logger.info("🎯 New Best! Saving model...")
-                    torch.save(model.state_dict(),
-                               os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
-                
                 # 🔥 新增：获取当前验证的专家权重分布
                 current_expert_weights = None
                 if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'current_expert_weights'):
@@ -445,6 +446,18 @@ def do_train(cfg,
                         with torch.no_grad():
                             avg_weights = expert_weights.mean(dim=0).cpu().numpy()
                             current_expert_weights = avg_weights.tolist()
+                
+                # 🔥 维护最佳指标并保存 best.pth（仅非分布式分支）
+                if mAP >= best_index['mAP']:
+                    best_index['mAP']     = mAP
+                    best_index['Rank-1']  = cmc[0]
+                    best_index['Rank-5']  = cmc[4]
+                    best_index['Rank-10'] = cmc[9]
+                    best_index['best_epoch'] = epoch
+                    best_index['best_expert_weights'] = current_expert_weights.copy() if current_expert_weights else None
+                    logger.info("🎯 New Best! Saving model...")
+                    torch.save(model.state_dict(),
+                               os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
                 
                 # 🔥 新增：记录当前验证的current和best值
                 validation_history['epochs'].append(epoch)
@@ -499,10 +512,21 @@ def do_train(cfg,
                 else:
                     logger.info("⚠️  专家权重分布: 未获取到（可能未启用MoE模块）")
                 
-                logger.info("Best mAP: {:.1%} (Epoch {})".format(best_index['mAP'], best_index['best_epoch']))
-                logger.info("Best Rank-1: {:.1%}".format(best_index['Rank-1']))
-                logger.info("Best Rank-5: {:.1%}".format(best_index['Rank-5']))
-                logger.info("Best Rank-10: {:.1%}".format(best_index['Rank-10']))
+                # 🔥 新增：输出Best值的完整信息（包括mAP、Rank和专家权重占比）
+                logger.info("=" * 60)
+                logger.info("🏆 Best Results Summary (Epoch {}):".format(best_index['best_epoch']))
+                logger.info("   Best mAP: {:.1%}".format(best_index['mAP']))
+                logger.info("   Best Rank-1: {:.1%}".format(best_index['Rank-1']))
+                logger.info("   Best Rank-5: {:.1%}".format(best_index['Rank-5']))
+                logger.info("   Best Rank-10: {:.1%}".format(best_index['Rank-10']))
+                if best_index['best_expert_weights'] is not None:
+                    weights = best_index['best_expert_weights']
+                    logger.info("   🎯 Best Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(weights[0], weights[1], weights[2]))
+                    logger.info("   📊 Expert Weight Percentages: [{:.1f}%, {:.1f}%, {:.1f}%]".format(
+                        weights[0] * 100, weights[1] * 100, weights[2] * 100))
+                else:
+                    logger.info("   ⚠️  Expert Weights: Not available (MoE may not be enabled)")
+                logger.info("=" * 60)
                 torch.cuda.empty_cache()
 
 
