@@ -145,6 +145,14 @@ if __name__ == '__main__':
             # 5. 验证门控融合参数（详细输出）
             use_gate_fusion = getattr(cfg.MODEL, 'USE_GATE_FUSION', False)
             print(f"🔍 最终门控融合参数: USE_GATE_FUSION = {use_gate_fusion} (类型: {type(use_gate_fusion)})")
+            
+            # 6. 验证随机擦除参数（详细输出）
+            re_prob = getattr(cfg.INPUT, 'RE_PROB', 0.5)
+            print(f"🔍 随机擦除参数: INPUT.RE_PROB = {re_prob} (类型: {type(re_prob)})")
+            if re_prob > 0:
+                print(f"   ✅ 随机擦除数据增强已启用，概率: {re_prob} ({re_prob*100:.1f}%)")
+            else:
+                print(f"   ⚠️  随机擦除数据增强已禁用 (RE_PROB={re_prob})")
         except Exception as e:
             print(f"❌ --opts 参数解析错误: {e}")
             print(f"   请检查参数路径是否正确（如 MODEL.MOE_TEMPERATURE 或 SOLVER.MOE_BALANCE_LOSS_WEIGHT）")

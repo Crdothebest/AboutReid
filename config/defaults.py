@@ -116,6 +116,43 @@ _C.MODEL.ATTENTION_NUM_HEADS = 8              # attention fusion number of heads
 _C.MODEL.ATTENTION_DROPOUT = 0.1              # attention fusion dropout
 _C.MODEL.ATTENTION_DIM = 512                  # attention fusion dimension
 
+# ========================================================================
+# 【Top-k 路由配置】
+# ========================================================================
+# 
+# 【功能】支持 Top-k 路由机制，强制激活 k 个专家，避免单个专家垄断
+# 
+# 【参数说明】
+# - MOE_USE_TOP_K_ROUTING: 是否启用 Top-k 路由（默认 False，使用传统软路由）
+# - MOE_TOP_K: Top-k 路由的 k 值（默认 2，即 Top-2）
+#   * k=1: 只激活权重最大的专家（最稀疏，但可能丢失信息）
+#   * k=2: 激活权重最大的两个专家（推荐，平衡稀疏性和信息保留）
+#   * k=3: 激活所有专家（等同于传统软路由，当专家数量为3时）
+# - MOE_TOP_K_MODE: Top-k 路由模式（默认 'soft'）
+#   * 'soft': 软 Top-k，重新归一化 Top-k 权重，保留被屏蔽专家的梯度（推荐）
+#   * 'hard': 硬 Top-k，直接 mask 非 Top-k 专家，完全屏蔽其贡献
+# 
+# 【使用场景】
+# 1. 解决 E1 垄断问题：当某个专家权重过大时，强制激活多个专家
+# 2. 提高特征多样性：确保多个专家的知识都被利用
+# 3. 平衡稀疏性和性能：在效率和性能之间取得平衡
+# 
+# 【注意事项】
+# - Top-k 路由与 Load Balancing Loss 可能存在目标冲突，建议降低 L_Bal 权重
+# - 对于 N=3 的 MoE，k=2 激活 66% 的专家，效率收益有限，主要目标是强制平衡
+# - 推荐使用软 Top-k（保留梯度），减少与损失函数的冲突
+# 
+# 【使用方法】
+# 1. 配置文件：在YAML文件中设置
+#    MODEL.MOE_USE_TOP_K_ROUTING True
+#    MODEL.MOE_TOP_K 2
+#    MODEL.MOE_TOP_K_MODE "soft"
+# 2. 命令行：--opts MODEL.MOE_USE_TOP_K_ROUTING True MODEL.MOE_TOP_K 2
+# ========================================================================
+_C.MODEL.MOE_USE_TOP_K_ROUTING = False       # whether use Top-k routing (默认 False，使用传统软路由)
+_C.MODEL.MOE_TOP_K = 2                        # Top-k routing k value (默认 2，即 Top-2)
+_C.MODEL.MOE_TOP_K_MODE = "soft"             # Top-k routing mode: "soft" (推荐) or "hard"
+
 
 # If train with label smooth, options: 'on', 'off'
 _C.MODEL.IF_LABELSMOOTH = 'on'

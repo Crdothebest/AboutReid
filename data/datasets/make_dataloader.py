@@ -189,6 +189,16 @@ def val_collate_fn(batch):
 
 # 该函数根据配置文件 cfg 构建训练和验证数据加载器（dataloader）
 def make_dataloader(cfg):
+    # 🔥 数据增强配置输出
+    re_prob = getattr(cfg.INPUT, 'RE_PROB', 0.5)
+    if re_prob > 0:
+        print(f"🔥 随机擦除（Random Erasing）数据增强：已启用")
+        print(f"   - 擦除概率: {re_prob} ({re_prob*100:.1f}%)")
+        print(f"   - 擦除模式: pixel（每像素随机颜色）")
+        print(f"   - 最大擦除块数: 1")
+    else:
+        print(f"🔥 随机擦除（Random Erasing）数据增强：已禁用 (RE_PROB={re_prob})")
+    
     train_transforms = T.Compose([
         T.Resize(cfg.INPUT.SIZE_TRAIN, interpolation=3),
         T.RandomHorizontalFlip(p=cfg.INPUT.PROB),
@@ -196,7 +206,7 @@ def make_dataloader(cfg):
         T.RandomCrop(cfg.INPUT.SIZE_TRAIN),
         T.ToTensor(),
         T.Normalize(mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD),
-        RandomErasing(probability=cfg.INPUT.RE_PROB, mode='pixel', max_count=1, device='cpu'),
+        RandomErasing(probability=re_prob, mode='pixel', max_count=1, device='cpu'),
     ])
 
     val_transforms = T.Compose([

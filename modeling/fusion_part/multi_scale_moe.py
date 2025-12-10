@@ -412,12 +412,21 @@ class MultiScaleMoE(nn.Module):
     - 支持门控加权-预处理机制增强
     """
     
-    def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0, 
+    def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0,
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
                  expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
                  use_attention_fusion=False, attention_num_heads=8,
                  attention_dropout=0.1, attention_dim=512, init_weights=None,
-                 use_fixed_weights=False, fixed_weights=None):
+                 use_fixed_weights=False, fixed_weights=None,
+                 use_top_k_routing=False, top_k=2, top_k_mode="soft"):
+        """
+        初始化CLIP多尺度MoE模块
+        
+        Args:
+            use_top_k_routing (bool): 是否使用 Top-k 路由机制
+            top_k (int): Top-k 路由的 k 值
+            top_k_mode (str): Top-k 路由模式 ("soft" 或 "hard")
+        """
         """
         初始化多尺度MoE模块
         
@@ -462,9 +471,22 @@ class MultiScaleMoE(nn.Module):
         self.use_attention_fusion = use_attention_fusion
         self.use_fixed_weights = use_fixed_weights
         self.fixed_weights = fixed_weights
+        self.use_top_k_routing = use_top_k_routing
+        self.top_k = top_k
+        self.top_k_mode = top_k_mode
         # 🔧 修复：保存专家网络参数，用于后续显示
         self.expert_hidden_dim = expert_hidden_dim
         self.expert_layers = expert_layers
+        
+        # 🔥 Top-k 路由参数验证
+        if self.use_top_k_routing:
+            if self.top_k < 1 or self.top_k > self.num_experts:
+                raise ValueError(f"Top-k value ({self.top_k}) must be between 1 and {self.num_experts}")
+            if self.top_k_mode not in ["soft", "hard"]:
+                raise ValueError(f"Top-k mode must be 'soft' or 'hard', got '{self.top_k_mode}'")
+            print(f"🔥 Top-k 路由：已启用 (k={self.top_k}, mode={self.top_k_mode})")
+        else:
+            print("🔥 Top-k 路由：已禁用 (使用传统软路由)")
         
         # 🔥 门控加权-预处理模块（可选）
         if self.use_gate_fusion:
@@ -846,6 +868,103 @@ class MultiScaleMoE(nn.Module):
         final_feature = self.final_fusion(fused_feature)  # [B, feat_dim]
         
         return final_feature, expert_weights
+    
+    def _apply_top_k_routing(self, expert_weights):
+        """
+        🔥 Top-k 路由处理
+        
+        功能：强制激活权重最大的 k 个专家，屏蔽其他专家
+        
+        Args:
+            expert_weights: [B, num_experts] - 原始专家权重（已归一化）
+        Returns:
+            expert_weights_topk: [B, num_experts] - Top-k 路由后的权重
+        """
+        B, num_experts = expert_weights.shape
+        
+        # 🔥 Top-k 路由启动提示（仅在第一次调用时显示）
+        if not hasattr(self, '_top_k_routing_called'):
+            print(f"🎯 Top-k 路由处理：强制激活 Top-{self.top_k} 专家")
+            print(f"   - 输入权重形状: {expert_weights.shape}")
+            print(f"   - Top-k 值: {self.top_k}")
+            print(f"   - 路由模式: {self.top_k_mode}")
+            print(f"   - 专家总数: {num_experts}")
+            self._top_k_routing_called = True
+        
+        if self.top_k_mode == "soft":
+            # ========== 软 Top-k 路由：重新归一化 Top-k 权重 ==========
+            # 功能：保留被屏蔽专家的梯度，但权重设为 0
+            # 优势：减少与 Load Balancing Loss 的冲突，训练更稳定
+            # 实现：
+            #   1. 找到 Top-k 专家的索引和权重
+            #   2. 创建 mask，只保留 Top-k 专家的权重
+            #   3. 重新归一化 Top-k 权重，确保和为 1.0
+            
+            # 获取 Top-k 专家的索引和权重
+            topk_values, topk_indices = torch.topk(expert_weights, k=self.top_k, dim=-1)  # [B, k], [B, k]
+            
+            # 创建 mask：只保留 Top-k 专家的权重
+            mask = torch.zeros_like(expert_weights)  # [B, num_experts]
+            mask.scatter_(1, topk_indices, 1.0)  # [B, num_experts]，Top-k 位置为 1.0，其他为 0.0
+            
+            # 应用 mask：屏蔽非 Top-k 专家的权重
+            expert_weights_masked = expert_weights * mask  # [B, num_experts]
+            
+            # 重新归一化 Top-k 权重，确保和为 1.0
+            # 注意：这里使用原始权重（而非 topk_values）进行归一化，保留梯度
+            expert_weights_sum = expert_weights_masked.sum(dim=-1, keepdim=True)  # [B, 1]
+            expert_weights_topk = expert_weights_masked / (expert_weights_sum + 1e-8)  # [B, num_experts]
+            
+            # 🔥 软 Top-k 路由完成提示（仅在第一次调用时显示）
+            if not hasattr(self, '_soft_top_k_complete_called'):
+                print(f"✅ 软 Top-k 路由完成")
+                print(f"   - 输出权重形状: {expert_weights_topk.shape}")
+                print(f"   - Top-{self.top_k} 专家权重已重新归一化")
+                print(f"   - 非 Top-{self.top_k} 专家权重已设为 0（但保留梯度）")
+                print(f"   - 说明：保留被屏蔽专家的梯度，减少与损失函数的冲突")
+                self._soft_top_k_complete_called = True
+            
+        else:  # self.top_k_mode == "hard"
+            # ========== 硬 Top-k 路由：直接 mask 非 Top-k 专家 ==========
+            # 功能：完全屏蔽非 Top-k 专家的贡献
+            # 优势：更彻底的稀疏激活，推理效率更高
+            # 风险：可能丢失关键信息，与 Load Balancing Loss 冲突更严重
+            # 实现：
+            #   1. 找到 Top-k 专家的索引和权重
+            #   2. 创建 mask，只保留 Top-k 专家的权重
+            #   3. 重新归一化 Top-k 权重，确保和为 1.0
+            #   4. 使用 detach() 完全屏蔽非 Top-k 专家的梯度
+            
+            # 获取 Top-k 专家的索引和权重
+            topk_values, topk_indices = torch.topk(expert_weights, k=self.top_k, dim=-1)  # [B, k], [B, k]
+            
+            # 创建 mask：只保留 Top-k 专家的权重
+            mask = torch.zeros_like(expert_weights)  # [B, num_experts]
+            mask.scatter_(1, topk_indices, 1.0)  # [B, num_experts]，Top-k 位置为 1.0，其他为 0.0
+            
+            # 应用 mask：屏蔽非 Top-k 专家的权重
+            expert_weights_masked = expert_weights * mask  # [B, num_experts]
+            
+            # 重新归一化 Top-k 权重，确保和为 1.0
+            expert_weights_sum = expert_weights_masked.sum(dim=-1, keepdim=True)  # [B, 1]
+            expert_weights_topk = expert_weights_masked / (expert_weights_sum + 1e-8)  # [B, num_experts]
+            
+            # 🔥 硬 Top-k 路由：完全屏蔽非 Top-k 专家的梯度
+            # 使用 stop_gradient 技巧：保留 Top-k 专家的梯度，屏蔽非 Top-k 专家的梯度
+            # 实现：expert_weights_topk = expert_weights_topk + (expert_weights * mask - expert_weights_topk).detach()
+            # 这样 Top-k 专家的梯度会保留，非 Top-k 专家的梯度会被屏蔽
+            expert_weights_topk = expert_weights_topk + (expert_weights * mask - expert_weights_topk).detach()
+            
+            # 🔥 硬 Top-k 路由完成提示（仅在第一次调用时显示）
+            if not hasattr(self, '_hard_top_k_complete_called'):
+                print(f"✅ 硬 Top-k 路由完成")
+                print(f"   - 输出权重形状: {expert_weights_topk.shape}")
+                print(f"   - Top-{self.top_k} 专家权重已重新归一化")
+                print(f"   - 非 Top-{self.top_k} 专家权重已设为 0（完全屏蔽梯度）")
+                print(f"   - 警告：可能丢失关键信息，与损失函数冲突更严重")
+                self._hard_top_k_complete_called = True
+        
+        return expert_weights_topk
 
 
 class AttentionFusionConcat(nn.Module):
@@ -1036,7 +1155,8 @@ class CLIPMultiScaleMoE(nn.Module):
                  expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
                  use_attention_fusion=False, attention_num_heads=8,
                  attention_dropout=0.1, attention_dim=512, init_weights=None,
-                 use_fixed_weights=False, fixed_weights=None):
+                 use_fixed_weights=False, fixed_weights=None,
+                 use_top_k_routing=False, top_k=2, top_k_mode="soft"):
         """
         初始化CLIP多尺度MoE模块
         
@@ -1070,6 +1190,11 @@ class CLIPMultiScaleMoE(nn.Module):
                 - 权重会自动归一化，无需手动确保和为1.0
                 - 示例：[0.33, 0.33, 0.34] 表示三个专家权重分别为33%、33%、34%
                 - 如果为None且use_fixed_weights=True，会抛出ValueError
+            use_top_k_routing (bool): 是否使用 Top-k 路由机制（默认 False）
+            top_k (int): Top-k 路由的 k 值（默认 2，即 Top-2）
+            top_k_mode (str): Top-k 路由模式（默认 "soft"）
+                - "soft": 软 Top-k，重新归一化 Top-k 权重，保留被屏蔽专家的梯度（推荐）
+                - "hard": 硬 Top-k，直接 mask 非 Top-k 专家，完全屏蔽其贡献
         """
         super(CLIPMultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -1098,7 +1223,10 @@ class CLIPMultiScaleMoE(nn.Module):
             attention_dim=attention_dim,
             init_weights=init_weights,
             use_fixed_weights=use_fixed_weights,
-            fixed_weights=fixed_weights
+            fixed_weights=fixed_weights,
+            use_top_k_routing=use_top_k_routing,
+            top_k=top_k,
+            top_k_mode=top_k_mode
         )
         
         print(f"🔥 CLIP多尺度MoE模块初始化完成:")

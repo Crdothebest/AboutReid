@@ -260,6 +260,22 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 else:
                     print(f"   ⚠️  固定权重模式未启用，将使用动态门控网络")
                 
+                # 🔥 Top-k 路由参数
+                use_top_k_routing = getattr(cfg.MODEL, 'MOE_USE_TOP_K_ROUTING', False)
+                top_k = getattr(cfg.MODEL, 'MOE_TOP_K', 2)
+                top_k_mode = getattr(cfg.MODEL, 'MOE_TOP_K_MODE', 'soft')
+                
+                # 处理字符串类型的布尔值
+                if isinstance(use_top_k_routing, str):
+                    use_top_k_routing = use_top_k_routing.lower() in ['true', '1', 'yes']
+                
+                # 处理字符串类型的 top_k_mode
+                if isinstance(top_k_mode, str):
+                    top_k_mode = top_k_mode.lower()
+                    if top_k_mode not in ['soft', 'hard']:
+                        print(f"⚠️  警告: MOE_TOP_K_MODE '{top_k_mode}' 无效，使用默认值 'soft'")
+                        top_k_mode = 'soft'
+                
                 # 初始化多尺度MoE模块：使用所有配置参数
                 self.clip_multi_scale_moe = CLIPMultiScaleMoE(
                     feat_dim=512, 
@@ -279,7 +295,10 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     attention_dim=self.attention_dim,
                     init_weights=init_weights,
                     use_fixed_weights=use_fixed_weights,
-                    fixed_weights=fixed_weights
+                    fixed_weights=fixed_weights,
+                    use_top_k_routing=use_top_k_routing,
+                    top_k=top_k,
+                    top_k_mode=top_k_mode
                 )
                 # 初始化专家权重历史记录（用于分析）
                 self.expert_weights_history = []
