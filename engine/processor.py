@@ -135,13 +135,20 @@ def do_train(cfg,
                             # 🔥 修复：确保命令行设置的0.0权重有最高优先级
                             # 配置优先级：命令行参数 > 动态调度 > 默认值
                             
+                            # 🔥 修复：同时支持MODEL和SOLVER命名空间，优先使用SOLVER
                             # 首先读取命令行设置的静态权重（最高优先级）
                             static_balance_weight = None
                             static_diversity_weight = None
+                            # 优先读取SOLVER命名空间，如果不存在则读取MODEL命名空间
                             if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'):
                                 static_balance_weight = cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT
+                            elif hasattr(cfg.MODEL, 'MOE_BALANCE_LOSS_WEIGHT'):
+                                static_balance_weight = cfg.MODEL.MOE_BALANCE_LOSS_WEIGHT
+                            
                             if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'):
                                 static_diversity_weight = cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT
+                            elif hasattr(cfg.MODEL, 'MOE_DIVERSITY_LOSS_WEIGHT'):
+                                static_diversity_weight = cfg.MODEL.MOE_DIVERSITY_LOSS_WEIGHT
                             
                             # 🔥 修复：检查是否启用动态调度（需要显式检查，因为可能是字符串）
                             use_dynamic_loss_weight = getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False)
@@ -203,9 +210,10 @@ def do_train(cfg,
                             
                             # 🔥 最终验证：确保命令行设置的0.0权重不被覆盖（最高优先级）
                             # 配置优先级：命令行参数 > 动态调度 > 默认值
-                            if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT') and cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT == 0.0:
+                            # 同时检查SOLVER和MODEL命名空间
+                            if static_diversity_weight == 0.0:
                                 dynamic_diversity_weight = 0.0
-                            if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT') and cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT == 0.0:
+                            if static_balance_weight == 0.0:
                                 dynamic_balance_weight = 0.0
                             
                             # 调用MoE损失函数，传入动态权重
