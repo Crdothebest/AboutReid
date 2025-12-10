@@ -125,11 +125,11 @@ if __name__ == '__main__':
         print("🔥 命令行禁用多尺度MoE融合")
     
     # 门控融合控制
+    # 注意：门控融合使用MLP门控网络，不需要num_heads参数
     if args.use_attention:
         cfg.MODEL.USE_GATE_FUSION = True
-        cfg.MODEL.GATE_NUM_HEADS = args.attention_heads
         cfg.MODEL.GATE_DROPOUT = args.attention_dropout
-        print(f"🔥 命令行启用门控融合机制: {args.attention_heads}个门控头, Dropout={args.attention_dropout}")
+        print(f"🔥 命令行启用门控融合机制: Dropout={args.attention_dropout}")
     elif args.disable_attention:
         cfg.MODEL.USE_GATE_FUSION = False
         print("🔥 命令行禁用门控融合机制")

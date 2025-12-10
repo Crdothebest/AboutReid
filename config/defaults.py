@@ -105,8 +105,9 @@ _C.MODEL.MOE_DIVERSITY_LOSS_WEIGHT = 0.01 # MoE diversity loss weight
 # 基于：门控融合增强MoE特征融合创新设计
 # 撤销方法：删除以下配置代码
 # Gate Fusion settings
+# 注意：门控融合使用MLP门控网络（GateFusionConcat），不是多头注意力机制
+#      因此不需要GATE_NUM_HEADS参数。如需多头注意力，请使用USE_ATTENTION_FUSION
 _C.MODEL.USE_GATE_FUSION = False              # whether use gate fusion mechanism (默认关闭)
-_C.MODEL.GATE_NUM_HEADS = 8                   # gate fusion number of heads
 _C.MODEL.GATE_DROPOUT = 0.1                   # gate fusion dropout
 
 # Attention Fusion settings

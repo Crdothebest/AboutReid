@@ -280,20 +280,23 @@ class GatingNetwork(nn.Module):
         return weights
 
 
-class MultiHeadAttentionConcat(nn.Module):
+class GateFusionConcat(nn.Module):
     """
     🔥 门控加权-预处理模块
     
     核心功能：
-    - 使用门控网络学习动态权重
+    - 使用门控网络（MLP）学习动态权重
     - 智能加权融合多尺度特征
     - 实现更智能的特征融合
+    
+    注意：
+    - 本模块使用门控网络（MLP + Softmax），不是多头注意力机制
+    - 如需真正的多头注意力机制，请使用 AttentionFusionConcat
     """
     
-    def __init__(self, feat_dim=512, num_heads=8, scales=[4, 8, 16], dropout=0.1):
-        super(MultiHeadAttentionConcat, self).__init__()
+    def __init__(self, feat_dim=512, scales=[4, 8, 16], dropout=0.1):
+        super(GateFusionConcat, self).__init__()
         self.feat_dim = feat_dim
-        self.num_heads = num_heads
         self.scales = scales
         self.dropout = dropout
         
@@ -412,7 +415,7 @@ class MultiScaleMoE(nn.Module):
     def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0, 
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
                  expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
-                 gate_num_heads=8, use_attention_fusion=False, attention_num_heads=8,
+                 use_attention_fusion=False, attention_num_heads=8,
                  attention_dropout=0.1, attention_dim=512, init_weights=None,
                  use_fixed_weights=False, fixed_weights=None):
         """
@@ -429,10 +432,9 @@ class MultiScaleMoE(nn.Module):
             gate_layers (int): 门控网络层数
             expert_threshold (float): 专家激活阈值
             residual_weight (float): 残差连接权重
-            use_gate_fusion (bool): 是否使用门控加权-预处理机制
-            gate_num_heads (int): 门控网络头数
-            use_attention_fusion (bool): 是否使用注意力-预处理机制
-            attention_num_heads (int): 注意力网络头数
+            use_gate_fusion (bool): 是否使用门控加权-预处理机制（使用MLP门控网络）
+            use_attention_fusion (bool): 是否使用注意力-预处理机制（使用多头注意力）
+            attention_num_heads (int): 注意力网络头数（仅在use_attention_fusion=True时使用）
             attention_dropout (float): 注意力网络Dropout比例
             attention_dim (int): 注意力网络维度
             init_weights (list, optional): 专家初始权重列表，如 [0.35, 0.3, 0.35]
@@ -466,13 +468,12 @@ class MultiScaleMoE(nn.Module):
         
         # 🔥 门控加权-预处理模块（可选）
         if self.use_gate_fusion:
-            self.gate_fusion = MultiHeadAttentionConcat(
+            self.gate_fusion = GateFusionConcat(
                 feat_dim=feat_dim,
-                num_heads=gate_num_heads,
                 scales=scales,
                 dropout=gate_dropout
             )
-            print(f"🔥 门控加权-预处理机制：已启用 ({gate_num_heads}个门控头, Dropout={gate_dropout})")
+            print(f"🔥 门控加权-预处理机制：已启用 (Dropout={gate_dropout})")
         else:
             self.gate_fusion = None
             print("🔥 门控加权-预处理机制：已禁用 (使用传统MLP融合)")
@@ -1033,7 +1034,7 @@ class CLIPMultiScaleMoE(nn.Module):
     def __init__(self, feat_dim=512, scales=[4, 8, 16], expert_hidden_dim=1024, temperature=1.0,
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
                  expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
-                 gate_num_heads=8, use_attention_fusion=False, attention_num_heads=8,
+                 use_attention_fusion=False, attention_num_heads=8,
                  attention_dropout=0.1, attention_dim=512, init_weights=None,
                  use_fixed_weights=False, fixed_weights=None):
         """
@@ -1050,10 +1051,9 @@ class CLIPMultiScaleMoE(nn.Module):
             gate_layers (int): 门控网络层数
             expert_threshold (float): 专家激活阈值
             residual_weight (float): 残差连接权重
-            use_gate_fusion (bool): 是否使用门控加权-预处理机制
-            gate_num_heads (int): 门控网络头数
-            use_attention_fusion (bool): 是否使用注意力-预处理机制
-            attention_num_heads (int): 注意力网络头数
+            use_gate_fusion (bool): 是否使用门控加权-预处理机制（使用MLP门控网络）
+            use_attention_fusion (bool): 是否使用注意力-预处理机制（使用多头注意力）
+            attention_num_heads (int): 注意力网络头数（仅在use_attention_fusion=True时使用）
             attention_dropout (float): 注意力网络Dropout比例
             attention_dim (int): 注意力网络维度
             init_weights (list, optional): 专家初始权重列表，如 [0.35, 0.3, 0.35]
@@ -1092,7 +1092,6 @@ class CLIPMultiScaleMoE(nn.Module):
             expert_threshold=expert_threshold,
             residual_weight=residual_weight,
             use_gate_fusion=use_gate_fusion,
-            gate_num_heads=gate_num_heads,
             use_attention_fusion=use_attention_fusion,
             attention_num_heads=attention_num_heads,
             attention_dropout=attention_dropout,

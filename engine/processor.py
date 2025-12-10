@@ -333,8 +333,9 @@ def do_train(cfg,
                     for r in [1, 5, 10]:   # 还可以加 234 等，可以看到别的值
                         logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))  # 打印日至
                     
-                    # 🔥 新增：获取当前验证的专家权重分布
+                    # 🔥 新增：获取当前验证的专家权重分布和MoE损失
                     current_expert_weights = None
+                    current_moe_loss_dict = None
                     if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'current_expert_weights'):
                         expert_weights = model.BACKBONE.current_expert_weights
                         if expert_weights is not None:
@@ -342,6 +343,76 @@ def do_train(cfg,
                             with torch.no_grad():
                                 avg_weights = expert_weights.mean(dim=0).cpu().numpy()
                                 current_expert_weights = avg_weights.tolist()
+                                
+                                # 🔥 新增：计算当前验证时的MoE损失
+                                if hasattr(loss_fn, 'moe_loss_fn') and loss_fn.moe_loss_fn is not None:
+                                    # 使用与训练时相同的权重逻辑
+                                    static_balance_weight = None
+                                    static_diversity_weight = None
+                                    if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'):
+                                        static_balance_weight = cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT
+                                    elif hasattr(cfg.MODEL, 'MOE_BALANCE_LOSS_WEIGHT'):
+                                        static_balance_weight = cfg.MODEL.MOE_BALANCE_LOSS_WEIGHT
+                                    
+                                    if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'):
+                                        static_diversity_weight = cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT
+                                    elif hasattr(cfg.MODEL, 'MOE_DIVERSITY_LOSS_WEIGHT'):
+                                        static_diversity_weight = cfg.MODEL.MOE_DIVERSITY_LOSS_WEIGHT
+                                    
+                                    # 检查是否启用动态调度
+                                    use_dynamic_loss_weight = getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False)
+                                    if isinstance(use_dynamic_loss_weight, str):
+                                        use_dynamic_loss_weight = use_dynamic_loss_weight.lower() not in ('false', '0', 'no')
+                                    else:
+                                        use_dynamic_loss_weight = bool(use_dynamic_loss_weight)
+                                    
+                                    if static_balance_weight == 0.0 and static_diversity_weight == 0.0:
+                                        dynamic_balance_weight = 0.0
+                                        dynamic_diversity_weight = 0.0
+                                    elif use_dynamic_loss_weight:
+                                        max_epochs = cfg.SOLVER.MAX_EPOCHS
+                                        warmup_epochs = getattr(cfg.SOLVER, 'MOE_LOSS_WEIGHT_WARMUP_EPOCHS', 5)
+                                        schedule_type = getattr(cfg.SOLVER, 'MOE_LOSS_WEIGHT_SCHEDULE_TYPE', 'cosine')
+                                        
+                                        if epoch <= warmup_epochs:
+                                            progress = 0.0
+                                        else:
+                                            progress = min(1.0, (epoch - warmup_epochs) / (max_epochs - warmup_epochs))
+                                        
+                                        if schedule_type == 'linear':
+                                            weight_factor = progress
+                                        elif schedule_type == 'cosine':
+                                            weight_factor = 0.5 * (1 - math.cos(math.pi * progress))
+                                        else:
+                                            weight_factor = progress
+                                        
+                                        balance_start = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT_START', 0.001)
+                                        balance_end = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT_END', 0.1)
+                                        dynamic_balance_weight = balance_start + (balance_end - balance_start) * weight_factor
+                                        
+                                        diversity_start = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_START', 0.001)
+                                        diversity_end = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_END', 0.1)
+                                        dynamic_diversity_weight = diversity_start + (diversity_end - diversity_start) * weight_factor
+                                        
+                                        if static_balance_weight is not None:
+                                            dynamic_balance_weight = static_balance_weight
+                                        if static_diversity_weight is not None:
+                                            dynamic_diversity_weight = static_diversity_weight
+                                    else:
+                                        dynamic_balance_weight = static_balance_weight
+                                        dynamic_diversity_weight = static_diversity_weight
+                                    
+                                    if static_diversity_weight == 0.0:
+                                        dynamic_diversity_weight = 0.0
+                                    if static_balance_weight == 0.0:
+                                        dynamic_balance_weight = 0.0
+                                    
+                                    # 计算MoE损失
+                                    _, current_moe_loss_dict = loss_fn.moe_loss_fn(
+                                        expert_weights,
+                                        balance_weight=dynamic_balance_weight,
+                                        diversity_weight=dynamic_diversity_weight
+                                    )
                     
                     # 🔥 新增：更新并输出最佳指标（分布式训练）
                     if mAP >= best_index['mAP']:
@@ -408,6 +479,32 @@ def do_train(cfg,
                     else:
                         logger.info("⚠️  专家权重分布: 未获取到（可能未启用MoE模块）")
                     
+                    # 🔥 新增：输出Current值的完整信息（包括mAP、Rank和MoE Loss）
+                    logger.info("=" * 60)
+                    logger.info("📊 Current Results Summary (Epoch {}):".format(epoch))
+                    logger.info("   Current mAP: {:.1%}".format(mAP))
+                    logger.info("   Current Rank-1: {:.1%}".format(cmc[0]))
+                    logger.info("   Current Rank-5: {:.1%}".format(cmc[4]))
+                    logger.info("   Current Rank-10: {:.1%}".format(cmc[9]))
+                    if current_expert_weights is not None:
+                        logger.info("   🎯 Current Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(
+                            current_expert_weights[0], current_expert_weights[1], current_expert_weights[2]))
+                    if current_moe_loss_dict is not None:
+                        diversity_loss_value = current_moe_loss_dict['moe_diversity_loss']
+                        diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
+                        logger.info("📋 MoE Loss 详细日志 (Epoch {}, Iter 0):".format(epoch))
+                        logger.info("   - 平衡损失 (L_Bal): {:.6f}".format(current_moe_loss_dict['moe_balance_loss']))
+                        logger.info("   - 稀疏性损失 (L_Spar): {:.6f}".format(current_moe_loss_dict['moe_sparsity_loss']))
+                        logger.info("   - 多样性损失 (L_Div): {:.6f} {}".format(
+                            current_moe_loss_dict['moe_diversity_loss'], diversity_status))
+                        logger.info("   - 总损失 (L_Total): {:.6f}".format(current_moe_loss_dict['moe_total_loss']))
+                        if 'moe_balance_weight' in current_moe_loss_dict:
+                            logger.info("   - 损失权重: 平衡={:.4f}, 稀疏性={}, 多样性={:.4f}".format(
+                                current_moe_loss_dict['moe_balance_weight'],
+                                current_moe_loss_dict.get('moe_sparsity_weight', 'N/A'),
+                                current_moe_loss_dict['moe_diversity_weight']))
+                    logger.info("=" * 60)
+                    
                     # 🔥 新增：输出Best值的完整信息（包括mAP、Rank和专家权重占比）
                     logger.info("=" * 60)
                     logger.info("🏆 Best Results Summary (Epoch {}):".format(best_index['best_epoch']))
@@ -422,6 +519,21 @@ def do_train(cfg,
                             weights[0] * 100, weights[1] * 100, weights[2] * 100))
                     else:
                         logger.info("   ⚠️  Expert Weights: Not available (MoE may not be enabled)")
+                    # 🔥 新增：如果是新的best，输出对应的MoE Loss日志
+                    if mAP >= best_index['mAP'] and current_moe_loss_dict is not None:
+                        diversity_loss_value = current_moe_loss_dict['moe_diversity_loss']
+                        diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
+                        logger.info("📋 MoE Loss 详细日志 (Epoch {}, Iter 0):".format(epoch))
+                        logger.info("   - 平衡损失 (L_Bal): {:.6f}".format(current_moe_loss_dict['moe_balance_loss']))
+                        logger.info("   - 稀疏性损失 (L_Spar): {:.6f}".format(current_moe_loss_dict['moe_sparsity_loss']))
+                        logger.info("   - 多样性损失 (L_Div): {:.6f} {}".format(
+                            current_moe_loss_dict['moe_diversity_loss'], diversity_status))
+                        logger.info("   - 总损失 (L_Total): {:.6f}".format(current_moe_loss_dict['moe_total_loss']))
+                        if 'moe_balance_weight' in current_moe_loss_dict:
+                            logger.info("   - 损失权重: 平衡={:.4f}, 稀疏性={}, 多样性={:.4f}".format(
+                                current_moe_loss_dict['moe_balance_weight'],
+                                current_moe_loss_dict.get('moe_sparsity_weight', 'N/A'),
+                                current_moe_loss_dict['moe_diversity_weight']))
                     logger.info("=" * 60)
                     torch.cuda.empty_cache()
             else:
@@ -445,8 +557,9 @@ def do_train(cfg,
                 for r in [1, 5, 10]:
                     logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
 
-                # 🔥 新增：获取当前验证的专家权重分布
+                # 🔥 新增：获取当前验证的专家权重分布和MoE损失
                 current_expert_weights = None
+                current_moe_loss_dict = None
                 if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'current_expert_weights'):
                     expert_weights = model.BACKBONE.current_expert_weights
                     if expert_weights is not None:
@@ -454,6 +567,76 @@ def do_train(cfg,
                         with torch.no_grad():
                             avg_weights = expert_weights.mean(dim=0).cpu().numpy()
                             current_expert_weights = avg_weights.tolist()
+                            
+                            # 🔥 新增：计算当前验证时的MoE损失
+                            if hasattr(loss_fn, 'moe_loss_fn') and loss_fn.moe_loss_fn is not None:
+                                # 使用与训练时相同的权重逻辑
+                                static_balance_weight = None
+                                static_diversity_weight = None
+                                if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'):
+                                    static_balance_weight = cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT
+                                elif hasattr(cfg.MODEL, 'MOE_BALANCE_LOSS_WEIGHT'):
+                                    static_balance_weight = cfg.MODEL.MOE_BALANCE_LOSS_WEIGHT
+                                
+                                if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'):
+                                    static_diversity_weight = cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT
+                                elif hasattr(cfg.MODEL, 'MOE_DIVERSITY_LOSS_WEIGHT'):
+                                    static_diversity_weight = cfg.MODEL.MOE_DIVERSITY_LOSS_WEIGHT
+                                
+                                # 检查是否启用动态调度
+                                use_dynamic_loss_weight = getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False)
+                                if isinstance(use_dynamic_loss_weight, str):
+                                    use_dynamic_loss_weight = use_dynamic_loss_weight.lower() not in ('false', '0', 'no')
+                                else:
+                                    use_dynamic_loss_weight = bool(use_dynamic_loss_weight)
+                                
+                                if static_balance_weight == 0.0 and static_diversity_weight == 0.0:
+                                    dynamic_balance_weight = 0.0
+                                    dynamic_diversity_weight = 0.0
+                                elif use_dynamic_loss_weight:
+                                    max_epochs = cfg.SOLVER.MAX_EPOCHS
+                                    warmup_epochs = getattr(cfg.SOLVER, 'MOE_LOSS_WEIGHT_WARMUP_EPOCHS', 5)
+                                    schedule_type = getattr(cfg.SOLVER, 'MOE_LOSS_WEIGHT_SCHEDULE_TYPE', 'cosine')
+                                    
+                                    if epoch <= warmup_epochs:
+                                        progress = 0.0
+                                    else:
+                                        progress = min(1.0, (epoch - warmup_epochs) / (max_epochs - warmup_epochs))
+                                    
+                                    if schedule_type == 'linear':
+                                        weight_factor = progress
+                                    elif schedule_type == 'cosine':
+                                        weight_factor = 0.5 * (1 - math.cos(math.pi * progress))
+                                    else:
+                                        weight_factor = progress
+                                    
+                                    balance_start = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT_START', 0.001)
+                                    balance_end = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT_END', 0.1)
+                                    dynamic_balance_weight = balance_start + (balance_end - balance_start) * weight_factor
+                                    
+                                    diversity_start = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_START', 0.001)
+                                    diversity_end = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_END', 0.1)
+                                    dynamic_diversity_weight = diversity_start + (diversity_end - diversity_start) * weight_factor
+                                    
+                                    if static_balance_weight is not None:
+                                        dynamic_balance_weight = static_balance_weight
+                                    if static_diversity_weight is not None:
+                                        dynamic_diversity_weight = static_diversity_weight
+                                else:
+                                    dynamic_balance_weight = static_balance_weight
+                                    dynamic_diversity_weight = static_diversity_weight
+                                
+                                if static_diversity_weight == 0.0:
+                                    dynamic_diversity_weight = 0.0
+                                if static_balance_weight == 0.0:
+                                    dynamic_balance_weight = 0.0
+                                
+                                # 计算MoE损失
+                                _, current_moe_loss_dict = loss_fn.moe_loss_fn(
+                                    expert_weights,
+                                    balance_weight=dynamic_balance_weight,
+                                    diversity_weight=dynamic_diversity_weight
+                                )
                 
                 # 🔥 维护最佳指标并保存 best.pth（仅非分布式分支）
                 if mAP >= best_index['mAP']:
@@ -520,6 +703,32 @@ def do_train(cfg,
                 else:
                     logger.info("⚠️  专家权重分布: 未获取到（可能未启用MoE模块）")
                 
+                # 🔥 新增：输出Current值的完整信息（包括mAP、Rank和MoE Loss）
+                logger.info("=" * 60)
+                logger.info("📊 Current Results Summary (Epoch {}):".format(epoch))
+                logger.info("   Current mAP: {:.1%}".format(mAP))
+                logger.info("   Current Rank-1: {:.1%}".format(cmc[0]))
+                logger.info("   Current Rank-5: {:.1%}".format(cmc[4]))
+                logger.info("   Current Rank-10: {:.1%}".format(cmc[9]))
+                if current_expert_weights is not None:
+                    logger.info("   🎯 Current Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(
+                        current_expert_weights[0], current_expert_weights[1], current_expert_weights[2]))
+                if current_moe_loss_dict is not None:
+                    diversity_loss_value = current_moe_loss_dict['moe_diversity_loss']
+                    diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
+                    logger.info("📋 MoE Loss 详细日志 (Epoch {}, Iter 0):".format(epoch))
+                    logger.info("   - 平衡损失 (L_Bal): {:.6f}".format(current_moe_loss_dict['moe_balance_loss']))
+                    logger.info("   - 稀疏性损失 (L_Spar): {:.6f}".format(current_moe_loss_dict['moe_sparsity_loss']))
+                    logger.info("   - 多样性损失 (L_Div): {:.6f} {}".format(
+                        current_moe_loss_dict['moe_diversity_loss'], diversity_status))
+                    logger.info("   - 总损失 (L_Total): {:.6f}".format(current_moe_loss_dict['moe_total_loss']))
+                    if 'moe_balance_weight' in current_moe_loss_dict:
+                        logger.info("   - 损失权重: 平衡={:.4f}, 稀疏性={}, 多样性={:.4f}".format(
+                            current_moe_loss_dict['moe_balance_weight'],
+                            current_moe_loss_dict.get('moe_sparsity_weight', 'N/A'),
+                            current_moe_loss_dict['moe_diversity_weight']))
+                logger.info("=" * 60)
+                
                 # 🔥 新增：输出Best值的完整信息（包括mAP、Rank和专家权重占比）
                 logger.info("=" * 60)
                 logger.info("🏆 Best Results Summary (Epoch {}):".format(best_index['best_epoch']))
@@ -534,6 +743,21 @@ def do_train(cfg,
                         weights[0] * 100, weights[1] * 100, weights[2] * 100))
                 else:
                     logger.info("   ⚠️  Expert Weights: Not available (MoE may not be enabled)")
+                # 🔥 新增：如果是新的best，输出对应的MoE Loss日志
+                if mAP >= best_index['mAP'] and current_moe_loss_dict is not None:
+                    diversity_loss_value = current_moe_loss_dict['moe_diversity_loss']
+                    diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
+                    logger.info("📋 MoE Loss 详细日志 (Epoch {}, Iter 0):".format(epoch))
+                    logger.info("   - 平衡损失 (L_Bal): {:.6f}".format(current_moe_loss_dict['moe_balance_loss']))
+                    logger.info("   - 稀疏性损失 (L_Spar): {:.6f}".format(current_moe_loss_dict['moe_sparsity_loss']))
+                    logger.info("   - 多样性损失 (L_Div): {:.6f} {}".format(
+                        current_moe_loss_dict['moe_diversity_loss'], diversity_status))
+                    logger.info("   - 总损失 (L_Total): {:.6f}".format(current_moe_loss_dict['moe_total_loss']))
+                    if 'moe_balance_weight' in current_moe_loss_dict:
+                        logger.info("   - 损失权重: 平衡={:.4f}, 稀疏性={}, 多样性={:.4f}".format(
+                            current_moe_loss_dict['moe_balance_weight'],
+                            current_moe_loss_dict.get('moe_sparsity_weight', 'N/A'),
+                            current_moe_loss_dict['moe_diversity_weight']))
                 logger.info("=" * 60)
                 torch.cuda.empty_cache()
 

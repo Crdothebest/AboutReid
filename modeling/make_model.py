@@ -154,8 +154,8 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             
             # 🔥 新增：门控融合配置
             # 功能：从配置文件读取门控融合设置，支持门控融合机制开关
+            # 注意：门控融合使用MLP门控网络，不需要num_heads参数
             self.use_gate_fusion = getattr(cfg.MODEL, 'USE_GATE_FUSION', False)
-            self.gate_num_heads = getattr(cfg.MODEL, 'GATE_NUM_HEADS', 8)
             self.gate_dropout = getattr(cfg.MODEL, 'GATE_DROPOUT', 0.1)
             
             # 🔥 新增：注意力融合配置
@@ -257,7 +257,6 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     expert_threshold=expert_threshold,
                     residual_weight=residual_weight,
                     use_gate_fusion=self.use_gate_fusion,
-                    gate_num_heads=self.gate_num_heads,
                     use_attention_fusion=self.use_attention_fusion,
                     attention_num_heads=self.attention_num_heads,
                     attention_dropout=self.attention_dropout,
