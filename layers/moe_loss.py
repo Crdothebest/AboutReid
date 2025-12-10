@@ -182,21 +182,52 @@ def make_moe_loss(cfg):
     # 注意：YACS的merge_from_list会正确覆盖之前的值
     # 如果命令行设置了0.0，应该读取到0.0，而不是默认值或YAML值
     #
-    # 使用hasattr检查配置项是否存在，如果存在则使用配置值，否则使用默认值
+    # 🔥 修复：使用hasattr检查配置项是否存在，并处理类型转换问题
+    # YACS可能将命令行参数解析为字符串，需要显式转换为浮点数
     if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'):
-        balance_weight = cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT
+        balance_weight_raw = cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT
+        # 处理YACS可能将"0.0"解析为字符串的情况
+        if isinstance(balance_weight_raw, str):
+            balance_weight = float(balance_weight_raw)
+        else:
+            balance_weight = float(balance_weight_raw)
     else:
         balance_weight = 0.01  # 默认值
     
     if hasattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT'):
-        sparsity_weight = cfg.SOLVER.MOE_SPARSITY_LOSS_WEIGHT
+        sparsity_weight_raw = cfg.SOLVER.MOE_SPARSITY_LOSS_WEIGHT
+        # 处理YACS可能将"0.0"解析为字符串的情况
+        if isinstance(sparsity_weight_raw, str):
+            sparsity_weight = float(sparsity_weight_raw)
+        else:
+            sparsity_weight = float(sparsity_weight_raw)
     else:
         sparsity_weight = 0.001  # 默认值
     
     if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'):
-        diversity_weight = cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT
+        diversity_weight_raw = cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT
+        # 处理YACS可能将"0.0"解析为字符串的情况
+        if isinstance(diversity_weight_raw, str):
+            diversity_weight = float(diversity_weight_raw)
+        else:
+            diversity_weight = float(diversity_weight_raw)
     else:
         diversity_weight = 0.01  # 默认值
+    
+    # 🔥 新增：调试输出，显示配置读取过程
+    print(f"🔍 调试：make_moe_loss配置读取:")
+    print(f"   - hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'): {hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT')}")
+    if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'):
+        print(f"   - cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT = {cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT} (类型: {type(cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT)})")
+    print(f"   - 最终读取的balance_weight: {balance_weight}")
+    print(f"   - hasattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT'): {hasattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT')}")
+    if hasattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT'):
+        print(f"   - cfg.SOLVER.MOE_SPARSITY_LOSS_WEIGHT = {cfg.SOLVER.MOE_SPARSITY_LOSS_WEIGHT} (类型: {type(cfg.SOLVER.MOE_SPARSITY_LOSS_WEIGHT)})")
+    print(f"   - 最终读取的sparsity_weight: {sparsity_weight}")
+    print(f"   - hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'): {hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT')}")
+    if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'):
+        print(f"   - cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT = {cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT} (类型: {type(cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT)})")
+    print(f"   - 最终读取的diversity_weight: {diversity_weight}")
     
     if hasattr(cfg.SOLVER, 'MOE_BALANCE_THRESHOLD'):
         balance_threshold = cfg.SOLVER.MOE_BALANCE_THRESHOLD
