@@ -639,6 +639,11 @@ class MultiScaleMoE(nn.Module):
             print(f"   - 专家数量: {self.num_experts}")
             print(f"   - 门控加权-预处理机制: {'已启用' if self.use_gate_fusion else '已禁用'}")
             print(f"   - 注意力-预处理机制: {'已启用' if self.use_attention_fusion else '已禁用'}")
+            # 🔥 Top-k 路由状态显示
+            if self.use_top_k_routing:
+                print(f"   - Top-k 路由机制: ✅ 已启用 (k={self.top_k}, mode={self.top_k_mode})")
+            else:
+                print(f"   - Top-k 路由机制: ❌ 已禁用 (使用传统软路由)")
             print()  # 空行
             self._moe_forward_called = True
         
@@ -767,6 +772,11 @@ class MultiScaleMoE(nn.Module):
                 print(f"   - 固定权重计算专家权重")
             else:
                 print(f"   - 门控网络计算专家权重")
+            # 🔥 Top-k 路由状态显示
+            if self.use_top_k_routing:
+                print(f"   - Top-k 路由: 将强制激活 Top-{self.top_k} 专家 (模式: {self.top_k_mode})")
+            else:
+                print(f"   - Top-k 路由: 未启用 (所有专家都有非零权重)")
             print(f"   - 专家网络处理多尺度特征")
             print(f"   - 加权融合得到最终特征")
             print()  # 空行
@@ -792,6 +802,9 @@ class MultiScaleMoE(nn.Module):
                 print(f"   - 输入特征形状: {concat_features.shape}")
                 print(f"   - 输出权重形状: [{concat_features.shape[0]}, {self.num_experts}]")
                 print(f"   - 说明：根据输入特征动态计算专家权重，权重会随训练优化")
+                # 🔥 Top-k 路由提示
+                if self.use_top_k_routing:
+                    print(f"   - ⚠️  注意：Top-k 路由将在此后处理，只保留 Top-{self.top_k} 专家的权重")
             self._gating_network_called = True
         
         # ========== 计算专家权重 ==========
@@ -836,6 +849,21 @@ class MultiScaleMoE(nn.Module):
             #   - 适合需要自适应权重的场景
             #
             expert_weights = self.gating_network(concat_features)  # [B, num_experts]
+        
+        # 🔥 Top-k 路由处理（如果启用）
+        if self.use_top_k_routing:
+            # 保存路由前的权重（用于显示对比）
+            with torch.no_grad():
+                weights_before = expert_weights[0].detach().clone() if expert_weights.shape[0] > 0 else None
+            expert_weights = self._apply_top_k_routing(expert_weights)
+        else:
+            # 传统软路由：显示权重分布（仅在第一次调用时显示）
+            if not hasattr(self, '_soft_routing_weights_shown'):
+                with torch.no_grad():
+                    sample_weights = expert_weights[0].detach().cpu().numpy()
+                    print(f"📊 传统软路由权重分布（第一个样本）: [{', '.join([f'{w:.4f}' for w in sample_weights])}]")
+                    print(f"   - 说明：所有专家都有非零权重，权重通过 softmax 归一化")
+                self._soft_routing_weights_shown = True
         
         # ========== MLP专家网络调用：处理各尺度特征 ==========
         expert_outputs = []
@@ -886,9 +914,13 @@ class MultiScaleMoE(nn.Module):
         if not hasattr(self, '_top_k_routing_called'):
             print(f"🎯 Top-k 路由处理：强制激活 Top-{self.top_k} 专家")
             print(f"   - 输入权重形状: {expert_weights.shape}")
-            print(f"   - Top-k 值: {self.top_k}")
+            print(f"   - Top-k 值: {self.top_k} (将激活 {self.top_k}/{num_experts} 个专家)")
             print(f"   - 路由模式: {self.top_k_mode}")
             print(f"   - 专家总数: {num_experts}")
+            # 显示第一个样本的原始权重分布（用于对比）
+            with torch.no_grad():
+                sample_weights = expert_weights[0].detach().cpu().numpy()
+                print(f"   - 原始权重分布（第一个样本）: [{', '.join([f'{w:.4f}' for w in sample_weights])}]")
             self._top_k_routing_called = True
         
         if self.top_k_mode == "soft":
@@ -921,6 +953,12 @@ class MultiScaleMoE(nn.Module):
                 print(f"   - 输出权重形状: {expert_weights_topk.shape}")
                 print(f"   - Top-{self.top_k} 专家权重已重新归一化")
                 print(f"   - 非 Top-{self.top_k} 专家权重已设为 0（但保留梯度）")
+                # 显示第一个样本的路由后权重分布（用于对比）
+                with torch.no_grad():
+                    sample_weights_after = expert_weights_topk[0].detach().cpu().numpy()
+                    topk_indices_sample = topk_indices[0].detach().cpu().numpy()
+                    print(f"   - 路由后权重分布（第一个样本）: [{', '.join([f'{w:.4f}' for w in sample_weights_after])}]")
+                    print(f"   - 激活的专家索引: {topk_indices_sample.tolist()} (对应尺度: {[self.scales[i] for i in topk_indices_sample]})")
                 print(f"   - 说明：保留被屏蔽专家的梯度，减少与损失函数的冲突")
                 self._soft_top_k_complete_called = True
             
@@ -961,7 +999,13 @@ class MultiScaleMoE(nn.Module):
                 print(f"   - 输出权重形状: {expert_weights_topk.shape}")
                 print(f"   - Top-{self.top_k} 专家权重已重新归一化")
                 print(f"   - 非 Top-{self.top_k} 专家权重已设为 0（完全屏蔽梯度）")
-                print(f"   - 警告：可能丢失关键信息，与损失函数冲突更严重")
+                # 显示第一个样本的路由后权重分布（用于对比）
+                with torch.no_grad():
+                    sample_weights_after = expert_weights_topk[0].detach().cpu().numpy()
+                    topk_indices_sample = topk_indices[0].detach().cpu().numpy()
+                    print(f"   - 路由后权重分布（第一个样本）: [{', '.join([f'{w:.4f}' for w in sample_weights_after])}]")
+                    print(f"   - 激活的专家索引: {topk_indices_sample.tolist()} (对应尺度: {[self.scales[i] for i in topk_indices_sample]})")
+                print(f"   - ⚠️  警告：可能丢失关键信息，与损失函数冲突更严重")
                 self._hard_top_k_complete_called = True
         
         return expert_weights_topk
