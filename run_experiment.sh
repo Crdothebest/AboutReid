@@ -511,13 +511,22 @@ def parse_training_log(log_file):
                 if scale_match:
                     results['滑动窗口尺度'] = scale_match.group(1).strip()
             
-        # 提取拼接方式信息
-        if '门控融合机制：已启用' in content:
-            results['拼接方式'] = '门控融合'
-        elif '门控融合机制：已禁用' in content:
-            results['拼接方式'] = '简单拼接'
+        # 🔥 修复：提取拼接方式信息（根据新的输出格式）
+        # 检查日志中的拼接方式输出
+        if '拼接融合：使用门控加权-预处理' in content:
+            results['拼接方式'] = '门控加权-预处理'
+        elif '拼接融合：使用注意力-预处理' in content:
+            results['拼接方式'] = '注意力-预处理'
+        elif '拼接融合：使用无预处理' in content:
+            results['拼接方式'] = '无预处理'
         else:
-            results['拼接方式'] = '简单拼接'  # 默认
+            # 如果没有找到明确的拼接方式，尝试从其他输出推断
+            if '门控加权-预处理机制：已启用' in content:
+                results['拼接方式'] = '门控加权-预处理'
+            elif '注意力-预处理机制：已启用' in content:
+                results['拼接方式'] = '注意力-预处理'
+            else:
+                results['拼接方式'] = '无预处理'  # 默认
             
         # 移除专家权重信息提取
         

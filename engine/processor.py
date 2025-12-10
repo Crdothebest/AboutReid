@@ -61,6 +61,18 @@ def do_train(cfg,
 
     scaler = amp.GradScaler()                           # 混合精度：缩放器
     best_index = {'mAP': 0, "Rank-1": 0, 'Rank-5': 0, 'Rank-10': 0, 'best_epoch': 0}  # 记录最好指标和对应epoch
+    # 🔥 新增：记录每次验证的current和best值（用于趋势分析）
+    validation_history = {
+        'epochs': [],
+        'current_mAP': [],
+        'best_mAP': [],
+        'current_Rank1': [],
+        'best_Rank1': [],
+        'current_Rank5': [],
+        'best_Rank5': [],
+        'current_Rank10': [],
+        'best_Rank10': []
+    }
 
     # =========================
     # 主训练循环
@@ -322,6 +334,28 @@ def do_train(cfg,
                         logger.info("🎯 New Best! Saving model...")
                         torch.save(model.state_dict(),
                                    os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
+                    
+                    # 🔥 新增：记录当前验证的current和best值
+                    validation_history['epochs'].append(epoch)
+                    validation_history['current_mAP'].append(mAP * 100)  # 转换为百分比
+                    validation_history['best_mAP'].append(best_index['mAP'] * 100)
+                    validation_history['current_Rank1'].append(cmc[0] * 100)
+                    validation_history['best_Rank1'].append(best_index['Rank-1'] * 100)
+                    validation_history['current_Rank5'].append(cmc[4] * 100)
+                    validation_history['best_Rank5'].append(best_index['Rank-5'] * 100)
+                    validation_history['current_Rank10'].append(cmc[9] * 100)
+                    validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
+                    
+                    # 🔥 新增：输出列表格式的current和best值
+                    logger.info("📊 Current mAP列表: {}".format([f"{x:.1f}" for x in validation_history['current_mAP']]))
+                    logger.info("🏆 Best mAP列表: {}".format([f"{x:.1f}" for x in validation_history['best_mAP']]))
+                    logger.info("📊 Current Rank-1列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank1']]))
+                    logger.info("🏆 Best Rank-1列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank1']]))
+                    logger.info("📊 Current Rank-5列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank5']]))
+                    logger.info("🏆 Best Rank-5列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank5']]))
+                    logger.info("📊 Current Rank-10列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank10']]))
+                    logger.info("🏆 Best Rank-10列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank10']]))
+                    
                     logger.info("Best mAP: {:.1%} (Epoch {})".format(best_index['mAP'], best_index['best_epoch']))
                     logger.info("Best Rank-1: {:.1%}".format(best_index['Rank-1']))
                     logger.info("Best Rank-5: {:.1%}".format(best_index['Rank-5']))
@@ -358,6 +392,28 @@ def do_train(cfg,
                     logger.info("🎯 New Best! Saving model...")
                     torch.save(model.state_dict(),
                                os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
+                
+                # 🔥 新增：记录当前验证的current和best值
+                validation_history['epochs'].append(epoch)
+                validation_history['current_mAP'].append(mAP * 100)  # 转换为百分比
+                validation_history['best_mAP'].append(best_index['mAP'] * 100)
+                validation_history['current_Rank1'].append(cmc[0] * 100)
+                validation_history['best_Rank1'].append(best_index['Rank-1'] * 100)
+                validation_history['current_Rank5'].append(cmc[4] * 100)
+                validation_history['best_Rank5'].append(best_index['Rank-5'] * 100)
+                validation_history['current_Rank10'].append(cmc[9] * 100)
+                validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
+                
+                # 🔥 新增：输出列表格式的current和best值
+                logger.info("📊 Current mAP列表: {}".format([f"{x:.1f}" for x in validation_history['current_mAP']]))
+                logger.info("🏆 Best mAP列表: {}".format([f"{x:.1f}" for x in validation_history['best_mAP']]))
+                logger.info("📊 Current Rank-1列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank1']]))
+                logger.info("🏆 Best Rank-1列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank1']]))
+                logger.info("📊 Current Rank-5列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank5']]))
+                logger.info("🏆 Best Rank-5列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank5']]))
+                logger.info("📊 Current Rank-10列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank10']]))
+                logger.info("🏆 Best Rank-10列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank10']]))
+                
                 logger.info("Best mAP: {:.1%} (Epoch {})".format(best_index['mAP'], best_index['best_epoch']))
                 logger.info("Best Rank-1: {:.1%}".format(best_index['Rank-1']))
                 logger.info("Best Rank-5: {:.1%}".format(best_index['Rank-5']))
