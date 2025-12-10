@@ -73,6 +73,7 @@ _C.MODEL.MOE_EXPERT_LAYERS = 2           # MoE expert network layers
 _C.MODEL.MOE_GATE_LAYERS = 2             # MoE gating network layers
 _C.MODEL.MOE_EXPERT_THRESHOLD = 0.1      # MoE expert activation threshold
 _C.MODEL.MOE_RESIDUAL_WEIGHT = 1.0       # MoE residual connection weight
+_C.MODEL.MOE_INIT_WEIGHTS = None         # MoE expert initial weights (optional, e.g., [0.35, 0.3, 0.35])
 
 # MoE损失权重参数
 _C.MODEL.MOE_BALANCE_LOSS_WEIGHT = 0.01  # MoE expert balance loss weight
