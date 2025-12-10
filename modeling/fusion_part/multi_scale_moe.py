@@ -50,27 +50,36 @@ class ExpertNetwork(nn.Module):
         # 🎯 作用：特征增强 - 让每个尺度的特征变得更"聪明"
         # 📊 输入：input_dim (512维，单个尺度特征)
         # 📊 输出：output_dim (512维，增强后的尺度特征)
-        # 🔧 实现：可配置层数的MLP + LayerNorm + GELU激活 + Dropout + 残差连接
+        # 🔧 实现：符合标准Transformer MLP设计
+        #   - 隐藏层：Linear → LayerNorm → GELU → Dropout
+        #   - 输出层：Linear → Dropout（无LayerNorm、无激活，由残差连接提供非线性）
         
         layers = []
         current_dim = input_dim
         
-        # 构建隐藏层
+        # 🔧 修复：构建隐藏层（符合标准Transformer FFN设计）
+        # 标准FFN结构：Linear → GELU → Dropout（无LayerNorm）
+        # LayerNorm在FFN外部（在Transformer Block中），不在FFN内部
         for i in range(num_layers - 1):
             layers.extend([
                 nn.Linear(current_dim, hidden_dim),
-                nn.LayerNorm(hidden_dim),
+                # ✅ 移除LayerNorm：标准FFN内部没有LayerNorm
                 nn.GELU(),
-                nn.Dropout(dropout)
+                nn.Dropout(dropout)  # ✅ 保留Dropout：标准FFN有Dropout
             ])
             current_dim = hidden_dim
         
-        # 输出层
+        # 🔧 修复：输出层符合标准Transformer FFN设计
+        # 标准FFN输出层：Linear → Dropout（无LayerNorm，无激活）
+        # 1. 残差连接本身提供归一化效果
+        # 2. 残差连接提供非线性：output = expert_output + residual
+        # 3. 符合标准Transformer FFN设计（参考transformer_block.py）
         layers.extend([
             nn.Linear(current_dim, output_dim),
-            nn.LayerNorm(output_dim),
-            nn.GELU(),
-            nn.Dropout(dropout)
+            # ✅ 移除LayerNorm：残差连接提供归一化效果
+            # ✅ 移除GELU：残差连接提供非线性
+            # ✅ 移除Dropout：如果需要正则化，应在Expert模块输出上应用
+            # 标准FFN输出层通常有Dropout，但考虑到残差连接和后续正则化，这里移除
         ])
         
         self.expert = nn.Sequential(*layers)
@@ -82,12 +91,35 @@ class ExpertNetwork(nn.Module):
         self._init_weights()
     
     def _init_weights(self):
-        """初始化权重"""
+        """
+        初始化权重
+        
+        🔧 优化：使用Kaiming初始化（适合GELU激活函数）
+        - 隐藏层：Kaiming初始化，适合GELU激活
+        - 输出层：Xavier初始化，适合线性输出
+        - 残差投影层：Xavier初始化
+        """
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
+                # 判断是否为输出层（最后一层）
+                is_output_layer = (m.out_features == self.output_dim)
+                
+                if is_output_layer:
+                    # 输出层使用Xavier初始化（适合线性输出）
+                    nn.init.xavier_uniform_(m.weight, gain=1.0)
+                else:
+                    # 隐藏层使用Kaiming初始化（适合GELU激活函数）
+                    # GELU是平滑激活函数，使用fan_in模式
+                    nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+                
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
+        
+        # 残差投影层特殊处理（如果存在）
+        if isinstance(self.residual_proj, nn.Linear):
+            nn.init.xavier_uniform_(self.residual_proj.weight, gain=1.0)
+            if self.residual_proj.bias is not None:
+                nn.init.constant_(self.residual_proj.bias, 0)
     
     def forward(self, x):
         """
@@ -172,54 +204,53 @@ class GatingNetwork(nn.Module):
         self._init_weights()
     
     def _init_weights(self):
-        """初始化权重"""
-        # 🔧 改进：如果设置了初始权重，需要特殊处理输出层
-        has_init_weights = (self.init_weights is not None)
+        """
+        初始化权重
         
+        🔧 修复：解决模式坍塌的关键修改
+        - 隐藏层：Xavier初始化，适合LayerNorm + GELU
+        - 输出层：极小值初始化 + 零偏置，确保初始logits接近0
+        """
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                # 🔧 改进：如果设置了初始权重，且这是输出层，使用更小的权重初始化
-                # 这样偏置的影响会更明显，初始权重更容易生效
-                if has_init_weights and m is self.gate_output:
-                    # 输出层权重初始化为接近0，让偏置主导初始行为
-                    nn.init.normal_(m.weight, mean=0.0, std=0.01)  # 很小的权重
-                else:
-                    # 其他层正常初始化
-                    nn.init.xavier_uniform_(m.weight)
+                # 🎯 修复1：跳过gate_output层，避免被通用初始化覆盖
+                if m is self.gate_output:
+                    continue  # 后面会特殊处理
+                
+                # 其他层使用Xavier初始化（适合LayerNorm + GELU组合）
+                nn.init.xavier_uniform_(m.weight, gain=1.0)
                 
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
         
-        # 🔥 如果提供了初始权重，设置输出层偏置以引导初始权重分布
+        # 🎯 修复2：强制Logits极小化，确保初始权重为均匀分布
+        # 问题分析：
+        # 1. 即使bias=0，如果权重W太大，W*x仍然可能产生较大的logits值
+        # 2. 例如：W ≈ 0.1, x ≈ 10 → W*x ≈ 1.0
+        # 3. Softmax([1.0, 0.0, 0.0]) ≈ [0.73, 0.13, 0.13] ❌ 不均匀！
+        # 
+        # 解决方案：极小值初始化权重，确保W*x ≈ 0
+        # 这样即使x很大，logits仍然接近[0, 0, 0]
+        # Softmax([0, 0, 0]) = [0.33, 0.33, 0.33] ✅ 均匀分布
+        if self.gate_output.bias is not None:
+            nn.init.constant_(self.gate_output.bias, 0.0)
+        
+        # 极小值初始化权重：范围[-1e-4, 1e-4]
+        # 确保即使输入特征很大（如x≈10），W*x仍然接近0
+        nn.init.uniform_(self.gate_output.weight, -1e-4, 1e-4)
+            
+        # 如果提供了初始权重，仅用于日志显示（不实际设置）
         if self.init_weights is not None:
             if len(self.init_weights) != self.num_experts:
                 raise ValueError(f"初始权重数量 ({len(self.init_weights)}) 必须等于专家数量 ({self.num_experts})")
             
-            # 将初始权重转换为 logits（Softmax 的逆变换）
-            # 使用 log(weights) 作为偏置，使得初始输出经过 Softmax 后接近期望权重
+            # 仅用于日志显示，不实际设置偏置
             init_weights_tensor = torch.tensor(self.init_weights, dtype=torch.float32)
-            
-            # 确保权重和为1（归一化）
             init_weights_tensor = init_weights_tensor / init_weights_tensor.sum()
             
-            # 转换为 logits：log(weights)
-            # 🔧 改进：使用缩放因子增强偏置的影响
-            # 因为 Softmax 对 logits 的差异敏感，我们需要确保偏置的影响足够大
-            logits = torch.log(init_weights_tensor + 1e-8)  # 添加小值避免 log(0)
-            
-            # 🔧 改进：使用缩放因子，确保初始权重的影响足够强
-            # 如果输入特征经过归一化，logits 的尺度需要相应调整
-            # 这里使用一个缩放因子（如 2.0）来增强偏置的影响
-            scale_factor = 2.0  # 可以调整，值越大初始权重影响越强
-            logits = logits * scale_factor
-            
-            # 设置输出层偏置
-            if self.gate_output.bias is not None:
-                self.gate_output.bias.data = logits
-                
-            print(f"✅ 门控网络初始权重已设置: {self.init_weights}")
-            print(f"   - 输出层权重初始化: 小权重 (std=0.01)，让偏置主导")
-            print(f"   - 偏置缩放因子: {scale_factor}，增强初始权重影响")
+            print(f"ℹ️  门控网络初始权重参考: {self.init_weights}")
+            print(f"   - 实际初始化: 零初始化（偏置=0），保证均匀分布[1/{self.num_experts}, ...]")
+            print(f"   - 让网络自然学习最优权重分布，避免极端偏向导致的模式坍塌")
     
     def forward(self, x):
         """
