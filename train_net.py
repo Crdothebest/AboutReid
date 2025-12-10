@@ -97,6 +97,15 @@ if __name__ == '__main__':
                 else:
                     print(f"🔍 USE_GATE_FUSION = {val} (类型: {type(val)})")
             
+            # 🔥 新增：Top-k 路由参数布尔值修正
+            if hasattr(cfg.MODEL, 'MOE_USE_TOP_K_ROUTING'):
+                val = cfg.MODEL.MOE_USE_TOP_K_ROUTING
+                if isinstance(val, str):
+                    cfg.MODEL.MOE_USE_TOP_K_ROUTING = val.lower() in ('true', '1', 'yes')
+                    print(f"🔧 立即修正 MOE_USE_TOP_K_ROUTING: '{val}' -> {cfg.MODEL.MOE_USE_TOP_K_ROUTING}")
+                else:
+                    print(f"🔍 MOE_USE_TOP_K_ROUTING = {val} (类型: {type(val)})")
+            
             # 🔥 新增：验证关键MoE参数是否被正确覆盖
             # 1. 验证固定权重参数
             if 'MODEL.MOE_USE_FIXED_WEIGHTS' in args.opts:
@@ -123,7 +132,8 @@ if __name__ == '__main__':
             bool_params = [
                 'MODEL.USE_ATTENTION_FUSION',
                 'MODEL.USE_GATE_FUSION',
-                'MODEL.MOE_USE_FIXED_WEIGHTS'
+                'MODEL.MOE_USE_FIXED_WEIGHTS',
+                'MODEL.MOE_USE_TOP_K_ROUTING'
             ]
             for param_name in bool_params:
                 if hasattr(cfg, param_name.split('.')[0]):
