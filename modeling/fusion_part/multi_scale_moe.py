@@ -261,10 +261,8 @@ class GatingNetwork(nn.Module):
         Returns:
             weights: [B, num_experts] - 专家权重分布
         """
-        # 🔥 门控网络处理提示（仅在第一次调用时显示）
-        if not hasattr(self, '_gate_forward_called'):
-            print(f"🎯 门控网络开始计算专家权重: 输入{x.shape} → 输出[{x.shape[0]}, {self.num_experts}]")
-            self._gate_forward_called = True
+        # 🔥 注意：门控网络的输出提示已移至 MultiScaleMoE._expert_network_processing()
+        # 这里不再输出，避免在固定权重模式下误显示
         
         # ========== MLP门控网络前向传播：计算专家权重 ==========
         # 🔥 功能：通过门控网络MLP计算各专家的权重分布
@@ -355,7 +353,8 @@ class MultiHeadAttentionConcat(nn.Module):
         """
         B = multi_scale_features[0].shape[0]
         
-        # 🔥 门控加权-预处理启动提示（仅在第一次调用时显示）
+        # 🔥 门控加权-预处理启动提示（仅在第一次调用时显示，且模块启用时）
+        # 注意：这个方法只在 use_gate_fusion=True 时被调用，所以不需要额外检查
         if not hasattr(self, '_attention_forward_called'):
             print(f"🎯 门控加权-预处理机制启动！")
             print(f"   - 输入多尺度特征数量: {len(multi_scale_features)}")
@@ -382,7 +381,8 @@ class MultiHeadAttentionConcat(nn.Module):
             
             enhanced_multi_scale_features.append(enhanced_feat)
         
-        # 🔥 门控加权-预处理处理完成提示（仅在第一次调用时显示）
+        # 🔥 门控加权-预处理处理完成提示（仅在第一次调用时显示，且模块启用时）
+        # 注意：这个方法只在 use_gate_fusion=True 时被调用，所以不需要额外检查
         if not hasattr(self, '_attention_complete_called'):
             print(f"✅ 门控加权-预处理完成！")
             print(f"   - 输出多尺度特征数量: {len(enhanced_multi_scale_features)}")
@@ -623,7 +623,7 @@ class MultiScaleMoE(nn.Module):
         
         # 🔥 分支1：使用门控加权-预处理进行特征融合（替代无预处理）
         if self.use_gate_fusion and self.gate_fusion is not None:
-            # 🔥 门控加权-预处理调用提示（仅在第一次调用时显示）
+            # 🔥 门控加权-预处理调用提示（仅在第一次调用时显示，且模块启用时）
             if not hasattr(self, '_gate_fusion_branch_called'):
                 print(f"🎯 拼接融合：使用门控加权-预处理（门控加权-预处理）")
                 print(f"   - 门控网络头数: {self.gate_fusion.num_heads}")
@@ -639,7 +639,7 @@ class MultiScaleMoE(nn.Module):
         
         # 🔥 分支2：使用注意力-预处理进行特征融合（新增）
         elif self.use_attention_fusion and self.attention_fusion is not None:
-            # 🔥 注意力-预处理调用提示（仅在第一次调用时显示）
+            # 🔥 注意力-预处理调用提示（仅在第一次调用时显示，且模块启用时）
             if not hasattr(self, '_attention_fusion_branch_called'):
                 print(f"🎯 拼接融合：使用注意力-预处理（注意力-预处理）")
                 print(f"   - 注意力头数: {self.attention_fusion.num_heads}")
@@ -654,7 +654,8 @@ class MultiScaleMoE(nn.Module):
             return self._expert_network_processing(fused_multi_scale_features)
         
         # 🔥 分支3：传统MoE融合机制（无预处理 + 专家网络）
-        # 🔥 传统MoE融合提示（仅在第一次调用时显示）
+        # 🔥 传统MoE融合提示（仅在第一次调用时显示，且仅在无预处理模式下）
+        # 注意：只有在 use_gate_fusion=False 且 use_attention_fusion=False 时才会执行到这里
         if not hasattr(self, '_traditional_moe_called'):
             print(f"🎯 拼接融合：使用无预处理（无预处理）")
             print(f"   - 拼接方式: torch.cat() 直接拼接")
@@ -677,7 +678,8 @@ class MultiScaleMoE(nn.Module):
         Returns:
             fused_multi_scale_features: List[Tensor] - 门控加权-预处理后的多尺度特征
         """
-        # 🔥 门控加权-预处理启动提示（仅在第一次调用时显示）
+        # 🔥 门控加权-预处理启动提示（仅在第一次调用时显示，且模块启用时）
+        # 注意：这个方法只在 use_gate_fusion=True 时被调用，所以不需要额外检查
         if not hasattr(self, '_attention_fusion_called'):
             print(f"🎯 门控加权-预处理启动！")
             print(f"   - 输入多尺度特征数量: {len(multi_scale_features)}")
@@ -691,7 +693,8 @@ class MultiScaleMoE(nn.Module):
         # 使用门控加权-预处理进行特征融合（返回增强后的多尺度特征）
         enhanced_multi_scale_features, gate_weights = self.gate_fusion(multi_scale_features)
         
-        # 🔥 门控加权-预处理处理完成提示（仅在第一次调用时显示）
+        # 🔥 门控加权-预处理处理完成提示（仅在第一次调用时显示，且模块启用时）
+        # 注意：这个方法只在 use_gate_fusion=True 时被调用，所以不需要额外检查
         if not hasattr(self, '_attention_fusion_complete_called'):
             print(f"✅ 门控加权-预处理完成！")
             print(f"   - 输出多尺度特征数量: {len(enhanced_multi_scale_features)}")
@@ -714,8 +717,13 @@ class MultiScaleMoE(nn.Module):
             expert_weights: [B, num_experts] - 专家权重
         """
         # 🔥 专家网络处理提示（仅在第一次调用时显示）
+        # 注意：专家网络处理是MoE模块的核心功能，总是会执行，所以总是输出
         if not hasattr(self, '_expert_processing_called'):
-            print(f"🎯 专家网络处理：使用门控网络和专家网络")
+            # 根据是否使用固定权重，显示不同的信息
+            if self.use_fixed_weights:
+                print(f"🎯 专家网络处理：使用固定权重和专家网络")
+            else:
+                print(f"🎯 专家网络处理：使用门控网络和专家网络")
             print(f"   - 专家数量: {len(self.experts)}")
             # 🔧 修复：从保存的属性或专家网络实例中获取信息
             if hasattr(self, 'expert_hidden_dim'):
@@ -732,7 +740,10 @@ class MultiScaleMoE(nn.Module):
             else:
                 print(f"   - 专家层数: N/A")
             
-            print(f"   - 门控网络计算专家权重")
+            if self.use_fixed_weights:
+                print(f"   - 固定权重计算专家权重")
+            else:
+                print(f"   - 门控网络计算专家权重")
             print(f"   - 专家网络处理多尺度特征")
             print(f"   - 加权融合得到最终特征")
             print()  # 空行
@@ -743,14 +754,20 @@ class MultiScaleMoE(nn.Module):
         # 🔥 步骤1：拼接多尺度特征作为门控网络输入
         concat_features = torch.cat(multi_scale_features, dim=1)  # [B, feat_dim * num_scales]
         
-        # 🔥 门控网络处理提示（仅在第一次调用时显示）
+        # 🔥 门控网络处理提示（仅在第一次调用时显示，根据模块状态决定输出内容）
+        # 功能：根据 use_fixed_weights 状态显示不同的提示信息
+        # 位置：在计算专家权重之前，确保能正确反映当前模式
         if not hasattr(self, '_gating_network_called'):
             if self.use_fixed_weights:
+                # 固定权重模式：显示固定权重信息
                 print(f"🎯 固定权重模式：使用固定权重（不使用门控网络）")
                 print(f"   - 权重值: {self.fixed_weights_tensor.tolist()}")
                 print(f"   - 说明：所有样本使用相同的固定权重，权重不随训练改变")
             else:
+                # 动态权重模式：显示门控网络信息
                 print(f"🎯 门控网络处理：计算专家权重")
+                print(f"   - 输入特征形状: {concat_features.shape}")
+                print(f"   - 输出权重形状: [{concat_features.shape[0]}, {self.num_experts}]")
                 print(f"   - 说明：根据输入特征动态计算专家权重，权重会随训练优化")
             self._gating_network_called = True
         
@@ -898,7 +915,8 @@ class AttentionFusionConcat(nn.Module):
         """
         B = multi_scale_features[0].shape[0]
         
-        # 🔥 注意力-预处理启动提示（仅在第一次调用时显示）
+        # 🔥 注意力-预处理启动提示（仅在第一次调用时显示，且模块启用时）
+        # 注意：这个方法只在 use_attention_fusion=True 时被调用，所以不需要额外检查
         if not hasattr(self, '_attention_fusion_called'):
             print(f"🎯 注意力-预处理机制启动！")
             print(f"   - 输入多尺度特征数量: {len(multi_scale_features)}")
@@ -941,7 +959,8 @@ class AttentionFusionConcat(nn.Module):
         for i in range(len(enhanced_multi_scale_features)):
             enhanced_multi_scale_features[i] = enhanced_multi_scale_features[i] + global_fusion * 0.2
         
-        # 🔥 注意力-预处理处理完成提示（仅在第一次调用时显示）
+        # 🔥 注意力-预处理处理完成提示（仅在第一次调用时显示，且模块启用时）
+        # 注意：这个方法只在 use_attention_fusion=True 时被调用，所以不需要额外检查
         if not hasattr(self, '_attention_fusion_completed'):
             print(f"✅ 注意力-预处理处理完成！")
             print(f"   - 注意力权重形状: {attn_weights.shape}")
