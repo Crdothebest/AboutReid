@@ -71,11 +71,20 @@ if __name__ == '__main__':
     if args.config_file != "":
         cfg.merge_from_file(args.config_file) # 从配置文件合并配置
     
-    # 🔧 修复：确保 --opts 参数正确生效
+    # 🔧 修复：确保 --opts 参数正确生效（最高优先级）
+    # 配置加载优先级：默认值 < YAML文件 < 命令行参数（--opts）
     if args.opts:
         try:
-            cfg.merge_from_list(args.opts) # 从命令行合并配置
-            print(f"✅ 通过 --opts 修改配置: {args.opts}")
+            cfg.merge_from_list(args.opts) # 从命令行合并配置（最高优先级）
+            print(f"✅ 通过 --opts 修改配置（最高优先级）: {args.opts}")
+            
+            # 🔥 新增：验证关键MoE Loss权重是否被正确覆盖
+            if 'SOLVER.MOE_BALANCE_LOSS_WEIGHT' in args.opts or 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT' in args.opts:
+                balance_weight = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', None)
+                diversity_weight = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT', None)
+                print(f"🔍 验证MoE Loss权重（命令行覆盖后）:")
+                print(f"   - 平衡损失权重: {balance_weight}")
+                print(f"   - 多样性损失权重: {diversity_weight}")
         except Exception as e:
             print(f"❌ --opts 参数解析错误: {e}")
             print(f"   请检查参数路径是否正确（如 MODEL.MOE_TEMPERATURE 或 SOLVER.MOE_BALANCE_LOSS_WEIGHT）")

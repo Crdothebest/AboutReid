@@ -156,6 +156,18 @@ def do_train(cfg,
                                 diversity_end = getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_END', 0.1)
                                 dynamic_diversity_weight = diversity_start + (diversity_end - diversity_start) * weight_factor
                             
+                            # 🔥 修复：确保命令行设置的0.0权重不被动态调度覆盖（最高优先级）
+                            # 配置优先级：命令行参数 > 动态调度 > 默认值
+                            # 如果命令行明确设置了权重为0.0，则强制使用0.0，忽略动态调度
+                            if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'):
+                                if cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT == 0.0:
+                                    dynamic_diversity_weight = 0.0
+                                    print(f"🔒 命令行强制禁用多样性损失（权重=0.0），忽略动态调度")
+                            if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'):
+                                if cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT == 0.0:
+                                    dynamic_balance_weight = 0.0
+                                    print(f"🔒 命令行强制禁用平衡损失（权重=0.0），忽略动态调度")
+                            
                             # 调用MoE损失函数，传入动态权重
                             moe_loss, moe_loss_dict = loss_fn.moe_loss_fn(
                                 expert_weights,
