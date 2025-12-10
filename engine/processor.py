@@ -71,7 +71,8 @@ def do_train(cfg,
         'current_Rank5': [],
         'best_Rank5': [],
         'current_Rank10': [],
-        'best_Rank10': []
+        'best_Rank10': [],
+        'expert_weights': []  # 🔥 新增：记录每次验证的专家权重分布
     }
 
     # =========================
@@ -335,6 +336,16 @@ def do_train(cfg,
                         torch.save(model.state_dict(),
                                    os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
                     
+                    # 🔥 新增：获取当前验证的专家权重分布
+                    current_expert_weights = None
+                    if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'current_expert_weights'):
+                        expert_weights = model.BACKBONE.current_expert_weights
+                        if expert_weights is not None:
+                            # 计算batch平均权重分布 [num_experts]
+                            with torch.no_grad():
+                                avg_weights = expert_weights.mean(dim=0).cpu().numpy()
+                                current_expert_weights = avg_weights.tolist()
+                    
                     # 🔥 新增：记录当前验证的current和best值
                     validation_history['epochs'].append(epoch)
                     validation_history['current_mAP'].append(mAP * 100)  # 转换为百分比
@@ -345,16 +356,48 @@ def do_train(cfg,
                     validation_history['best_Rank5'].append(best_index['Rank-5'] * 100)
                     validation_history['current_Rank10'].append(cmc[9] * 100)
                     validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
+                    validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else [0.0, 0.0, 0.0])  # 默认值
                     
-                    # 🔥 新增：输出列表格式的current和best值
-                    logger.info("📊 Current mAP列表: {}".format([f"{x:.1f}" for x in validation_history['current_mAP']]))
-                    logger.info("🏆 Best mAP列表: {}".format([f"{x:.1f}" for x in validation_history['best_mAP']]))
-                    logger.info("📊 Current Rank-1列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank1']]))
-                    logger.info("🏆 Best Rank-1列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank1']]))
-                    logger.info("📊 Current Rank-5列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank5']]))
-                    logger.info("🏆 Best Rank-5列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank5']]))
-                    logger.info("📊 Current Rank-10列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank10']]))
-                    logger.info("🏆 Best Rank-10列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank10']]))
+                    # 🔥 新增：输出列表格式的current和best值（带调试信息）
+                    current_mAP_list = [f"{x:.1f}" for x in validation_history['current_mAP']]
+                    logger.info("🔍 调试：找到 {} 个Current mAP匹配: {}".format(len(current_mAP_list), current_mAP_list))
+                    logger.info("📊 Current mAP列表: {}".format(current_mAP_list))
+                    
+                    best_mAP_list = [f"{x:.1f}" for x in validation_history['best_mAP']]
+                    logger.info("🔍 调试：找到 {} 个Best mAP匹配: {}".format(len(best_mAP_list), best_mAP_list))
+                    logger.info("🏆 Best mAP列表: {}".format(best_mAP_list))
+                    
+                    current_Rank1_list = [f"{x:.1f}" for x in validation_history['current_Rank1']]
+                    logger.info("🔍 调试：找到 {} 个Current Rank-1匹配: {}".format(len(current_Rank1_list), current_Rank1_list))
+                    logger.info("📊 Current Rank-1列表: {}".format(current_Rank1_list))
+                    
+                    best_Rank1_list = [f"{x:.1f}" for x in validation_history['best_Rank1']]
+                    logger.info("🔍 调试：找到 {} 个Best Rank-1匹配: {}".format(len(best_Rank1_list), best_Rank1_list))
+                    logger.info("🏆 Best Rank-1列表: {}".format(best_Rank1_list))
+                    
+                    current_Rank5_list = [f"{x:.1f}" for x in validation_history['current_Rank5']]
+                    logger.info("🔍 调试：找到 {} 个Current Rank-5匹配: {}".format(len(current_Rank5_list), current_Rank5_list))
+                    logger.info("📊 Current Rank-5列表: {}".format(current_Rank5_list))
+                    
+                    best_Rank5_list = [f"{x:.1f}" for x in validation_history['best_Rank5']]
+                    logger.info("🔍 调试：找到 {} 个Best Rank-5匹配: {}".format(len(best_Rank5_list), best_Rank5_list))
+                    logger.info("🏆 Best Rank-5列表: {}".format(best_Rank5_list))
+                    
+                    current_Rank10_list = [f"{x:.1f}" for x in validation_history['current_Rank10']]
+                    logger.info("🔍 调试：找到 {} 个Current Rank-10匹配: {}".format(len(current_Rank10_list), current_Rank10_list))
+                    logger.info("📊 Current Rank-10列表: {}".format(current_Rank10_list))
+                    
+                    best_Rank10_list = [f"{x:.1f}" for x in validation_history['best_Rank10']]
+                    logger.info("🔍 调试：找到 {} 个Best Rank-10匹配: {}".format(len(best_Rank10_list), best_Rank10_list))
+                    logger.info("🏆 Best Rank-10列表: {}".format(best_Rank10_list))
+                    
+                    # 🔥 新增：输出专家权重分布列表（带调试信息）
+                    if current_expert_weights:
+                        expert_weights_list = [f"[{w[0]:.4f}, {w[1]:.4f}, {w[2]:.4f}]" if isinstance(w, list) and len(w) == 3 else str(w) for w in validation_history['expert_weights']]
+                        logger.info("🔍 调试：找到 {} 个专家权重分布匹配: {}".format(len(expert_weights_list), expert_weights_list))
+                        logger.info("🎯 专家权重分布列表: {}".format(expert_weights_list))
+                    else:
+                        logger.info("⚠️  专家权重分布: 未获取到（可能未启用MoE模块）")
                     
                     logger.info("Best mAP: {:.1%} (Epoch {})".format(best_index['mAP'], best_index['best_epoch']))
                     logger.info("Best Rank-1: {:.1%}".format(best_index['Rank-1']))
@@ -393,6 +436,16 @@ def do_train(cfg,
                     torch.save(model.state_dict(),
                                os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
                 
+                # 🔥 新增：获取当前验证的专家权重分布
+                current_expert_weights = None
+                if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'current_expert_weights'):
+                    expert_weights = model.BACKBONE.current_expert_weights
+                    if expert_weights is not None:
+                        # 计算batch平均权重分布 [num_experts]
+                        with torch.no_grad():
+                            avg_weights = expert_weights.mean(dim=0).cpu().numpy()
+                            current_expert_weights = avg_weights.tolist()
+                
                 # 🔥 新增：记录当前验证的current和best值
                 validation_history['epochs'].append(epoch)
                 validation_history['current_mAP'].append(mAP * 100)  # 转换为百分比
@@ -403,16 +456,48 @@ def do_train(cfg,
                 validation_history['best_Rank5'].append(best_index['Rank-5'] * 100)
                 validation_history['current_Rank10'].append(cmc[9] * 100)
                 validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
+                validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else [0.0, 0.0, 0.0])  # 默认值
                 
-                # 🔥 新增：输出列表格式的current和best值
-                logger.info("📊 Current mAP列表: {}".format([f"{x:.1f}" for x in validation_history['current_mAP']]))
-                logger.info("🏆 Best mAP列表: {}".format([f"{x:.1f}" for x in validation_history['best_mAP']]))
-                logger.info("📊 Current Rank-1列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank1']]))
-                logger.info("🏆 Best Rank-1列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank1']]))
-                logger.info("📊 Current Rank-5列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank5']]))
-                logger.info("🏆 Best Rank-5列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank5']]))
-                logger.info("📊 Current Rank-10列表: {}".format([f"{x:.1f}" for x in validation_history['current_Rank10']]))
-                logger.info("🏆 Best Rank-10列表: {}".format([f"{x:.1f}" for x in validation_history['best_Rank10']]))
+                # 🔥 新增：输出列表格式的current和best值（带调试信息）
+                current_mAP_list = [f"{x:.1f}" for x in validation_history['current_mAP']]
+                logger.info("🔍 调试：找到 {} 个Current mAP匹配: {}".format(len(current_mAP_list), current_mAP_list))
+                logger.info("📊 Current mAP列表: {}".format(current_mAP_list))
+                
+                best_mAP_list = [f"{x:.1f}" for x in validation_history['best_mAP']]
+                logger.info("🔍 调试：找到 {} 个Best mAP匹配: {}".format(len(best_mAP_list), best_mAP_list))
+                logger.info("🏆 Best mAP列表: {}".format(best_mAP_list))
+                
+                current_Rank1_list = [f"{x:.1f}" for x in validation_history['current_Rank1']]
+                logger.info("🔍 调试：找到 {} 个Current Rank-1匹配: {}".format(len(current_Rank1_list), current_Rank1_list))
+                logger.info("📊 Current Rank-1列表: {}".format(current_Rank1_list))
+                
+                best_Rank1_list = [f"{x:.1f}" for x in validation_history['best_Rank1']]
+                logger.info("🔍 调试：找到 {} 个Best Rank-1匹配: {}".format(len(best_Rank1_list), best_Rank1_list))
+                logger.info("🏆 Best Rank-1列表: {}".format(best_Rank1_list))
+                
+                current_Rank5_list = [f"{x:.1f}" for x in validation_history['current_Rank5']]
+                logger.info("🔍 调试：找到 {} 个Current Rank-5匹配: {}".format(len(current_Rank5_list), current_Rank5_list))
+                logger.info("📊 Current Rank-5列表: {}".format(current_Rank5_list))
+                
+                best_Rank5_list = [f"{x:.1f}" for x in validation_history['best_Rank5']]
+                logger.info("🔍 调试：找到 {} 个Best Rank-5匹配: {}".format(len(best_Rank5_list), best_Rank5_list))
+                logger.info("🏆 Best Rank-5列表: {}".format(best_Rank5_list))
+                
+                current_Rank10_list = [f"{x:.1f}" for x in validation_history['current_Rank10']]
+                logger.info("🔍 调试：找到 {} 个Current Rank-10匹配: {}".format(len(current_Rank10_list), current_Rank10_list))
+                logger.info("📊 Current Rank-10列表: {}".format(current_Rank10_list))
+                
+                best_Rank10_list = [f"{x:.1f}" for x in validation_history['best_Rank10']]
+                logger.info("🔍 调试：找到 {} 个Best Rank-10匹配: {}".format(len(best_Rank10_list), best_Rank10_list))
+                logger.info("🏆 Best Rank-10列表: {}".format(best_Rank10_list))
+                
+                # 🔥 新增：输出专家权重分布列表（带调试信息）
+                if current_expert_weights:
+                    expert_weights_list = [f"[{w[0]:.4f}, {w[1]:.4f}, {w[2]:.4f}]" if isinstance(w, list) and len(w) == 3 else str(w) for w in validation_history['expert_weights']]
+                    logger.info("🔍 调试：找到 {} 个专家权重分布匹配: {}".format(len(expert_weights_list), expert_weights_list))
+                    logger.info("🎯 专家权重分布列表: {}".format(expert_weights_list))
+                else:
+                    logger.info("⚠️  专家权重分布: 未获取到（可能未启用MoE模块）")
                 
                 logger.info("Best mAP: {:.1%} (Epoch {})".format(best_index['mAP'], best_index['best_epoch']))
                 logger.info("Best Rank-1: {:.1%}".format(best_index['Rank-1']))
