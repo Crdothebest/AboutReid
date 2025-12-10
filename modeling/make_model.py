@@ -176,6 +176,7 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 gate_layers = getattr(cfg.MODEL, 'MOE_GATE_LAYERS', 2)
                 expert_threshold = getattr(cfg.MODEL, 'MOE_EXPERT_THRESHOLD', 0.1)
                 residual_weight = getattr(cfg.MODEL, 'MOE_RESIDUAL_WEIGHT', 1.0)
+                init_weights = getattr(cfg.MODEL, 'MOE_INIT_WEIGHTS', None)
                 
                 # 初始化多尺度MoE模块：使用所有配置参数
                 self.clip_multi_scale_moe = CLIPMultiScaleMoE(
@@ -194,7 +195,8 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     use_attention_fusion=self.use_attention_fusion,
                     attention_num_heads=self.attention_num_heads,
                     attention_dropout=self.attention_dropout,
-                    attention_dim=self.attention_dim
+                    attention_dim=self.attention_dim,
+                    init_weights=init_weights
                 )
                 # 初始化专家权重历史记录（用于分析）
                 self.expert_weights_history = []

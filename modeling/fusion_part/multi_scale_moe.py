@@ -124,7 +124,7 @@ class GatingNetwork(nn.Module):
     根据输入特征动态计算各专家的权重分布
     """
     
-    def __init__(self, input_dim=1536, num_experts=3, temperature=1.0, dropout=0.1, num_layers=2):
+    def __init__(self, input_dim=1536, num_experts=3, temperature=1.0, dropout=0.1, num_layers=2, init_weights=None):
         """
         初始化门控网络
         
@@ -134,10 +134,12 @@ class GatingNetwork(nn.Module):
             temperature (float): 温度参数，控制权重分布的尖锐程度
             dropout (float): Dropout比例
             num_layers (int): 网络层数
+            init_weights (list, optional): 专家初始权重列表，如 [0.35, 0.3, 0.35]
         """
         super(GatingNetwork, self).__init__()
         self.num_experts = num_experts
         self.temperature = temperature
+        self.init_weights = init_weights
         
         # ========== 可配置层数的MLP门控网络：专家权重决策器 ==========
         # 🔥 功能：根据多尺度特征计算各专家的权重分布
@@ -160,8 +162,9 @@ class GatingNetwork(nn.Module):
             ])
             current_dim = next_dim
         
-        # 输出层
-        layers.append(nn.Linear(current_dim, num_experts))
+        # 输出层（单独创建以便设置初始权重）
+        self.gate_output = nn.Linear(current_dim, num_experts)
+        layers.append(self.gate_output)
         
         self.gate = nn.Sequential(*layers)
         
@@ -175,6 +178,28 @@ class GatingNetwork(nn.Module):
                 nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
+        
+        # 🔥 如果提供了初始权重，设置输出层偏置以引导初始权重分布
+        if self.init_weights is not None:
+            if len(self.init_weights) != self.num_experts:
+                raise ValueError(f"初始权重数量 ({len(self.init_weights)}) 必须等于专家数量 ({self.num_experts})")
+            
+            # 将初始权重转换为 logits（Softmax 的逆变换）
+            # 使用 log(weights) 作为偏置，使得初始输出经过 Softmax 后接近期望权重
+            init_weights_tensor = torch.tensor(self.init_weights, dtype=torch.float32)
+            
+            # 确保权重和为1（归一化）
+            init_weights_tensor = init_weights_tensor / init_weights_tensor.sum()
+            
+            # 转换为 logits：log(weights) - log(weights.mean())
+            # 这样可以使得 Softmax 后的分布接近初始权重
+            logits = torch.log(init_weights_tensor + 1e-8)  # 添加小值避免 log(0)
+            
+            # 设置输出层偏置
+            if self.gate_output.bias is not None:
+                self.gate_output.bias.data = logits
+                
+            print(f"✅ 门控网络初始权重已设置: {self.init_weights}")
     
     def forward(self, x):
         """
@@ -337,7 +362,7 @@ class MultiScaleMoE(nn.Module):
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
                  expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
                  gate_num_heads=8, use_attention_fusion=False, attention_num_heads=8,
-                 attention_dropout=0.1, attention_dim=512):
+                 attention_dropout=0.1, attention_dim=512, init_weights=None):
         """
         初始化多尺度MoE模块
         
@@ -358,6 +383,7 @@ class MultiScaleMoE(nn.Module):
             attention_num_heads (int): 注意力网络头数
             attention_dropout (float): 注意力网络Dropout比例
             attention_dim (int): 注意力网络维度
+            init_weights (list, optional): 专家初始权重列表，如 [0.35, 0.3, 0.35]
         """
         super(MultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -417,7 +443,8 @@ class MultiScaleMoE(nn.Module):
             num_experts=self.num_experts,
             temperature=temperature,
             dropout=gate_dropout,
-            num_layers=gate_layers
+            num_layers=gate_layers,
+            init_weights=init_weights
         )
         
         # ========== MLP最终融合层：专家输出融合器 ==========
@@ -823,7 +850,7 @@ class CLIPMultiScaleMoE(nn.Module):
                  expert_dropout=0.1, gate_dropout=0.1, expert_layers=2, gate_layers=2, 
                  expert_threshold=0.1, residual_weight=1.0, use_gate_fusion=False,
                  gate_num_heads=8, use_attention_fusion=False, attention_num_heads=8,
-                 attention_dropout=0.1, attention_dim=512):
+                 attention_dropout=0.1, attention_dim=512, init_weights=None):
         """
         初始化CLIP多尺度MoE模块
         
@@ -844,6 +871,7 @@ class CLIPMultiScaleMoE(nn.Module):
             attention_num_heads (int): 注意力网络头数
             attention_dropout (float): 注意力网络Dropout比例
             attention_dim (int): 注意力网络维度
+            init_weights (list, optional): 专家初始权重列表，如 [0.35, 0.3, 0.35]
         """
         super(CLIPMultiScaleMoE, self).__init__()
         self.feat_dim = feat_dim
@@ -870,7 +898,8 @@ class CLIPMultiScaleMoE(nn.Module):
             use_attention_fusion=use_attention_fusion,
             attention_num_heads=attention_num_heads,
             attention_dropout=attention_dropout,
-            attention_dim=attention_dim
+            attention_dim=attention_dim,
+            init_weights=init_weights
         )
         
         print(f"🔥 CLIP多尺度MoE模块初始化完成:")
@@ -879,6 +908,8 @@ class CLIPMultiScaleMoE(nn.Module):
         print(f"   - 专家隐藏层维度: {expert_hidden_dim}")
         print(f"   - 门控融合机制: {'已启用' if use_gate_fusion else '已禁用'}")
         print(f"   - 注意力融合机制: {'已启用' if use_attention_fusion else '已禁用'}")
+        if init_weights is not None:
+            print(f"   - 专家初始权重: {init_weights}")
     
     def forward(self, patch_tokens):
         """
