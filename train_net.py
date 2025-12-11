@@ -11,6 +11,8 @@ import torch
 import numpy as np
 import os
 import argparse
+import json
+import sys
 from config import cfg
 
 
@@ -36,6 +38,33 @@ def set_seed(seed):
     # 如果 deterministic=True，则 benchmark 必须为 False 才能确保完全可复现
     torch.backends.cudnn.deterministic = True  # 确保cuDNN使用确定性算法
     torch.backends.cudnn.benchmark = False     # 禁用自动选择算法（与deterministic互斥）
+
+
+def log_run_parameters(logger, args, cfg):
+    """
+    将当前运行的命令行参数与最终配置写入 train_log，便于后续复现/调参。
+    """
+    separator = "=" * 80
+    logger.info(separator)
+    logger.info("🧾 实验参数快照（命令行 + 最终配置）")
+    logger.info(separator)
+
+    reproduce_cmd = f"{sys.executable} " + " ".join(sys.argv) if sys.argv else "python train_net.py"
+    logger.info("【复现实验命令】")
+    logger.info(reproduce_cmd)
+
+    logger.info("【命令行参数（args）】")
+    args_dict = vars(args)
+    args_json = json.dumps(args_dict, ensure_ascii=False, indent=2, default=str)
+    for line in args_json.splitlines():
+        logger.info(line)
+
+    logger.info(f"【工作目录】{os.getcwd()}")
+    logger.info("【最终配置（YAML）】")
+    cfg_yaml = cfg.dump()
+    for line in cfg_yaml.splitlines():
+        logger.info(line)
+    logger.info(separator)
 
 # 训练主函数
 if __name__ == '__main__':
@@ -138,6 +167,7 @@ if __name__ == '__main__':
     
     # 打印最终配置（统一输出）
     print_final_config(cfg)
+    log_run_parameters(logger, args, cfg)
 
     if cfg.MODEL.DIST_TRAIN: # 如果使用分布式训练
         torch.distributed.init_process_group(backend='nccl', init_method='env://') # 初始化分布式训练
