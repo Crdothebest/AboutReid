@@ -13,6 +13,8 @@ import os
 import argparse
 import json
 import sys
+import logging
+from datetime import datetime
 from config import cfg
 
 
@@ -65,6 +67,35 @@ def log_run_parameters(logger, args, cfg):
     for line in cfg_yaml.splitlines():
         logger.info(line)
     logger.info(separator)
+
+
+def rename_output_directory(output_dir, best_map):
+    """
+    将输出目录重命名为 "<best_mAP>mAP_<MMDD_HHMM>_<原目录名>"，返回新的目录路径。
+    """
+    if not output_dir or not os.path.isdir(output_dir):
+        return None
+
+    normalized_dir = os.path.normpath(output_dir.rstrip(os.sep))
+    parent_dir, base_name = os.path.split(normalized_dir)
+
+    try:
+        best_map_value = float(best_map) if best_map is not None else 0.0
+    except (TypeError, ValueError):
+        best_map_value = 0.0
+
+    best_map_percent = max(best_map_value * 100.0, 0.0)
+    timestamp = datetime.now().strftime("%m%d_%H%M")
+    base_candidate = f"{best_map_percent:.1f}mAP_{timestamp}_{base_name}"
+    candidate = os.path.join(parent_dir, base_candidate)
+
+    suffix = 1
+    while os.path.exists(candidate):
+        candidate = os.path.join(parent_dir, f"{base_candidate}_{suffix}")
+        suffix += 1
+
+    os.rename(normalized_dir, candidate)
+    return candidate
 
 # 训练主函数
 if __name__ == '__main__':
@@ -178,7 +209,7 @@ if __name__ == '__main__':
     loss_func, center_criterion = make_loss(cfg, num_classes=num_classes)
     optimizer, optimizer_center = make_optimizer(cfg, model, center_criterion)
     scheduler = create_scheduler(cfg, optimizer)
-    do_train(
+    best_index = do_train(
         cfg, # 配置
         model, # 模型
         center_criterion, # 中心损失
@@ -190,4 +221,15 @@ if __name__ == '__main__':
         loss_func, # 损失函数
         num_query, args.local_rank # 查询数量和本地排名
     )
-    
+
+    # 仅在主进程/单卡环境重命名大文件夹
+    is_main_process = (not cfg.MODEL.DIST_TRAIN) or args.local_rank == 0
+    if is_main_process and output_dir and os.path.isdir(output_dir):
+        best_map_value = best_index.get('mAP', 0.0) if best_index else 0.0
+        logging.shutdown()  # 释放文件句柄，避免Windows下重命名失败
+        try:
+            renamed_dir = rename_output_directory(output_dir, best_map_value)
+            if renamed_dir:
+                print(f"📁 输出目录重命名为: {renamed_dir}")
+        except OSError as rename_err:
+            print(f"❌ 输出目录重命名失败: {rename_err}")

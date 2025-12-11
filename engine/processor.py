@@ -678,6 +678,7 @@ def do_train(cfg,
                 torch.cuda.empty_cache()
 
     logger.info("=" * 60)
+    return best_index
     logger.info("✅ Training Finished")
     logger.info("   Total Epochs: {}".format(epochs))
     logger.info("   Best Epoch: {}".format(best_index['best_epoch']))
@@ -690,6 +691,7 @@ def do_train(cfg,
         logger.info("   🎯 Best Expert Weights: [{:.2f} , {:.2f} , {:.2f}]".format(
             weights[0], weights[1], weights[2]))
     logger.info("=" * 60)
+    return best_index
 
 
 def do_inference(cfg,
