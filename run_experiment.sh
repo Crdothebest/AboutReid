@@ -354,14 +354,16 @@ EOF
 # =============================================================================
 
 # 显示训练开始信息
-echo "🏃 开始训练..."
-echo "🔍 调试：即将执行命令: $CMD"
-echo "🔍 调试：当前工作目录: $(pwd)"
-echo "🔍 调试：Python路径: $(which python)"
-echo "🔍 调试：配置文件内容检查:"
-head -20 "$MODIFIED_CONFIG"
-echo "🔍 调试：配置文件末尾内容:"
-tail -10 "$MODIFIED_CONFIG"
+if [ "$CONFIG_PRINTER_ONLY" -ne 1 ]; then
+    echo "🏃 开始训练..."
+    echo "🔍 调试：即将执行命令: $CMD"
+    echo "🔍 调试：当前工作目录: $(pwd)"
+    echo "🔍 调试：Python路径: $(which python)"
+    echo "🔍 调试：配置文件内容检查:"
+    head -20 "$MODIFIED_CONFIG"
+    echo "🔍 调试：配置文件末尾内容:"
+    tail -10 "$MODIFIED_CONFIG"
+fi
 
 # 执行训练命令
 # eval 命令用于执行存储在变量中的命令
