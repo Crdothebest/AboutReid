@@ -18,31 +18,22 @@ def make_loss(cfg, num_classes):  # modified by gu
     # 创建 CenterLoss 对象，计算样本类中心的损失
     center_criterion = CenterLoss(num_classes=num_classes, feat_dim=feat_dim, use_gpu=False)  # center loss
     
-    # 🔥 新增：MoE损失函数
-    # 功能：为MoE模块添加专门的损失函数
-    # 包含：平衡损失、稀疏性损失、多样性损失
+    # MoE损失函数
     moe_loss_fn = None
     if getattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE', False):
         from .moe_loss import make_moe_loss
         moe_loss_fn = make_moe_loss(cfg)
-        print("🔥 启用MoE损失函数")
 
-    # 如果配置中包含 'triplet'，则选择三元组损失函数
+    # 三元组损失函数
     if 'triplet' in cfg.MODEL.METRIC_LOSS_TYPE:
-        if cfg.MODEL.NO_MARGIN:  # 如果没有设置边界，使用软三元组损失
+        if cfg.MODEL.NO_MARGIN:
             triplet = TripletLoss()
-            print("using soft triplet loss for training")
-        else:  # 否则使用带有边界的三元组损失
-            triplet = TripletLoss(cfg.SOLVER.MARGIN)  # triplet loss
-            print("using triplet loss with margin:{}".format(cfg.SOLVER.MARGIN))
-    else:
-        print('expected METRIC_LOSS_TYPE should be triplet'
-              'but got {}'.format(cfg.MODEL.METRIC_LOSS_TYPE))
+        else:
+            triplet = TripletLoss(cfg.SOLVER.MARGIN)
 
-    # 如果启用了标签平滑，创建带标签平滑的交叉熵损失函数
+    # 标签平滑
     if cfg.MODEL.IF_LABELSMOOTH == 'on':
-        xent = CrossEntropyLabelSmooth(num_classes=num_classes)  # 标签平滑的交叉熵损失
-        print("label smooth on, numclasses:", num_classes)
+        xent = CrossEntropyLabelSmooth(num_classes=num_classes)
 
     # 根据采样策略，选择对应的损失计算方式
     if sampler == 'softmax':  # 采用 softmax 损失
@@ -95,13 +86,6 @@ def make_loss(cfg, num_classes):  # modified by gu
                     # 返回加权后的损失，包含 ID 损失和三元组损失
                     return cfg.MODEL.ID_LOSS_WEIGHT * ID_LOSS + \
                         cfg.MODEL.TRIPLET_LOSS_WEIGHT * TRI_LOSS
-            else:
-                print('expected METRIC_LOSS_TYPE should be triplet'
-                      'but got {}'.format(cfg.MODEL.METRIC_LOSS_TYPE))
-
-    else:
-        print('expected sampler should be softmax, triplet, softmax_triplet or softmax_triplet_center'
-              'but got {}'.format(cfg.DATALOADER.SAMPLER))
 
     # 🔥 修改：将MoE损失函数附加到损失函数上
     # 功能：让损失函数能够访问MoE损失函数

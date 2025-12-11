@@ -139,41 +139,14 @@ def make_optimizer(cfg, model, center_criterion):
                         lr = 0.000005  # 固定值：BASE_LR的1%（与门控网络相同）
             
             # 分类器参数：如果启用，使用2倍学习率
-            # 原因：分类器通常需要更快的学习速度
             if cfg.SOLVER.LARGE_FC_LR:
                 if "classifier" in key or "arcface" in key:
                     lr = cfg.SOLVER.BASE_LR * 2
-                    print('Using two times learning rate for fc ')
 
-        # ====================================================================
-        # 【模块三：MoE参数统计与日志输出】
-        # ====================================================================
-        # 
-        # 【功能】统计MoE相关参数并输出日志，便于调试和验证
-        # 【原因】帮助用户确认门控网络学习率是否正确应用
-        # 
-        # 【做了什么】
-        # 1. 统计所有MoE相关参数（moe、gating、expert关键字）
-        # 2. 打印前5个参数作为示例，显示其学习率设置
-        # 3. 特别标注门控网络参数，显示其学习率计算过程
-        # ====================================================================
         if "moe" in key.lower() or "gating" in key.lower() or "expert" in key.lower():
             moe_param_count += 1
-            if moe_param_count <= 5:  # 只打印前5个参数作为示例
-                gate_lr_factor = getattr(cfg.SOLVER, 'MOE_GATE_LR_FACTOR', 0.01)
-                if "gating" in key.lower():
-                    # 特别标注门控网络参数，显示其独立的学习率设置
-                    print(f"✅ MoE门控网络参数已添加到优化器: {key}, shape={value.shape}, LR={lr:.8f} (BASE_LR × {gate_lr_factor})")
-                else:
-                    print(f"✅ MoE参数已添加到优化器: {key}, shape={value.shape}, requires_grad={value.requires_grad}")
 
         params += [{"params": [value], "lr": lr, "weight_decay": weight_decay}]
-    
-    # 🔧 打印MoE参数统计信息
-    if moe_param_count > 0:
-        print(f"✅ 总共找到 {moe_param_count} 个MoE相关参数，已全部添加到优化器")
-    else:
-        print(f"⚠️  警告: 未找到MoE相关参数！请检查模型是否正确初始化MoE模块")
     
     if cfg.SOLVER.OPTIMIZER_NAME == 'SGD':
         optimizer = getattr(torch.optim, cfg.SOLVER.OPTIMIZER_NAME)(params, momentum=cfg.SOLVER.MOMENTUM)

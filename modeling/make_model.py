@@ -139,43 +139,28 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             # 功能：在CLIP分支基础上添加多尺度滑动窗口特征提取
             if self.use_clip_multi_scale:
                 from modeling.fusion_part.clip_multi_scale_sliding_window import CLIPMultiScaleFeatureExtractor
-                # 🔥 修复：从配置文件读取滑动窗口尺度，替代硬编码
                 clip_scales = getattr(cfg.MODEL, 'CLIP_MULTI_SCALE_SCALES', [4, 8, 16])
-                # 初始化多尺度特征提取器：512维输入，从配置读取滑动窗口尺度
                 self.clip_multi_scale_extractor = CLIPMultiScaleFeatureExtractor(feat_dim=512, scales=clip_scales)
-                print('✅ 为CLIP启用多尺度滑动窗口特征提取模块')
-                print(f'   - 滑动窗口尺度: {clip_scales}')
-                print(f'   - 特征维度: 512 (CLIP投影维度)')
             
             # 🔥 新增：多尺度MoE配置和初始化
             # 功能：从配置文件读取MoE设置，初始化MoE模块
             self.use_multi_scale_moe = getattr(cfg.MODEL, 'USE_MULTI_SCALE_MOE', False)
             self.moe_scales = getattr(cfg.MODEL, 'MOE_SCALES', [4, 8, 16])
             
-            # 🔥 新增：门控融合配置
-            # 功能：从配置文件读取门控融合设置，支持门控融合机制开关
-            # 注意：门控融合使用MLP门控网络，不需要num_heads参数
-            # 🔧 修复：处理YACS可能将"True"解析为字符串的情况
+            # 门控融合配置
             use_gate_fusion_raw = getattr(cfg.MODEL, 'USE_GATE_FUSION', False)
             if isinstance(use_gate_fusion_raw, str):
                 self.use_gate_fusion = use_gate_fusion_raw.lower() in ('true', '1', 'yes')
-                print(f"🔍 门控融合参数修正: '{use_gate_fusion_raw}' -> {self.use_gate_fusion}")
             else:
                 self.use_gate_fusion = bool(use_gate_fusion_raw)
-            
             self.gate_dropout = getattr(cfg.MODEL, 'GATE_DROPOUT', 0.1)
             
-            # 🔥 新增：注意力融合配置
-            # 功能：从配置文件读取注意力融合设置，支持注意力融合机制开关
-            # 🔧 修复：处理YACS可能将"True"解析为字符串的情况
+            # 注意力融合配置
             use_attention_fusion_raw = getattr(cfg.MODEL, 'USE_ATTENTION_FUSION', False)
-            print(f"🔍 [make_model] 读取 USE_ATTENTION_FUSION: {use_attention_fusion_raw} (类型: {type(use_attention_fusion_raw)})")
             if isinstance(use_attention_fusion_raw, str):
                 self.use_attention_fusion = use_attention_fusion_raw.lower() in ('true', '1', 'yes')
-                print(f"🔍 [make_model] 注意力融合参数修正: '{use_attention_fusion_raw}' -> {self.use_attention_fusion}")
             else:
                 self.use_attention_fusion = bool(use_attention_fusion_raw)
-                print(f"🔍 [make_model] 注意力融合参数（布尔值）: {self.use_attention_fusion}")
             
             self.attention_num_heads = getattr(cfg.MODEL, 'ATTENTION_NUM_HEADS', 8)
             self.attention_dropout = getattr(cfg.MODEL, 'ATTENTION_DROPOUT', 0.1)
@@ -223,24 +208,19 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 #   - 固定权重不会随训练改变，始终保持预设值
                 #   - 建议同时禁用MoE辅助Loss（BALANCE_LOSS_WEIGHT=0.0等）
                 #
-                # ========== 固定权重模式参数读取（修复：确保命令行参数生效） ==========
-                # 🔥 修复：使用hasattr检查配置项是否存在，确保命令行参数能正确覆盖
-                # 🔥 修复：YACS可能将字符串"True"解析为字符串，需要显式转换为布尔值
+                # 固定权重模式参数
                 if hasattr(cfg.MODEL, 'MOE_USE_FIXED_WEIGHTS'):
                     use_fixed_weights_raw = cfg.MODEL.MOE_USE_FIXED_WEIGHTS
-                    # 处理YACS可能将"True"解析为字符串的情况
                     if isinstance(use_fixed_weights_raw, str):
                         use_fixed_weights = use_fixed_weights_raw.lower() in ('true', '1', 'yes')
                     else:
                         use_fixed_weights = bool(use_fixed_weights_raw)
                 else:
-                    use_fixed_weights = False  # 默认值
+                    use_fixed_weights = False
                 
                 if hasattr(cfg.MODEL, 'MOE_FIXED_WEIGHTS'):
                     fixed_weights_raw = cfg.MODEL.MOE_FIXED_WEIGHTS
-                    # 处理YACS可能将列表解析为字符串的情况
                     if isinstance(fixed_weights_raw, str):
-                        # 解析字符串列表，如 "[0.33,0.33,0.34]"
                         import ast
                         try:
                             fixed_weights = ast.literal_eval(fixed_weights_raw)
@@ -249,57 +229,22 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     else:
                         fixed_weights = fixed_weights_raw
                 else:
-                    fixed_weights = [0.33, 0.33, 0.34]  # 默认值
+                    fixed_weights = [0.33, 0.33, 0.34]
                 
-                # 🔥 新增：验证固定权重参数（调试输出）
-                print(f"🔍 固定权重参数验证:")
-                print(f"   - MOE_USE_FIXED_WEIGHTS: {use_fixed_weights} (类型: {type(use_fixed_weights)})")
-                print(f"   - MOE_FIXED_WEIGHTS: {fixed_weights} (类型: {type(fixed_weights)})")
-                if use_fixed_weights:
-                    print(f"   ✅ 固定权重模式已启用，将禁用门控网络")
-                else:
-                    print(f"   ⚠️  固定权重模式未启用，将使用动态门控网络")
-                
-                # 🔥 Top-k 路由参数
-                # 先检查参数是否存在
-                if hasattr(cfg.MODEL, 'MOE_USE_TOP_K_ROUTING'):
-                    use_top_k_routing_raw = cfg.MODEL.MOE_USE_TOP_K_ROUTING
-                    print(f"🔍 make_model.py: 从 cfg.MODEL 读取 MOE_USE_TOP_K_ROUTING = {use_top_k_routing_raw} (类型: {type(use_top_k_routing_raw)})")
-                else:
-                    use_top_k_routing_raw = False
-                    print(f"⚠️  make_model.py: cfg.MODEL 中没有 MOE_USE_TOP_K_ROUTING，使用默认值 False")
-                
+                # Top-k 路由参数
                 use_top_k_routing = getattr(cfg.MODEL, 'MOE_USE_TOP_K_ROUTING', False)
                 top_k = getattr(cfg.MODEL, 'MOE_TOP_K', 2)
                 top_k_mode = getattr(cfg.MODEL, 'MOE_TOP_K_MODE', 'soft')
                 
-                # 处理字符串类型的布尔值
                 if isinstance(use_top_k_routing, str):
                     use_top_k_routing = use_top_k_routing.lower() in ['true', '1', 'yes']
-                    print(f"🔧 make_model.py: 修正 MOE_USE_TOP_K_ROUTING 字符串 '{use_top_k_routing_raw}' -> {use_top_k_routing}")
-                elif isinstance(use_top_k_routing, bool):
-                    print(f"🔍 make_model.py: MOE_USE_TOP_K_ROUTING = {use_top_k_routing} (类型: {type(use_top_k_routing)})")
                 else:
-                    print(f"⚠️  make_model.py: MOE_USE_TOP_K_ROUTING = {use_top_k_routing} (类型: {type(use_top_k_routing)}, 将转换为布尔值)")
                     use_top_k_routing = bool(use_top_k_routing)
                 
-                # 处理字符串类型的 top_k_mode
                 if isinstance(top_k_mode, str):
                     top_k_mode = top_k_mode.lower()
                     if top_k_mode not in ['soft', 'hard']:
-                        print(f"⚠️  警告: MOE_TOP_K_MODE '{top_k_mode}' 无效，使用默认值 'soft'")
                         top_k_mode = 'soft'
-                
-                # 🔥 调试输出：显示最终参数值
-                print(f"🔍 make_model.py: Top-k 路由最终参数（传递给 CLIPMultiScaleMoE 之前）:")
-                print(f"   - use_top_k_routing = {use_top_k_routing} (类型: {type(use_top_k_routing)}, 值: {bool(use_top_k_routing)})")
-                print(f"   - top_k = {top_k} (类型: {type(top_k)})")
-                print(f"   - top_k_mode = {top_k_mode} (类型: {type(top_k_mode)})")
-                
-                # 🔥 关键验证：确保 use_top_k_routing 是布尔值
-                if not isinstance(use_top_k_routing, bool):
-                    print(f"⚠️  警告: use_top_k_routing 不是布尔值，强制转换: {use_top_k_routing} -> {bool(use_top_k_routing)}")
-                    use_top_k_routing = bool(use_top_k_routing)
                 
                 # 初始化多尺度MoE模块：使用所有配置参数
                 self.clip_multi_scale_moe = CLIPMultiScaleMoE(
@@ -327,13 +272,6 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 )
                 # 初始化专家权重历史记录（用于分析）
                 self.expert_weights_history = []
-                print('🔥 为CLIP启用多尺度MoE特征融合模块')
-                print(f'   - 滑动窗口尺度: {self.moe_scales}')
-                print(f'   - 特征维度: 512 (CLIP投影维度)')
-                print(f'   - 专家隐藏层维度: {expert_hidden_dim}')
-                print(f'   - 门控网络温度: {temperature}')
-                print(f'   - 门控融合机制: {"已启用" if self.use_gate_fusion else "已禁用"}')
-                print(f'   - 注意力融合机制: {"已启用" if self.use_attention_fusion else "已禁用"}')
 
             if cfg.MODEL.SIE_CAMERA and cfg.MODEL.SIE_VIEW:
                 self.cv_embed = nn.Parameter(torch.zeros(camera_num * view_num, 768))  # 相机×视角嵌入（CLIP实际维度）
