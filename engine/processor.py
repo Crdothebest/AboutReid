@@ -21,6 +21,25 @@ from torch.cuda import amp                      # 混合精度工具：autocast 
 import torch.distributed as dist                # 分布式训练
 from layers.supcontrast import SupConLoss       # 监督对比损失（本文件未直接使用）
 
+
+def _log_metric_history(logger, history, title=None):
+    """
+    将每个指标以“当前/最佳”两个集合列表输出，便于观察全周期趋势。
+    """
+    metric_fields = [
+        ("mAP", "current_mAP", "best_mAP"),
+        ("Rank-1", "current_Rank1", "best_Rank1"),
+        ("Rank-5", "current_Rank5", "best_Rank5"),
+        ("Rank-10", "current_Rank10", "best_Rank10"),
+    ]
+    if title:
+        logger.info(title)
+    else:
+        logger.info("验证指标集合列表（当前 / 最佳）")
+    for name, current_key, best_key in metric_fields:
+        logger.info(f"{name} 当前: {history.get(current_key, [])}")
+        logger.info(f"{name} 最佳: {history.get(best_key, [])}")
+
 def do_train(cfg,
              model,
              center_criterion,
@@ -438,34 +457,13 @@ def do_train(cfg,
                     validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
                     validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else [0.0, 0.0, 0.0])  # 默认值
                     
-                    current_summary = (
-                        f"[Epoch {epoch}] CURRENT -> "
-                        f"mAP:{mAP * 100:.1f} | "
-                        f"Rank-1:{cmc[0] * 100:.1f} | "
-                        f"Rank-5:{cmc[4] * 100:.1f} | "
-                        f"Rank-10:{cmc[9] * 100:.1f}"
+                    _log_metric_history(
+                        logger,
+                        validation_history,
+                        title=f"[Epoch {epoch}] 指标集合列表（历史）"
                     )
-                    if current_expert_weights is not None:
-                        current_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
-                            current_expert_weights[0],
-                            current_expert_weights[1],
-                            current_expert_weights[2],
-                        )
-                    logger.info(current_summary)
-                    
-                    best_summary = (
-                        f"[Epoch {best_index['best_epoch']}] BEST -> "
-                        f"mAP:{best_index['mAP'] * 100:.1f} | "
-                        f"Rank-1:{best_index['Rank-1'] * 100:.1f} | "
-                        f"Rank-5:{best_index['Rank-5'] * 100:.1f} | "
-                        f"Rank-10:{best_index['Rank-10'] * 100:.1f}"
-                    )
-                    if best_index['best_expert_weights'] is not None:
-                        weights = best_index['best_expert_weights']
-                        best_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
-                            weights[0], weights[1], weights[2]
-                        )
-                    logger.info(best_summary)
+                    if validation_history['expert_weights']:
+                        logger.info(f"Experts 历史: {validation_history['expert_weights']}")
                     
                     torch.cuda.empty_cache()
             else:
@@ -594,35 +592,13 @@ def do_train(cfg,
                 validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
                 validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else [0.0, 0.0, 0.0])  # 默认值
                 
-                # 输出当前/最佳结果摘要
-                current_summary = (
-                    f"[Epoch {epoch}] CURRENT -> "
-                    f"mAP:{mAP * 100:.1f} | "
-                    f"Rank-1:{cmc[0] * 100:.1f} | "
-                    f"Rank-5:{cmc[4] * 100:.1f} | "
-                    f"Rank-10:{cmc[9] * 100:.1f}"
+                _log_metric_history(
+                    logger,
+                    validation_history,
+                    title=f"[Epoch {epoch}] 指标集合列表（历史）"
                 )
-                if current_expert_weights is not None:
-                    current_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
-                        current_expert_weights[0],
-                        current_expert_weights[1],
-                        current_expert_weights[2],
-                    )
-                logger.info(current_summary)
-
-                best_summary = (
-                    f"[Epoch {best_index['best_epoch']}] BEST -> "
-                    f"mAP:{best_index['mAP'] * 100:.1f} | "
-                    f"Rank-1:{best_index['Rank-1'] * 100:.1f} | "
-                    f"Rank-5:{best_index['Rank-5'] * 100:.1f} | "
-                    f"Rank-10:{best_index['Rank-10'] * 100:.1f}"
-                )
-                if best_index['best_expert_weights'] is not None:
-                    weights = best_index['best_expert_weights']
-                    best_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
-                        weights[0], weights[1], weights[2]
-                    )
-                logger.info(best_summary)
+                if validation_history['expert_weights']:
+                    logger.info(f"Experts 历史: {validation_history['expert_weights']}")
 
                 torch.cuda.empty_cache()
 

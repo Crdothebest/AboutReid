@@ -1,595 +1,170 @@
-# RGBNT201数据集完整流程分析
+# RGBNT201 数据流完整解析（2025.12 校准版）
 
-## 📊 从输入到输出的完整数据流
-
----
-
-## 🎯 阶段1：数据加载与预处理
-
-### 1.1 数据集初始化
-
-**文件位置**: `data/datasets/RGBNT201.py`
-
-```python
-# 初始化流程
-dataset = RGBNT201(root='/path/to/data')
-```
-
-**处理步骤**:
-1. **路径解析**:
-   - `train_dir = 'train_171'` - 训练集目录
-   - `query_dir = 'test'` - 查询集目录
-   - `gallery_dir = 'test'` - 画廊集目录
-
-2. **数据组织**:
-   - 每个目录包含三个子目录：`RGB/`, `NI/`, `TI/`
-   - 每个样本由三张同名图像组成（RGB、NIR、TIR）
-   - 文件名格式：`{PID}_{CAMID}_{其他信息}.jpg`
-
-3. **数据格式**:
-   ```python
-   # 返回格式
-   train = [
-       ([RGB_path, NI_path, TI_path], pid, camid, trackid),
-       ...
-   ]
-   ```
-
-### 1.2 图像读取
-
-**文件位置**: `data/datasets/bases.py::read_image()`
-
-```python
-def read_image(img_list):
-    # RGBNT201: img_list = [RGB_path, NI_path, TI_path]
-    img3 = []
-    for img_path in img_list:
-        img = Image.open(img_path).convert('RGB')
-        img3.append(img)  # 直接添加，不切割
-    return img3  # [RGB_PIL, NI_PIL, TI_PIL]
-```
-
-**输出**: 三个PIL Image对象列表 `[RGB, NI, TI]`
-
-### 1.3 数据增强与预处理
-
-**文件位置**: `data/datasets/make_dataloader.py`
-
-```python
-train_transforms = T.Compose([
-    T.Resize([256, 128]),              # 调整尺寸到256×128
-    T.RandomHorizontalFlip(p=0.5),     # 随机水平翻转（50%概率）
-    T.Pad(10),                         # 填充10像素
-    T.RandomCrop([256, 128]),          # 随机裁剪回256×128
-    T.ToTensor(),                      # 转为Tensor [0,1]
-    T.Normalize([0.5,0.5,0.5], [0.5,0.5,0.5])  # 归一化到[-1,1]
-])
-```
-
-**输出**: 
-- `RGB_tensor`: `[3, 256, 128]`
-- `NI_tensor`: `[3, 256, 128]`
-- `TI_tensor`: `[3, 256, 128]`
-
-### 1.4 Batch组织
-
-**文件位置**: `data/datasets/make_dataloader.py::train_collate_fn()`
-
-```python
-def train_collate_fn(batch):
-    # batch = [(img_list, pid, camid, viewid), ...]
-    RGB_list = [img[0] for img in imgs]
-    NI_list = [img[1] for img in imgs]
-    TI_list = [img[2] for img in imgs]
-    
-    RGB = torch.stack(RGB_list)  # [B, 3, 256, 128]
-    NI = torch.stack(NI_list)   # [B, 3, 256, 128]
-    TI = torch.stack(TI_list)   # [B, 3, 256, 128]
-    
-    return {
-        'RGB': RGB,
-        'NI': NI,
-        'TI': TI
-    }, pids, camids, viewids
-```
-
-**输出**: 
-- `img`: `{'RGB': [B,3,256,128], 'NI': [B,3,256,128], 'TI': [B,3,256,128]}`
-- `pids`: 行人ID标签
-- `camids`: 摄像头ID
-- `viewids`: 视角ID
+> 本文聚焦“代码真实行为”，把数据、模型、损失、日志四条链路串成一张流程图，方便开发者逐段对照源码排查。
 
 ---
 
-## 🏗️ 阶段2：模型前向传播
+## Stage 1 · 数据加载与预处理
 
-### 2.1 主模型入口
-
-**文件位置**: `modeling/make_model.py::MambaPro.forward()`
-
-```python
-def forward(self, x, label=None, cam_label=None, view_label=None):
-    if self.training:
-        RGB = x['RGB']  # [B, 3, 256, 128]
-        NI = x['NI']    # [B, 3, 256, 128]
-        TI = x['TI']    # [B, 3, 256, 128]
-        
-        # 并行处理三种模态
-        RGB_tokens, RGB_score, RGB_global = self.BACKBONE(
-            RGB, cam_label=cam_label, view_label=view_label, modality='rgb'
-        )
-        NI_tokens, NI_score, NI_global = self.BACKBONE(
-            NI, cam_label=cam_label, view_label=view_label, modality='nir'
-        )
-        TI_tokens, TI_score, TI_global = self.BACKBONE(
-            TI, cam_label=cam_label, view_label=view_label, modality='tir'
-        )
-```
-
-### 2.2 单模态特征提取（以RGB为例）
-
-**文件位置**: `modeling/make_model.py::build_transformer.forward()`
-
-#### 步骤1: CLIP视觉编码器
-
-```python
-# CLIP编码器处理
-x = self.base(RGB, cam_label=cam_label, view_label=view_label, modality='rgb')
-# 输出: [B, 129, 512]
-# - CLS token: [B, 1, 512]
-# - Patch tokens: [B, 128, 512] (128个patches)
-```
-
-**处理过程**:
-1. **Patch划分**: `256×128` → `16×8 = 128`个patches
-2. **Patch Embedding**: 每个patch → 512维向量
-3. **CLS Token**: 添加分类token `[B, 1, 512]`
-4. **Position Embedding**: 位置编码
-5. **SIE Embedding**: 相机嵌入（可选）
-6. **Transformer编码**: 12层Transformer块
-
-#### 步骤2: 多尺度滑动窗口处理（可选）
-
-**文件位置**: `modeling/fusion_part/clip_multi_scale_sliding_window.py`
-
-```python
-if self.use_clip_multi_scale:
-    # 分离CLS token和patch tokens
-    cls_token = x[:, 0:1, :]      # [B, 1, 512]
-    patch_tokens = x[:, 1:, :]    # [B, 128, 512]
-    
-    # 多尺度特征提取
-    # 4×4窗口: Conv1d(k=4, s=4) → [B, 512, 32] → GAP → [B, 512]
-    # 8×8窗口: Conv1d(k=8, s=8) → [B, 512, 16] → GAP → [B, 512]
-    # 16×16窗口: Conv1d(k=16, s=16) → [B, 512, 8] → GAP → [B, 512]
-    
-    multi_scale_features = [
-        scale_4x4_feature,   # [B, 512]
-        scale_8x8_feature,   # [B, 512]
-        scale_16x16_feature  # [B, 512]
-    ]
-```
-
-#### 步骤3: MoE融合（如果启用）
-
-**文件位置**: `modeling/fusion_part/multi_scale_moe.py::CLIPMultiScaleMoE`
-
-```python
-if self.use_multi_scale_moe:
-    # MoE融合多尺度特征
-    multi_scale_feature, expert_weights = self.clip_multi_scale_moe(patch_tokens)
-    # 输出: multi_scale_feature [B, 512], expert_weights [B, 3]
-```
-
-**MoE处理流程**:
-
-1. **门控网络计算权重**:
-   ```python
-   # 输入: 多尺度特征拼接 [B, 1536] = [B, 512×3]
-   gate_scores = GatingNetwork(multi_scale_features)  # [B, 3]
-   gate_scores = gate_scores / temperature            # 温度缩放
-   expert_weights = Softmax(gate_scores)             # [B, 3]
-   # 输出: [weight_4x4, weight_8x8, weight_16x16]
-   ```
-
-2. **专家网络处理**:
-   ```python
-   # Expert1处理4×4特征
-   expert1_output = Expert1(scale_4x4_feature)  # [B, 512]
-   
-   # Expert2处理8×8特征
-   expert2_output = Expert2(scale_8x8_feature)  # [B, 512]
-   
-   # Expert3处理16×16特征
-   expert3_output = Expert3(scale_16x16_feature)  # [B, 512]
-   ```
-
-3. **加权融合**:
-   ```python
-   multi_scale_feature = (
-       expert_weights[:, 0:1] * expert1_output +
-       expert_weights[:, 1:2] * expert2_output +
-       expert_weights[:, 2:3] * expert3_output
-   )  # [B, 512]
-   ```
-
-4. **最终融合层**:
-   ```python
-   final_feature = LayerNorm(Linear(multi_scale_feature))  # [B, 512]
-   ```
-
-#### 步骤4: CLS Token增强
-
-```python
-# 增强CLS token
-enhanced_cls = cls_token + multi_scale_feature.unsqueeze(1)  # [B, 1, 512]
-
-# 重新组合
-x = torch.cat([enhanced_cls, patch_tokens], dim=1)  # [B, 129, 512]
-```
-
-#### 步骤5: 分类与特征提取
-
-```python
-# 分类头
-RGB_score = self.classifier(RGB_global)  # [B, num_classes]
-
-# 全局特征提取
-RGB_global = x[:, 0, :]  # 使用CLS token作为全局特征 [B, 512]
-```
-
-**最终输出**:
-- `RGB_tokens`: `[B, 129, 512]` - 所有tokens（用于后续融合）
-- `RGB_score`: `[B, num_classes]` - 分类logits
-- `RGB_global`: `[B, 512]` - 全局特征
-
-**NI和TI模态**: 与RGB相同的处理流程，只是`modality`参数不同
+| 步骤 | 文件 / 函数 | 说明 |
+| --- | --- | --- |
+| 数据集初始化 | `data/datasets/RGBNT201.py` | `__init__` 中构建 `train/query/gallery` 列表，每条样本包含 `[RGB_path, NI_path, TI_path], pid, camid, viewid`。RGBNT100、MSVR310 继承同一基类，唯一差异是路径组织方式。 |
+| 图像读取 | `data/datasets/bases.py::read_image` | 对传入路径列表依次 `Image.open(...).convert('RGB')`，返回 `[RGB_PIL, NI_PIL, TI_PIL]`。MSVR310 会在内部对单张拼接图切片，RGBNT100 的第三模态由 IR 复制。 |
+| 变换 / 增强 | `data/datasets/make_dataloader.py::train_transforms` | `Resize → RandomFlip → Pad → RandomCrop → ToTensor → Normalize(0.5)`，Random Erasing 由 `INPUT.RE_PROB` 控制，其最终状态会在 `utils/config_printer.py` 中打印。 |
+| Batch 组织 | `train_collate_fn` | 将三模态分别 `torch.stack` 成 `{'RGB': [B,3,256,128], ...}`，并返回 `pids/camids/viewids`；MoE loss 与 SIE camera embedding 均依赖这些标签。 |
 
 ---
 
-## 🔀 阶段3：多模态特征融合
+## Stage 2 · 单模态前向与多尺度处理
 
-### 3.1 数据集类型检测
+1. **入口**：`modeling/make_model.py::MambaPro.forward`
+   - 三模态共享同一个 CLIP ViT-B-16 backbone（`build_transformer`）。
+   - `cam_label` / `view_label` 会传递下去以启用 SIE camera embedding。
 
-**文件位置**: `modeling/make_model.py::MambaPro.forward()`
+2. **CLIP Backbone**（`build_transformer.forward`）
+   - 输入 `[B,3,256,128]` → 输出 `tokens [B,129,512]`（含 CLS）与 `global [B,512]`。
+   - 若 `MODEL.USE_CLIP_MULTI_SCALE=True`，调用 `modeling/fusion_part/clip_multi_scale_sliding_window.py`：
+     - `kernel_size/stride = [4,8,16]` 的 Conv1d + GAP，得到三个 `[B,512]` 特征。
 
-```python
-# 检测是否为双模态数据集
-is_dual_modal = torch.allclose(NI_global, TI_global, atol=1e-6)
+3. **可选预处理**（均位于 `multi_scale_moe.py`）
+   - `GateFusionConcat`：`MODEL.USE_GATE_FUSION`，纯 MLP 门控，Dropout 由 `MODEL.GATE_DROPOUT` 控制。
+   - `AttentionFusionConcat`：`MODEL.USE_ATTENTION_FUSION`，多头注意力，需设置 `MODEL.ATTENTION_NUM_HEADS` / `MODEL.ATTENTION_DROPOUT`。
+   - 两者皆关时即为“无预处理 → MoE/拼接”。
 
-if is_dual_modal:
-    # RGBNT100: 双模态（RGB + IR）
-    ori = torch.cat([RGB_global, NI_global], dim=-1)  # [B, 1024]
-else:
-    # RGBNT201: 三模态（RGB + NIR + TIR）
-    ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # [B, 1536]
+4. **Multi-Scale MoE**（`CLIPMultiScaleMoE`）
+   - 由 `MODEL.USE_MULTI_SCALE_MOE` 控制；`MODEL.MOE_SCALES` 默认 `[4,8,16]`。
+   - `ExpertNetwork`：MLP 结构，层数 / 隐藏维分别由 `MODEL.MOE_EXPERT_LAYERS` / `MODEL.MOE_EXPERT_HIDDEN_DIM` 设置。
+   - `GatingNetwork`：输入拼接后的 `[B,1536]`，输出 `[B,num_experts]`，可配置 `MODEL.MOE_TEMPERATURE`、`MODEL.MOE_GATE_DROPOUT`、`MODEL.MOE_GATE_LAYERS`。
+   - **Top-k 路由**：`MODEL.MOE_USE_TOP_K_ROUTING` + `MODEL.MOE_TOP_K` + `MODEL.MOE_TOP_K_MODE("soft"/"hard")`。软模式重新归一化 Top-k 权重且保留梯度；硬模式会完全屏蔽其它专家。
+   - **固定权重**：`MODEL.MOE_USE_FIXED_WEIGHTS=True` 时跳过门控，广播 `MODEL.MOE_FIXED_WEIGHTS`。
+   - `_latest_expert_weights` 在 forward 中更新，供 loss 与日志访问。
+
+5. **CLS Token 增强**
+   - `enhanced_cls = cls_token + multi_scale_feature.unsqueeze(1)`。
+   - 重新融合为 `[B,129,512]` tokens，返回 `(tokens, logits, global_feat)`。
+
+---
+
+## Stage 3 · 多模态融合策略
+
+| 策略 | 条件 | 流程 |
+| --- | --- | --- |
+| **Direct Concat（默认）** | `MODEL.MAMBA=False` | 根据数据集类型拼接 `[RGB_global, NI_global, TI_global]`（双模态时只拼接两路），送入 BNNeck (`self.bottleneck`) → classifier。 |
+| **Mamba Aggregation Module** | `MODEL.MAMBA=True` | `modeling/fusion_part/AAM.py` 接收三路 tokens，依次通过 MA Block（状态空间模型）→ 均值汇聚 → 线性降维，再拼接成 `[B,1536]`，交给 `bottleneck_fuse` + `classifier_fuse`。 |
+
+两种策略都会把 logits/feat 以 `[logits_0, feat_0, logits_1, feat_1, ...]` 的格式返回，供 `layers/make_loss.py` 逐对处理。
+
+---
+
+## Stage 4 · 损失函数与 MoE 约束
+
+1. **主任务损失**
+   - 入口：`layers/make_loss.py::make_loss`。
+   - 包含 ID Loss（CE/LabelSmooth）、Triplet Loss、可选 Center Loss。权重分别由 `MODEL.ID_LOSS_WEIGHT`、`MODEL.TRIPLET_LOSS_WEIGHT`、`SOLVER.CENTER_LOSS_WEIGHT` 控制。
+
+2. **MoE Loss**
+   - 仅当 `model.BACKBONE.current_expert_weights` 不为 `None` 时启用。
+   - `engine/processor.py` 会读取 `cfg.SOLVER` / `cfg.MODEL`，优先级：命令行 → 动态调度 → 默认。
+   - 若 `SOLVER.MOE_USE_DYNAMIC_LOSS_WEIGHT=True`，按照 `warmup + schedule_type(linear/cosine)` 在 `[START, END]` 之间插值；一旦用户把权重设置为 `0.0`，立即锁定并跳过调度。
+   - Loss 由 Balance / Sparsity / Diversity 组成（`SOLVER.MOE_*_LOSS_WEIGHT`）。
+
+3. **混合精度与优化**
+   - `torch.cuda.amp.GradScaler` 封装所有 backward/step/update；`solver/make_optimizer.py` 将参数拆为 backbone、门控、其他，以及 center loss 的独立 optimizer。
+   - `SOLVER.MOE_GATE_LR_FACTOR` 仅影响门控网络学习率，常用值 0.01。
+
+---
+
+## Stage 5 · 训练循环与日志策略
+
+1. **训练主循环**（`engine/processor.py::do_train`）
+   - 每个 epoch：`scheduler.step` → `model.train` → dataloader 迭代 → loss + AMP 反传 → 可选 center optimizer。
+   - `loss_meter` / `acc_meter` 统计每个 epoch 的平均损失/准确率。
+
+2. **验证输出**
+   - 触发：`epoch % SOLVER.EVAL_PERIOD == 0`。
+   - 日志仅保留两行：
+     ```
+     [Epoch 12] CURRENT -> mAP:78.4 | Rank-1:92.1 | Rank-5:97.0 | Rank-10:98.2 | Experts:[0.34,0.33,0.33]
+     [Epoch 10] BEST    -> mAP:78.4 | Rank-1:92.1 | Rank-5:97.0 | Rank-10:98.2 | Experts:[0.34,0.33,0.33]
+     ```
+   - `best_index` 记录最优 epoch、指标及专家权重，并在刷新时保存 `MODEL.NAMEbest.pth`。
+
+3. **训练收官**
+   - 循环结束后统一输出：
+     ```
+     ========================================
+     ✅ Training Finished
+        Total Epochs: 60
+        Best Epoch: 48
+        Best mAP / Rank-1/5/10
+        🎯 Best Expert Weights: [w1, w2, w3]
+     ========================================
+     ```
+   - 这也是整个训练过程中唯一的“节后总结”，其余阶段不再打印额外描述。
+
+---
+
+## 关键数据流（输入 → 输出）
+
 ```
-
-### 3.2 特征融合策略
-
-#### 策略A: 简单拼接（MAMBA=False）
-
-```python
-# 拼接特征
-ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # [B, 1536]
-
-# BNNeck降维
-ori_global = self.bottleneck(ori)  # [B, feat_dim]
-
-# 分类
-ori_score = self.classifier(ori_global)  # [B, num_classes]
-```
-
-#### 策略B: Mamba聚合融合（MAMBA=True）
-
-**文件位置**: `modeling/fusion_part/AAM.py::AAM.forward()`
-
-```python
-def forward(self, r, n, t):
-    # 输入: RGB_tokens [B, 129, 512], NI_tokens [B, 129, 512], TI_tokens [B, 129, 512]
-    
-    # 分离CLS token和patch tokens
-    cls_r = r[:, 0]      # [B, 512]
-    cls_n = n[:, 0]     # [B, 512]
-    cls_t = t[:, 0]     # [B, 512]
-    r = r[:, 1:]        # [B, 128, 512]
-    n = n[:, 1:]        # [B, 128, 512]
-    t = t[:, 1:]        # [B, 128, 512]
-    
-    # Mamba聚合块处理
-    for i in range(len(self.ma_block)):
-        r, n, t = self.ma_block[i](r, n, t)
-    
-    # 特征提取
-    patch_r = torch.mean(r, dim=1)  # [B, 512]
-    patch_n = torch.mean(n, dim=1)  # [B, 512]
-    patch_t = torch.mean(t, dim=1)  # [B, 512]
-    
-    # 线性降维
-    r_feature = self.linear_reduction_r(torch.cat([cls_r, patch_r], dim=-1))  # [B, 512]
-    n_feature = self.linear_reduction_n(torch.cat([cls_n, patch_n], dim=-1))  # [B, 512]
-    t_feature = self.linear_reduction_t(torch.cat([cls_t, patch_t], dim=-1))  # [B, 512]
-    
-    # 拼接
-    fuse = torch.cat([r_feature, n_feature, t_feature], dim=-1)  # [B, 1536]
-    
-    return fuse
-```
-
-**后续处理**:
-```python
-# BNNeck降维
-fuse_global = self.bottleneck_fuse(fuse)  # [B, feat_dim]
-
-# 分类
-fuse_score = self.classifier_fuse(fuse_global)  # [B, num_classes]
+RGB/NI/TI 图像
+   ↓ read_image + transforms
+Batch: {'RGB':[B,3,256,128], ...}
+   ↓ CLIP Backbone (共享权重)
+Tokens / Global 各模态
+   ↓ 可选 GateFusion / AttentionFusion
+   ↓ Multi-Scale MoE (Top-k / Fixed Weights)
+增强后的单模态特征
+   ↓ Direct Concat 或 Mamba Aggregation
+多模态融合特征
+   ↓ BNNeck + Classifier
+logits / features → Loss → AMP 反向
 ```
 
 ---
 
-## 📉 阶段4：损失计算与优化
+## 常见排查 TODO
 
-### 4.1 主任务损失
-
-**文件位置**: `engine/processor.py::do_train()`
-
-```python
-# 模型输出
-output = model(img, label=target, cam_label=target_cam, view_label=target_view)
-# output格式: [logits_0, feat_0, logits_1, feat_1, ...]
-
-# 计算损失
-loss = 0
-for i in range(0, len(output), 2):
-    loss_tmp = loss_fn(
-        score=output[i],      # 分类logits
-        feat=output[i + 1],   # 特征
-        target=target,        # 行人ID标签
-        target_cam=target_cam # 摄像头ID
-    )
-    loss = loss + loss_tmp
-```
-
-**损失组成**:
-1. **ID Loss（分类损失）**:
-   ```python
-   ID_LOSS = CrossEntropy(score, target)  # 或 LabelSmoothingCrossEntropy
-   ```
-
-2. **Triplet Loss（三元组损失）**:
-   ```python
-   TRI_LOSS = TripletLoss(feat, target)  # 拉近同类，推远异类
-   ```
-
-3. **Center Loss（中心损失）**（可选）:
-   ```python
-   CENTER_LOSS = CenterLoss(feat, target)  # 拉近同类特征到类中心
-   ```
-
-**总损失**:
-```python
-total_loss = (
-    ID_LOSS_WEIGHT * ID_LOSS +
-    TRIPLET_LOSS_WEIGHT * TRI_LOSS +
-    CENTER_LOSS_WEIGHT * CENTER_LOSS
-)
-```
-
-### 4.2 MoE损失（如果启用）
-
-**文件位置**: `engine/processor.py::do_train()`
-
-```python
-if hasattr(model, 'BACKBONE') and hasattr(model.BACKBONE, 'current_expert_weights'):
-    expert_weights = model.BACKBONE.current_expert_weights  # [B, 3]
-    
-    # 动态权重调度（如果启用）
-    dynamic_balance_weight = None
-    dynamic_diversity_weight = None
-    
-    if cfg.SOLVER.MOE_USE_DYNAMIC_LOSS_WEIGHT:
-        # 根据epoch计算动态权重
-        progress = (epoch - warmup_epochs) / (max_epochs - warmup_epochs)
-        if schedule_type == 'cosine':
-            weight_factor = 0.5 * (1 - cos(π * progress))
-        else:
-            weight_factor = progress
-        
-        dynamic_balance_weight = balance_start + (balance_end - balance_start) * weight_factor
-        dynamic_diversity_weight = diversity_start + (diversity_end - diversity_start) * weight_factor
-    
-    # 计算MoE损失
-    moe_loss, moe_loss_dict = loss_fn.moe_loss_fn(
-        expert_weights,
-        balance_weight=dynamic_balance_weight,
-        diversity_weight=dynamic_diversity_weight
-    )
-    
-    loss = loss + moe_loss
-```
-
-**MoE损失组成**:
-
-1. **平衡损失（Balance Loss）**:
-   ```python
-   # 计算每个专家的平均使用频率
-   expert_usage = expert_weights.mean(dim=0)  # [3]
-   expected_usage = 1.0 / num_experts  # 0.333
-   
-   # 计算相对偏差
-   relative_deviation = |expert_usage - expected_usage| / expected_usage
-   
-   # 软平衡：只惩罚超过阈值的偏差
-   deviation_to_penalize = ReLU(relative_deviation - threshold)
-   balance_loss = (deviation_to_penalize ** 2).mean()
-   ```
-
-2. **稀疏性损失（Sparsity Loss）**:
-   ```python
-   # 计算权重平方和
-   squared_weights = expert_weights.pow(2).sum(dim=1)  # [B]
-   
-   # Gini不纯度归一化
-   max_possible_loss = 1.0 - (1.0 / num_experts)
-   sparsity_loss = ((1.0 - squared_weights) / max_possible_loss).mean()
-   ```
-
-3. **多样性损失（Diversity Loss）**:
-   ```python
-   # 计算专家权重之间的相关性
-   expert_weights_norm = L2_normalize(expert_weights, dim=1)
-   correlation_matrix = expert_weights_norm.T @ expert_weights_norm
-   
-   # 非对角线元素的平均值
-   diversity_loss = (correlation_matrix * mask).sum() / (E * (E-1))
-   ```
-
-**MoE总损失**:
-```python
-moe_loss = (
-    balance_weight * balance_loss +
-    sparsity_weight * sparsity_loss +
-    diversity_weight * diversity_loss
-)
-```
-
-### 4.3 反向传播与优化
-
-```python
-# 混合精度训练
-scaler.scale(loss).backward()  # 反向传播
-scaler.step(optimizer)         # 参数更新
-scaler.update()                # 缩放器更新
-```
-
-**优化器配置**:
-- **Backbone参数**: `LR = 0.000005`（固定，低学习率）
-- **门控网络参数**: `LR = BASE_LR * MOE_GATE_LR_FACTOR`（默认0.01，即BASE_LR的1%）
-- **其他参数**: `LR = BASE_LR`（默认0.0005）
-- **偏置参数**: `LR = BASE_LR * BIAS_LR_FACTOR`（默认2.0倍）
+1. **配置未生效？** 查看 `utils/config_printer.py` 输出的 ✅/❌；该快照是进入 epoch 前的唯一真值。
+2. **Top-k 仍显示禁用？** 确认命令行是否把 `MODEL.MOE_USE_TOP_K_ROUTING True` 当成字符串；`train_net.py` 会自动布尔化，但请保持大小写正确。
+3. **专家权重未在日志出现？** 说明当前配置未启用 MoE（或没走多尺度管线），需要检查 `MODEL.USE_MULTI_SCALE_MOE`、`MODEL.USE_CLIP_MULTI_SCALE`、`MODEL.MOE_SCALES`。
+4. **MoE Loss 仍然 >0？** 若命令行传 `SOLVER.MOE_BALANCE_LOSS_WEIGHT 0.0` 仍有数值，查看是否还有 `MODEL.MOE_BALANCE_LOSS_WEIGHT` 在 YAML 中覆盖；engine 端的优先级为“命令行 > YAML > defaults”。
+5. **日志过多？** 默认已经最小化；如需调试，请设置 `CONFIG_PRINTER_ONLY=0` 并局部添加 print，完成后务必撤销。
 
 ---
 
-## 🔄 阶段5：训练循环
-
-**文件位置**: `engine/processor.py::do_train()`
-
-```python
-for epoch in range(1, max_epochs + 1):
-    # 学习率调度
-    scheduler.step(epoch)
-    
-    # 训练模式
-    model.train()
-    
-    for n_iter, (img, vid, target_cam, target_view, _) in enumerate(train_loader):
-        # 1. 数据加载到GPU
-        img = {k: v.to(device) for k, v in img.items()}
-        target = vid.to(device)
-        
-        # 2. 前向传播
-        with amp.autocast():
-            output = model(img, label=target, ...)
-            loss = compute_loss(output, target, ...)
-        
-        # 3. 反向传播
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        
-        # 4. 日志记录
-        if n_iter % log_period == 0:
-            print(f"Epoch: {epoch}, Iter: {n_iter}, Loss: {loss.item()}")
-    
-    # 5. 验证（每eval_period个epoch）
-    if epoch % eval_period == 0:
-        do_inference(model, val_loader, ...)
-    
-    # 6. 保存检查点（每checkpoint_period个epoch）
-    if epoch % checkpoint_period == 0:
-        save_checkpoint(model, epoch, ...)
-```
-
----
-
-## 📊 完整数据流总结
-
-```
-输入: RGBNT201数据集
-  ↓
-【阶段1: 数据加载】
-  RGB/NI/TI图像 → 预处理 → Batch组织
-  ↓
-【阶段2: 单模态特征提取】
-  RGB → CLIP编码器 → 多尺度滑动窗口 → MoE融合 → RGB_global
-  NI  → CLIP编码器 → 多尺度滑动窗口 → MoE融合 → NI_global
-  TI  → CLIP编码器 → 多尺度滑动窗口 → MoE融合 → TI_global
-  ↓
-【阶段3: 多模态融合】
-  RGB_global + NI_global + TI_global → AAM融合 → fuse_global
-  ↓
-【阶段4: 损失计算】
-  ID Loss + Triplet Loss + MoE Loss → total_loss
-  ↓
-【阶段5: 优化】
-  反向传播 → 参数更新 → 学习率调度
-  ↓
-输出: 训练好的模型权重
-```
-
----
-
-## 🎯 关键技术点
-
-### 1. 多尺度特征提取
-- **滑动窗口**: 4×4、8×8、16×16三个尺度
-- **1D卷积**: 提取不同尺度的特征
-- **全局平均池化**: 将特征压缩到固定维度
-
-### 2. MoE专家网络
-- **门控网络**: 动态计算专家权重
-- **专家网络**: 3个专家分别处理不同尺度特征
-- **加权融合**: 根据权重融合专家输出
-
-### 3. 动态损失权重调度
-- **早期epoch**: 低权重，让模型先学习主任务
-- **后期epoch**: 高权重，防止专家固化
-- **平滑过渡**: 余弦调度避免突变
-
-### 4. 多模态融合
-- **AAM模块**: Mamba聚合块处理多模态序列
-- **特征降维**: 线性层将特征降到固定维度
-- **拼接融合**: 拼接多模态特征
-
----
-
-## 📝 配置文件关键参数
+## 配置片段参考
 
 ```yaml
 MODEL:
-  USE_CLIP_MULTI_SCALE: True        # 启用多尺度滑动窗口
-  USE_MULTI_SCALE_MOE: True          # 启用MoE融合
-  MOE_SCALES: [4, 8, 16]             # MoE滑动窗口尺度
-  MOE_EXPERT_HIDDEN_DIM: 1024        # 专家网络隐藏层维度
-  MOE_TEMPERATURE: 1.0               # 门控网络温度参数
-
+  USE_CLIP_MULTI_SCALE: True
+  USE_MULTI_SCALE_MOE: True
+  MOE_SCALES: [4, 8, 16]
+  MOE_EXPERT_HIDDEN_DIM: 1280
+  MOE_TEMPERATURE: 0.5
+  MOE_USE_TOP_K_ROUTING: True
+  MOE_TOP_K: 2
+  MOE_TOP_K_MODE: "soft"
+  USE_GATE_FUSION: False
+  USE_ATTENTION_FUSION: False
 SOLVER:
-  BASE_LR: 0.0005                    # 基础学习率
-  MOE_GATE_LR_FACTOR: 0.01          # 门控网络学习率倍数
-  MOE_BALANCE_LOSS_WEIGHT: 0.01     # 平衡损失权重
-  MOE_USE_DYNAMIC_LOSS_WEIGHT: True  # 启用动态权重调度
+  MAX_EPOCHS: 60
+  EVAL_PERIOD: 5
+  CHECKPOINT_PERIOD: 10
+  MOE_BALANCE_LOSS_WEIGHT: 0.001
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.001
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0001
+  MOE_USE_DYNAMIC_LOSS_WEIGHT: False
 ```
 
 ---
 
-## ✅ 总结
+## 结语
 
-整个流程从RGBNT201数据集输入开始，经过：
-1. **数据加载**: 读取RGB/NI/TI三模态图像，预处理和Batch组织
-2. **特征提取**: CLIP编码器提取特征，多尺度滑动窗口提取多尺度特征
-3. **MoE融合**: 门控网络动态选择专家，专家网络处理不同尺度特征
-4. **多模态融合**: AAM模块融合RGB/NI/TI三种模态特征
-5. **损失计算**: ID Loss + Triplet Loss + MoE Loss
-6. **优化更新**: 反向传播更新参数，学习率调度
+- **数据链**：三模态样本 → 统一增强 → Batch 字典。
+- **模型链**：CLIP Backbone → 可选 Gate/Attention → Multi-Scale MoE（支持 Top-k）→ Direct/Mamba 融合。
+- **优化链**：主损失 + MoE Loss → AMP 训练 → 独立门控 LR。
+- **可视链**：`config_printer`（一次性配置快照） + Eval CURRENT/BEST + 收官 `Training Finished`。
 
-最终输出训练好的模型，可以用于行人重识别任务。
+掌握以上四条链路即可高效定位任何异常：配置类问题看快照，模型/损失类问题查 `make_model.py` 与 `multi_scale_moe.py`，训练类问题看 `engine/processor.py`。
+
