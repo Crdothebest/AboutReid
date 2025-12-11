@@ -1,0 +1,345 @@
+✅ 通过 --opts 修改配置: ['MODEL.USE_MULTI_SCALE', 'True', 'MODEL.USE_MULTI_SCALE_MOE', 'True', 'MODEL.MOE_USE_FIXED_WEIGHTS', 'True', 'MODEL.MOE_FIXED_WEIGHTS', '[0.33,0.33,0.34]', 'MODEL.USE_GATE_FUSION', 'False', 'MODEL.USE_ATTENTION_FUSION', 'False', 'MODEL.MOE_BALANCE_LOSS_WEIGHT', '0.0', 'MODEL.MOE_SPARSITY_LOSS_WEIGHT', '0.0', 'MODEL.MOE_DIVERSITY_LOSS_WEIGHT', '0.0', 'SOLVER.MOE_BALANCE_LOSS_WEIGHT', '0.0', 'SOLVER.MOE_SPARSITY_LOSS_WEIGHT', '0.0', 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT', '0.0', 'SOLVER.MOE_USE_DYNAMIC_LOSS_WEIGHT', 'False', 'SOLVER.MOE_BALANCE_LOSS_WEIGHT_START', '0.0', 'SOLVER.MOE_BALANCE_LOSS_WEIGHT_END', '0.0', 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT_START', '0.0', 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT_END', '0.0', 'OUTPUT_DIR', './outputs/V8.0_Fixed_Weights_Clean']
+🔥 使用配置文件设置: USE_CLIP_MULTI_SCALE = True
+🚀 使用配置文件设置: USE_MULTI_SCALE_MOE = True
+2025-12-10 20:27:00,535 MambaPro INFO: Saving model in the path :./outputs/V8.0_Fixed_Weights_Clean
+2025-12-10 20:27:00,535 MambaPro INFO: Namespace(config_file='results/everyExperiments/experiment_20251210_202658/configs/experiment_config.yml', fea_cft=0, opts=['MODEL.USE_MULTI_SCALE', 'True', 'MODEL.USE_MULTI_SCALE_MOE', 'True', 'MODEL.MOE_USE_FIXED_WEIGHTS', 'True', 'MODEL.MOE_FIXED_WEIGHTS', '[0.33,0.33,0.34]', 'MODEL.USE_GATE_FUSION', 'False', 'MODEL.USE_ATTENTION_FUSION', 'False', 'MODEL.MOE_BALANCE_LOSS_WEIGHT', '0.0', 'MODEL.MOE_SPARSITY_LOSS_WEIGHT', '0.0', 'MODEL.MOE_DIVERSITY_LOSS_WEIGHT', '0.0', 'SOLVER.MOE_BALANCE_LOSS_WEIGHT', '0.0', 'SOLVER.MOE_SPARSITY_LOSS_WEIGHT', '0.0', 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT', '0.0', 'SOLVER.MOE_USE_DYNAMIC_LOSS_WEIGHT', 'False', 'SOLVER.MOE_BALANCE_LOSS_WEIGHT_START', '0.0', 'SOLVER.MOE_BALANCE_LOSS_WEIGHT_END', '0.0', 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT_START', '0.0', 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT_END', '0.0', 'OUTPUT_DIR', './outputs/V8.0_Fixed_Weights_Clean'], local_rank=0, use_multi_scale=False, no_multi_scale=False, use_moe=False, disable_moe=False, no_moe=False, use_attention=False, disable_attention=False, attention_heads=8, attention_dropout=0.1)
+2025-12-10 20:27:00,535 MambaPro INFO: 🔥 MoE模块状态: 启用
+2025-12-10 20:27:00,535 MambaPro INFO: 🔥 多尺度滑动窗口状态: 启用
+2025-12-10 20:27:00,535 MambaPro INFO: 🔥 MoE滑动窗口尺度: [4, 8, 16]
+2025-12-10 20:27:00,535 MambaPro INFO: Loaded configuration file results/everyExperiments/experiment_20251210_202658/configs/experiment_config.yml
+2025-12-10 20:27:00,535 MambaPro INFO: 
+# 文档说明：是将 yzy_MambaPro_moe.yml 中的参数进行优化，并添加了MoE的参数；
+
+
+MODEL:
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
+  TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
+  STRIDE_SIZE: [ 16, 16 ] # 步长
+  SIE_CAMERA: True # 是否使用相机嵌入
+  DIRECT: 1 # 直接
+  SIE_COE: 1.0 # 相机嵌入系数
+  ID_LOSS_WEIGHT: 0.25 # 分类损失权重
+  TRIPLET_LOSS_WEIGHT: 1.0 # 三元组损失权重
+  PROMPT: True # 是否使用提示
+  ADAPTER: True # 是否使用适配器
+  MAMBA: True # 是否使用Mamba
+  FROZEN: True # 是否冻结
+  
+  # ========== 多尺度滑动窗口配置：启用多尺度特征提取 ==========
+  USE_CLIP_MULTI_SCALE: True   # 启用CLIP多尺度滑动窗口特征提取
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度（4x4小窗口，8x8中窗口，16x16大窗口）
+  
+  # ========== MoE配置：启用多尺度MoE特征融合模块 ==========
+  USE_MULTI_SCALE_MOE: True    # 启用多尺度MoE特征融合模块
+  MOE_SCALES: [4, 8, 16]       # MoE滑动窗口尺度（与多尺度滑动窗口保持一致）
+  
+  # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
+  USE_GATE_FUSION: False
+  GATE_NUM_HEADS: 8
+  GATE_DROPOUT: 0.1
+  
+  # ========== 优化MoE参数：提升专家网络性能 ==========
+  MOE_EXPERT_HIDDEN_DIM: 1280   # 🔧 优化：从1024增加到1280，增强专家网络表达能力
+  MOE_TEMPERATURE: 0.5          # 🔧 优化：从0.7降低到0.5，使专家权重分布更尖锐，专家分工更明确
+  
+  # 🔧 优化：降低Dropout，让专家网络学习更充分
+  MOE_EXPERT_DROPOUT: 0.05      # 🔧 优化：从0.1降低到0.05，减少正则化，增强学习能力
+  
+  # 🔧 优化：降低门控网络Dropout，提升决策准确性
+  MOE_GATE_DROPOUT: 0.05        # 🔧 优化：从0.1降低到0.05，让门控网络决策更准确
+  
+  # 保持2层结构，平衡表达能力和训练稳定性
+  MOE_EXPERT_LAYERS: 2          # 专家网络层数（保持2层）
+  
+  # 保持2层结构，平衡决策复杂度和稳定性
+  MOE_GATE_LAYERS: 2            # 门控网络层数（保持2层）
+  
+  # 🔧 优化：降低激活阈值，让专家激活更敏感
+  MOE_EXPERT_THRESHOLD: 0.05    # 🔧 优化：从0.1降低到0.05，提高专家激活敏感性
+  
+  # 保持完整残差连接
+  MOE_RESIDUAL_WEIGHT: 1.0      # 残差连接权重（保持1.0）
+  
+  # ========== 专家初始权重配置（可选） ==========
+  # MOE_INIT_WEIGHTS: [0.35, 0.3, 0.35]  # 专家初始权重（可选，不设置则使用随机初始化）
+  # 说明：设置专家网络的初始权重分布，用于引导训练方向
+  # 格式：列表，长度必须等于专家数量（与MOE_SCALES数量一致）
+  # 示例：[0.35, 0.3, 0.35] 表示三个专家的初始权重分别为35%、30%、35%
+
+INPUT:
+  SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
+  SIZE_TEST: [ 256, 128 ] # 测试尺寸
+  PROB: 0.5 # random horizontal flip # 随机水平翻转
+  RE_PROB: 0.5 # random erasing # 随机擦除
+  PADDING: 10 # 填充
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet' # 采样器
+  NUM_INSTANCE: 8 # 每个批次实例数 (提高采样多样性)
+  NUM_WORKERS: 8 # 工作线程数
+
+DATASETS:
+  NAMES: ('RGBNT201') # 数据集名称
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
+
+SOLVER:
+  # 优化器设置
+  OPTIMIZER_NAME: 'Adam' # 优化器名称
+  BASE_LR: 0.0005 # 基础学习率 (论文baseline推荐值，不可轻易更改)
+  WEIGHT_DECAY: 0.0005 # 权重衰减
+  WEIGHT_DECAY_BIAS: 0.0005 # 偏置权重衰减
+  MOMENTUM: 0.9 # 动量
+  
+  # 训练设置
+  MAX_EPOCHS: 60 # 最大迭代数 (论文标准设置)
+  IMS_PER_BATCH: 32 # 每个批次图像数 (提高训练稳定性)
+  WARMUP_ITERS: 20 # 预热迭代数 (充分预热)
+  WARMUP_METHOD: 'linear' # 预热方法
+  WARMUP_FACTOR: 0.01 # 预热因子
+  
+  # 损失函数设置
+  MARGIN: 0.3 # 三元组损失边界
+  CENTER_LOSS_WEIGHT: 0.0005 # 中心损失权重
+  CENTER_LR: 0.5 # 中心学习率
+  
+  # ========== 优化MoE损失权重：平衡专家协作和任务性能 ==========
+  MOE_BALANCE_LOSS_WEIGHT: 0.01  # 🎯 增强：从0.005增加到0.01，更强调专家使用平衡
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0005 # 保持：适度促进专家选择稀疏性
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.01  # 🎯 增强：从0.005增加到0.01，更强调专家分工多样性
+  
+  # ========================================================================
+  # 【门控网络独立学习率设置：解决模式坍塌问题】
+  # ========================================================================
+  # 
+  # 【功能】为门控网络参数设置独立且更低的学习率
+  # 【原因】解决MoE训练中的模式坍塌问题
+  # 
+  # 【问题背景】
+  # 门控网络负责动态分配专家权重，其更新速度直接影响训练稳定性。
+  # 原有实现中，门控网络使用与普通参数相同的学习率（BASE_LR = 0.0005），
+  # 导致门控网络更新过快，容易形成自强化循环，某个专家快速垄断99.9%
+  # 的路由权重，即使设置了平衡损失也无法阻止模式坍塌。
+  # 
+  # 【解决方案】
+  # 为门控网络设置独立且更低的学习率（BASE_LR × MOE_GATE_LR_FACTOR），
+  # 实现"慢速决策、快速执行"的策略：
+  # - 门控网络（决策层）：使用极低学习率（BASE_LR × 0.01 = 0.000005）
+  # - 专家网络（执行层）：使用正常学习率（BASE_LR = 0.0005）
+  # 
+  # 【参数说明】
+  # - MOE_GATE_LR_FACTOR: 门控网络学习率倍数
+  # - 默认值：0.01（即BASE_LR的1%）
+  # - 建议范围：0.001 ~ 0.1
+  #   * 过小（<0.001）：门控网络几乎不更新，无法学习
+  #   * 过大（>0.1）：接近普通学习率，无法解决模式坍塌
+  #   * 推荐值：0.01（经过实验验证的最优值）
+  # 
+  # 【学习率计算】
+  # 假设 BASE_LR = 0.0005, MOE_GATE_LR_FACTOR = 0.01, BIAS_LR_FACTOR = 2.0
+  # - 门控网络权重：0.0005 × 0.01 = 0.000005（降低100倍）
+  # - 门控网络偏置：0.0005 × 0.01 × 2.0 = 0.00001（降低100倍）
+  # 
+  # 【预期效果】
+  # 1. 门控网络更新更慢，减少模式坍塌风险
+  # 2. 给专家网络更多时间学习，形成更好的专业化分工
+  # 3. 训练更稳定，收敛更平滑
+  # 4. 提高最终mAP性能
+  # 
+  # 【相关文件】
+  # - 实现代码：solver/make_optimizer.py (第14-28行)
+  # - 默认配置：config/defaults.py (第202行)
+  # ========================================================================
+  MOE_GATE_LR_FACTOR: 0.01  # 🎯 门控网络学习率倍数（BASE_LR × 0.01 = 0.000005）
+  
+  # 学习率调度
+  GAMMA: 0.1 # 衰减率
+  STEPS: (30, 50) # 学习率衰减步数
+  
+  # 其他设置
+  SEED: 42 # 随机种子 (确保可复现性)
+  CHECKPOINT_PERIOD: 10 # 检查点保存周期
+  LOG_PERIOD: 10 # 日志打印周期
+  EVAL_PERIOD: 5 # 验证周期
+
+TEST:
+  IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
+  RE_RANKING: 'no' # 是否重新排序
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
+  FEAT_NORM: 'yes' # 特征归一化
+  MISS: "nothing" # 缺失
+
+# ========== MoE实验输出目录 ==========
+# 实验目的：为MoE实验设置专门的输出目录
+# 功能：便于对比MoE与基线方法的性能差异
+# 🔥 MoE实验：多尺度滑动窗口 + 优化MoE融合
+OUTPUT_DIR: 'results/everyExperiments/experiment_20251210_202658/logs'
+
+
+2025-12-10 20:27:00,536 MambaPro INFO: Running with config:
+DATALOADER:
+  NUM_INSTANCE: 8
+  NUM_WORKERS: 8
+  SAMPLER: softmax_triplet
+DATASETS:
+  NAMES: RGBNT201
+  ROOT_DIR: /home/zubuntu/workspace/yzy/MambaPro/data/
+INPUT:
+  PADDING: 10
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  PROB: 0.5
+  RE_PROB: 0.5
+  SIZE_TEST: [256, 128]
+  SIZE_TRAIN: [256, 128]
+MODEL:
+  ADAPTER: True
+  ATTENTION_DIM: 512
+  ATTENTION_DROPOUT: 0.1
+  ATTENTION_NUM_HEADS: 8
+  ATT_DROP_RATE: 0.0
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]
+  DEVICE: cuda
+  DEVICE_ID: 0
+  DIRECT: 1
+  DIST_TRAIN: False
+  DROP_OUT: 0.0
+  DROP_PATH: 0.1
+  FLOPS_TEST: False
+  FROZEN: True
+  GATE_DROPOUT: 0.1
+  GATE_NUM_HEADS: 8
+  ID_LOSS_TYPE: softmax
+  ID_LOSS_WEIGHT: 0.25
+  IF_LABELSMOOTH: on
+  IF_WITH_CENTER: no
+  LAYER: -1
+  MAMBA: True
+  MAMBA_BI: False
+  METRIC_LOSS_TYPE: triplet
+  MOE_BALANCE_LOSS_WEIGHT: 0.0
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.0
+  MOE_EXPERT_DROPOUT: 0.05
+  MOE_EXPERT_HIDDEN_DIM: 1280
+  MOE_EXPERT_LAYERS: 2
+  MOE_EXPERT_THRESHOLD: 0.05
+  MOE_FIXED_WEIGHTS: [0.33, 0.33, 0.34]
+  MOE_GATE_DROPOUT: 0.05
+  MOE_GATE_LAYERS: 2
+  MOE_INIT_WEIGHTS: None
+  MOE_NUM_EXPERTS: 3
+  MOE_RESIDUAL_WEIGHT: 1.0
+  MOE_SCALES: [4, 8, 16]
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0
+  MOE_TEMPERATURE: 0.5
+  MOE_USE_FIXED_WEIGHTS: True
+  MULTI_SCALE_SCALES: [4, 8, 16]
+  NAME: MambaPro
+  NECK: bnneck
+  NO_MARGIN: True
+  PREFIX_NUM: 1
+  PRETRAIN_PATH_T: /home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt
+  PROMPT: True
+  SIE_CAMERA: True
+  SIE_COE: 1.0
+  SIE_VIEW: False
+  STRIDE_SIZE: [16, 16]
+  TRANSFORMER_TYPE: ViT-B-16
+  TRIPLET_LOSS_WEIGHT: 1.0
+  USE_ATTENTION_FUSION: False
+  USE_CLIP_MULTI_SCALE: True
+  USE_GATE_FUSION: False
+  USE_MULTI_SCALE: True
+  USE_MULTI_SCALE_MOE: True
+OUTPUT_DIR: ./outputs/V8.0_Fixed_Weights_Clean
+SOLVER:
+  BASE_LR: 0.0005
+  BIAS_LR_FACTOR: 2
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  CHECKPOINT_PERIOD: 10
+  CLUSTER_MARGIN: 0.3
+  COSINE_MARGIN: 0.5
+  COSINE_SCALE: 30
+  EVAL_PERIOD: 5
+  GAMMA: 0.1
+  IMS_PER_BATCH: 32
+  LARGE_FC_LR: False
+  LOG_PERIOD: 10
+  MARGIN: 0.3
+  MAX_EPOCHS: 60
+  MOE_BALANCE_LOSS_WEIGHT: 0.0
+  MOE_BALANCE_LOSS_WEIGHT_END: 0.0
+  MOE_BALANCE_LOSS_WEIGHT_START: 0.0
+  MOE_BALANCE_THRESHOLD: 0.3
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.0
+  MOE_DIVERSITY_LOSS_WEIGHT_END: 0.0
+  MOE_DIVERSITY_LOSS_WEIGHT_START: 0.0
+  MOE_GATE_LR_FACTOR: 0.01
+  MOE_LOSS_WEIGHT_SCHEDULE_TYPE: cosine
+  MOE_LOSS_WEIGHT_WARMUP_EPOCHS: 5
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0
+  MOE_USE_DYNAMIC_LOSS_WEIGHT: False
+  MOMENTUM: 0.9
+  OPTIMIZER_NAME: Adam
+  RANGE_ALPHA: 0
+  RANGE_BETA: 1
+  RANGE_K: 2
+  RANGE_LOSS_WEIGHT: 1
+  RANGE_MARGIN: 0.3
+  SEED: 42
+  STEPS: (30, 50)
+  WARMUP_FACTOR: 0.01
+  WARMUP_ITERS: 20
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.0005
+  WEIGHT_DECAY_BIAS: 0.0005
+TEST:
+  FEAT: 0
+  FEAT_NORM: yes
+  IMS_PER_BATCH: 64
+  MISS: nothing
+  NECK_FEAT: after
+  RE_RANKING: no
+  WEIGHT: /home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth
+=> RGBNT201 loaded
+Dataset statistics:
+  ----------------------------------------
+  subset   | # ids | # images | # cameras
+  ----------------------------------------
+  train    |   171 |     3951 |         4
+  query    |    30 |      836 |         2
+  gallery  |    30 |      836 |         2
+  ----------------------------------------
+data is ready
+using Transformer_type: ViT-B-16 as a backbone
+Resized position embedding: %s to %s torch.Size([197, 768]) torch.Size([129, 768])
+Position embedding resize to height:16 width: 8
+Loading pretrained model from CLIP
+✅ 为CLIP启用多尺度滑动窗口特征提取模块
+   - 滑动窗口尺度: [4, 8, 16]
+   - 特征维度: 512 (CLIP投影维度)
+🔥 门控加权-预处理机制：已禁用 (使用传统MLP融合)
+🔥 注意力-预处理机制：已禁用 (使用传统MLP融合)
+🔥 固定权重模式：已启用
+   - 固定权重值: [0.33000001311302185, 0.33000001311302185, 0.3400000035762787]
+   - 专家数量: 3
+   - 注意：门控网络已禁用，权重不会随训练改变
+🔥 多尺度MoE模块初始化完成:
+   - 特征维度: 512
+   - 滑动窗口尺度: [4, 8, 16]
+   - 专家数量: 3
+Traceback (most recent call last):
+  File "/home/zubuntu/workspace/yzy/MambaPro/train_net.py", line 237, in <module>
+    model = make_model(cfg, num_class=num_classes, camera_num=camera_num, view_num=view_num) # 加载模型
+  File "/home/zubuntu/workspace/yzy/MambaPro/modeling/make_model.py", line 512, in make_model
+    model = MambaPro(num_class, cfg, camera_num, view_num, __factory_T_type)  # 实例化 MambaPro
+  File "/home/zubuntu/workspace/yzy/MambaPro/modeling/make_model.py", line 373, in __init__
+    self.BACKBONE = build_transformer(num_classes, cfg, camera_num, view_num, factory,feat_dim=self.feat_dim)  # 共享骨干
+  File "/home/zubuntu/workspace/yzy/MambaPro/modeling/make_model.py", line 214, in __init__
+    self.clip_multi_scale_moe = CLIPMultiScaleMoE(
+  File "/home/zubuntu/workspace/yzy/MambaPro/modeling/fusion_part/multi_scale_moe.py", line 1059, in __init__
+    self.moe_fusion = MultiScaleMoE(
+  File "/home/zubuntu/workspace/yzy/MambaPro/modeling/fusion_part/multi_scale_moe.py", line 591, in __init__
+    print(f"   - 门控输入维度: {gate_input_dim}")
+UnboundLocalError: local variable 'gate_input_dim' referenced before assignment

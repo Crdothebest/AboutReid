@@ -1,0 +1,86 @@
+================================================================================
+📋 最终训练配置（已考虑命令2025-12-11 16:20:49,138 MambaPro INFO: Loaded configuration file results/everyExperiments/experiment_20251211_162047/configs/experiment_config.yml
+2025-12-11 16:20:51,063 MambaPro.train INFO: start training
+2025-12-11 16:20:53,455 MambaPro.train INFO: Epoch[1] Iteration[10/108] Loss: 5.770, Acc: 0.006, Base Lr: 2.97e-05
+LR = 0.0005
+  - 优化器 Optimizer = Adam
+  - 学习率调度 LR_Schedule = Steps(30, 50), Gamma=0.1
+  - Warmup WarmupIters = 20, WarmupFactor = 0.01
+
+【模型结构 ModelConfig】
+  - 骨干 Backbone = ViT-B-16
+  - 多尺度滑动窗口 MultiScaleWindow = ENABLED
+    * 滑动窗口尺度 WindowScales = [4, 8, 16]
+  - MoE特征融合 MultiScaleMoE = ENABLED
+    * MoE尺度 MoEScales = [4, 8, 16]
+    * 专家数量 NumExperts = 3
+    * 专家隐藏层维度 ExpertHiddenDim = 1024
+    * 门控网络温度 GatingTemperature = 0.7
+    * 固定权重模式 FixedWeights = DISABLED (使用动态门控)
+    * Top-k路由 TopKRouting = DISABLED (Soft Routing)
+    * 门控融合预处理 GateFusion = DISABLED
+    * 注意力融合预处理 AttentionFusion = DISABLED
+
+【损失函数 LossConfig】
+  - ID损失权重 IDLossWeight = 0.25
+  - Triplet损失权重 TripletWeight = 1.0
+  - Triplet Margin TripletMargin = 0.3
+  - 标签平滑 LabelSmooth = ENABLED
+  - Center Loss CenterLoss = DISABLED
+  - MoE平衡损失权重 MoEBalanceWeight = 0.01
+  - MoE多样性损失权重 MoEDiversityWeight = 0.001
+  - MoE稀疏性损失权重 MoESparsityWeight = 0.0001
+  - MoE动态权重调度 MoEDynamicSchedule = DISABLED
+
+【数据增强 DataAugConfig】
+  - 随机擦除 RandomErasing = ENABLED, Prob=0.5
+  - 水平翻转概率 HorizontalFlipProb = 0.5
+
+【优化器配置 OptimizerConfig】
+  - 门控网络学习率倍数 GateLRFactor = 0.01
+  - 门控网络实际学习率 GateLRValue = 0.00000500 (BASE_LR × 0.01)
+================================================================================
+2025-12-11 16:20:49,138 MambaPro INFO: Saving model in the path :results/everyExperiments/experiment_20251211_162047/logs
+2025-12-11 16:20:49,138 MambaPro INFO: Loaded configuration file results/everyExperiments/experiment_20251211_162047/configs/experiment_config.yml
+=> RGBNT201 loaded
+Dataset statistics:
+  ----------------------------------------
+  subset   | # ids | # images | # cameras
+  ----------------------------------------
+  train    |   171 |     3951 |         4
+  query    |    30 |      836 |         2
+  gallery  |    30 |      836 |         2
+  ----------------------------------------
+using Transformer_type: ViT-B-16 as a backbone
+Resized position embedding: %s to %s torch.Size([197, 768]) torch.Size([129, 768])
+Position embedding resize to height:16 width: 8
+Loading pretrained model from CLIP
+camera number is : 4
+AAM HERE!!!
+===========Building MambaPro===========
+🔍 调试：make_moe_loss配置读取:
+   - SOLVER.MOE_BALANCE_LOSS_WEIGHT = 0.01 (类型: <class 'float'>) ✅ 使用SOLVER命名空间
+   - 最终读取的balance_weight: 0.01
+   - SOLVER.MOE_SPARSITY_LOSS_WEIGHT = 0.0001 (类型: <class 'float'>) ✅ 使用SOLVER命名空间
+   - 最终读取的sparsity_weight: 0.0001
+   - SOLVER.MOE_DIVERSITY_LOSS_WEIGHT = 0.001 (类型: <class 'float'>) ✅ 使用SOLVER命名空间
+   - 最终读取的diversity_weight: 0.001
+🔥 MoE损失函数初始化完成（已修复模式坍塌问题）:
+   - 平衡损失权重: 0.01 
+   - 稀疏性损失权重: 0.0001 
+   - 多样性损失权重: 0.001 
+   - 平衡损失阈值: 0.3 (允许30%偏差，防止强制平均)
+2025-12-11 16:20:51,063 MambaPro.train INFO: start training
+✅ MoE多尺度特征融合完成！
+   - 输出特征形状: torch.Size([32, 512])
+   - 专家权重形状: torch.Size([32, 3])
+   - 专家权重分布: [0.3329274  0.33298713 0.33408546]
+🔥 MoE损失: 平衡=0.0000, 稀疏性=1.0000, 多样性=10.6667 ✅ 已激活
+   📊 专家权重分布: [0.3329, 0.3332, 0.3339], 权重变化标准差: 0.000194, 有梯度: True
+📋 MoE Loss 详细日志 (Epoch 1, Iter 0):
+   - 平衡损失 (L_Bal): 0.000000
+   - 稀疏性损失 (L_Spar): 0.999999
+   - 多样性损失 (L_Div): 10.666667 ✅ 已激活
+   - 总损失 (L_Total): 0.010767
+   - 损失权重: 平衡=0.0100, 稀疏性=0.0001, 多样性=0.0010
+2025-12-11 16:20:53,455 MambaPro.train INFO: Epoch[1] Iteration[10/108] Loss: 5.770, Acc: 0.006, Base Lr: 2.97e-05

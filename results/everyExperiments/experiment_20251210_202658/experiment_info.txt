@@ -1,0 +1,10 @@
+实验ID: experiment_20251210_202658
+开始时间: 2025年 12月 10日 星期三 20:27:03 CST
+命令: python train_net.py --config_file results/everyExperiments/experiment_20251210_202658/configs/experiment_config.yml MODEL.USE_MULTI_SCALE True MODEL.USE_MULTI_SCALE_MOE True MODEL.MOE_USE_FIXED_WEIGHTS True MODEL.MOE_FIXED_WEIGHTS [0.33,0.33,0.34] MODEL.USE_GATE_FUSION False MODEL.USE_ATTENTION_FUSION False MODEL.MOE_BALANCE_LOSS_WEIGHT 0.0 MODEL.MOE_SPARSITY_LOSS_WEIGHT 0.0 MODEL.MOE_DIVERSITY_LOSS_WEIGHT 0.0 SOLVER.MOE_BALANCE_LOSS_WEIGHT 0.0 SOLVER.MOE_SPARSITY_LOSS_WEIGHT 0.0 SOLVER.MOE_DIVERSITY_LOSS_WEIGHT 0.0 SOLVER.MOE_USE_DYNAMIC_LOSS_WEIGHT False SOLVER.MOE_BALANCE_LOSS_WEIGHT_START 0.0 SOLVER.MOE_BALANCE_LOSS_WEIGHT_END 0.0 SOLVER.MOE_DIVERSITY_LOSS_WEIGHT_START 0.0 SOLVER.MOE_DIVERSITY_LOSS_WEIGHT_END 0.0 OUTPUT_DIR ./outputs/V8.0_Fixed_Weights_Clean 2>&1 | tee results/everyExperiments/experiment_20251210_202658/logs/train_log.txt
+参数: 
+状态: 完成
+目录: results/everyExperiments/experiment_20251210_202658
+训练日志: results/everyExperiments/experiment_20251210_202658/logs/train_log.txt
+模型权重: results/everyExperiments/experiment_20251210_202658/models/MambaProbest.pth
+配置文件: results/everyExperiments/experiment_20251210_202658/configs/experiment_config.yml
+原始配置文件: configs/RGBNT201/yzy_best_Mambapro_moe.yml

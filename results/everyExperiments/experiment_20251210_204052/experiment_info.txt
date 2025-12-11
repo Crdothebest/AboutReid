@@ -1,0 +1,7 @@
+实验ID: experiment_20251210_204052
+开始时间: 2025年 12月 10日 星期三 20:40:52 CST
+命令: python train_net.py --config_file results/everyExperiments/experiment_20251210_204052/configs/experiment_config.yml 2>&1 | tee results/everyExperiments/experiment_20251210_204052/logs/train_log.txt
+参数: 
+状态: 运行中
+目录: results/everyExperiments/experiment_20251210_204052
+原始配置文件: configs/RGBNT201/MambaPro_moe.yml

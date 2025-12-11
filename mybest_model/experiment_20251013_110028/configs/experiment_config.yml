@@ -28,7 +28,11 @@ MODEL:
   
   # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
   USE_GATE_FUSION: False
+<<<<<<< HEAD
   # GATE_NUM_HEADS: 8  # ⚠️ 旧版本遗留字段，已在当前代码中移除，保留注释避免KeyError
+=======
+  # GATE_NUM_HEADS: 8
+>>>>>>> 4c2af41 (修改文件)
   GATE_DROPOUT: 0.1
   
   # ========== 最优MoE参数：基于经验的精心调优组合 ==========

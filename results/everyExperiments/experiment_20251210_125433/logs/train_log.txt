@@ -1,0 +1,480 @@
+🔥 使用配置文件设置: USE_CLIP_MULTI_SCALE = True
+🚀 使用配置文件设置: USE_MULTI_SCALE_MOE = True
+2025-2025-12-10 12:54:34,895 MambaPro INFO: Namespace(config_file='results/everyExperiments/experiment_20251210_125433/configs/experiment_config.yml', fea_cft=0, opts=[], local_rank=0, use_multi_scale=False, no_multi_scale=False, use_moe=False, disable_moe=False, no_moe=False, use_attention=False, disable_attention=False, attention_heads=8, attention_dropout=0.1)
+2025-12-10 12:54:34,895 MambaPro INFO: 🔥 MoE模块状态: 启用
+2025-12-10 12:54:34,896 MambaPro INFO: 🔥 多尺度滑动窗口状态: 启用
+2025-12-10 12:54:34,896 MambaPro INFO: 🔥 MoE滑动窗口尺度: [4, 8, 16]
+2025-12-10 12:54:34,896 MambaPro INFO: Loaded configuration file results/everyExperiments/experiment_20251210_125433/configs/experiment_config.yml
+2025-12-10 12:54:34,896 MambaPro INFO: 
+# 文档说明：是将 yzy_MambaPro_moe.yml 中的参数进行优化，并�2025-12-10 12:54:34,896 MambaPro INFO: 
+# 文档说明：是将 yzy_MambaPro_moe.yml 中的参数进行优化，并添加了MoE的参数；
+
+
+MODEL:
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
+  TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
+  STRIDE_SIZE: [ 16, 16 ] # 步长
+  SIE_CAMERA: True # 是否使用相机嵌入
+  DIRECT: 1 # 直接
+  SIE_COE: 1.0 # 相机嵌入系数
+  ID_LOSS_WEIGHT: 0.25 # 分类损失权重
+  TRIPLET_LOSS_WEIGHT: 1.0 # 三元组损失权重
+  PROMPT: True # 是否使用提示
+  ADAPTER: True # 是否使用适配器
+  MAMBA: True # 是否使用Mamba
+  FROZEN: True # 是否冻结
+  
+  # ========== 多尺度滑动窗口配置：启用多尺度特征提取 ==========
+  USE_CLIP_MULTI_SCALE: True   # 启用CLIP多尺度滑动窗口特征提取
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度（4x4小窗口，8x8中窗口，16x16大窗口）
+  
+  # ========== MoE配置：启用多尺度MoE特征融合模块 ==========
+  USE_MULTI_SCALE_MOE: True    # 启用多尺度MoE特征融合模块
+  MOE_SCALES: [4, 8, 16]       # MoE滑动窗口尺度（与多尺度滑动窗口保持一致）
+  
+  # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
+  USE_GATE_FUSION: False
+  GATE_NUM_HEADS: 8
+  GATE_DROPOUT: 0.1
+  
+  # ========== 优化MoE参数：提升专家网络性能 ==========
+  MOE_EXPERT_HIDDEN_DIM: 1280   # 🔧 优化：从1024增加到1280，增强专家网络表达能力
+  MOE_TEMPERATURE: 0.5          # 🔧 优化：从0.7降低到0.5，使专家权重分布更尖锐，专家分工更明确
+  
+  # 🔧 优化：降低Dropout，让专家网络学习更充分
+  MOE_EXPERT_DROPOUT: 0.05      # 🔧 优化：从0.1降低到0.05，减少正则化，增强学习能力
+  
+  # 🔧 优化：降低门控网络Dropout，提升决策准确性
+  MOE_GATE_DROPOUT: 0.05        # 🔧 优化：从0.1降低到0.05，让门控网络决策更准确
+  
+  # 保持2层结构，平衡表达能力和训练稳定性
+  MOE_EXPERT_LAYERS: 2          # 专家网络层数（保持2层）
+  
+  # 保持2层结构，平衡决策复杂度和稳定性
+  MOE_GATE_LAYERS: 2            # 门控网络层数（保持2层）
+  
+  # 🔧 优化：降低激活阈值，让专家激活更敏感
+  MOE_EXPERT_THRESHOLD: 0.05    # 🔧 优化：从0.1降低到0.05，提高专家激活敏感性
+  
+  # 保持完整残差连接
+  MOE_RESIDUAL_WEIGHT: 1.0      # 残差连接权重（保持1.0）
+  
+  # ========== 专家初始权重配置（可选） ==========
+  # MOE_INIT_WEIGHTS: [0.35, 0.3, 0.35]  # 专家初始权重（可选，不设置则使用随机初始化）
+  # 说明：设置专家网络的初始权重分布，用于引导训练方向
+  # 格式：列表，长度必须等于专家数量（与MOE_SCALES数量一致）
+  # 示例：[0.35, 0.3, 0.35] 表示三个专家的初始权重分别为35%、30%、35%
+
+INPUT:
+  SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
+  SIZE_TEST: [ 256, 128 ] # 测试尺寸
+  PROB: 0.5 # random horizontal flip # 随机水平翻转
+  RE_PROB: 0.5 # random erasing # 随机擦除
+  PADDING: 10 # 填充
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet' # 采样器
+  NUM_INSTANCE: 8 # 每个批次实例数 (提高采样多样性)
+  NUM_WORKERS: 8 # 工作线程数
+
+DATASETS:
+  NAMES: ('RGBNT201') # 数据集名称
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
+
+SOLVER:
+  # 优化器设置
+  OPTIMIZER_NAME: 'Adam' # 优化器名称
+  BASE_LR: 0.0005 # 基础学习率 (论文baseline推荐值)
+  WEIGHT_DECAY: 0.0005 # 权重衰减
+  WEIGHT_DECAY_BIAS: 0.0005 # 偏置权重衰减
+  MOMENTUM: 0.9 # 动量
+  
+  # 训练设置
+  MAX_EPOCHS: 60 # 最大迭代数 (论文标准设置)
+  IMS_PER_BATCH: 32 # 每个批次图像数 (提高训练稳定性)
+  WARMUP_ITERS: 20 # 预热迭代数 (充分预热)
+  WARMUP_METHOD: 'linear' # 预热方法
+  WARMUP_FACTOR: 0.01 # 预热因子
+  
+  # 损失函数设置
+  MARGIN: 0.3 # 三元组损失边界
+  CENTER_LOSS_WEIGHT: 0.0005 # 中心损失权重
+  CENTER_LR: 0.5 # 中心学习率
+  
+  # ========== 优化MoE损失权重：平衡专家协作和任务性能 ==========
+  MOE_BALANCE_LOSS_WEIGHT: 0.005 # 🔧 优化：从0.001增加到0.005，适度促进专家使用平衡
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0005 # 🔧 优化：从0.0001增加到0.0005，适度促进专家选择稀疏性
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.005 # 🔧 优化：从0.001增加到0.005，适度促进专家分工多样性
+  
+  # 学习率调度
+  GAMMA: 0.1 # 衰减率
+  STEPS: (30, 50) # 学习率衰减步数
+  
+  # 其他设置
+  SEED: 42 # 随机种子 (确保可复现性)
+  CHECKPOINT_PERIOD: 10 # 检查点保存周期
+  LOG_PERIOD: 10 # 日志打印周期
+  EVAL_PERIOD: 5 # 验证周期
+
+TEST:
+  IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
+  RE_RANKING: 'no' # 是否重新排序
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
+  FEAT_NORM: 'yes' # 特征归一化
+  MISS: "nothing" # 缺失
+
+# ========== MoE实验输出目录 ==========
+# 实验目的：为MoE实验设置专门的输出目录
+# 功能：便于对比MoE与基线方法的性能差异
+# 🔥 MoE实�2025-12-10 12:54:34,896 MambaPro INFO: Running with config:
+DATALOADER:
+  NUM_INSTANCE: 8
+  NUM_WORKERS: 8
+  SAMPLER:2025-12-10 12:54:34,896 MambaPro INFO: Running with config:
+DATALOADER:
+  NUM_INSTANCE: 8
+  NUM_WORKERS: 8
+  SAMPLER: softmax_triplet
+DATASETS:
+  NAMES: RGBNT201
+  ROOT_DIR: /home/zubuntu/workspace/yzy/MambaPro/data/
+INPUT:
+  PADDING: 10
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  PROB: 0.5
+  RE_PROB: 0.5
+  SIZE_TEST: [256, 128]
+  SIZE_TRAIN: [256, 128]
+MODEL:
+  ADAPTER: True
+  ATTENTION_DIM: 512
+  ATTENTION_DROPOUT: 0.1
+  ATTENTION_NUM_HEADS: 8
+  ATT_DROP_RATE: 0.0
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]
+  DEVICE: cuda
+  DEVICE_ID: 0
+  DIRECT: 1
+  DIST_TRAIN: False
+  DROP_OUT: 0.0
+  DROP_PATH: 0.1
+  FLOPS_TEST: False
+  FROZEN: True
+  GATE_DROPOUT: 0.1
+  GATE_NUM_HEADS: 8
+  ID_LOSS_TYPE: softmax
+  ID_LOSS_WEIGHT: 0.25
+  IF_LABELSMOOTH: on
+  IF_WITH_CENTER: no
+  LAYER: -1
+  MAMBA: True
+  MAMBA_BI: False
+  METRIC_LOSS_TYPE: triplet
+  MOE_BALANCE_LOSS_WEIGHT: 0.01
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.01
+  MOE_EXPERT_DROPOUT: 0.05
+  MOE_EXPERT_HIDDEN_DIM: 1280
+  MOE_EXPERT_LAYERS: 2
+  MOE_EXPERT_THRESHOLD: 0.05
+  MOE_GATE_DROPOUT: 0.05
+  MOE_GATE_LAYERS: 2
+  MOE_INIT_WEIGHTS: None
+  MOE_NUM_EXPERTS: 3
+  MOE_RESIDUAL_WEIGHT: 1.0
+  MOE_SCALES: [4, 8, 16]
+  MOE_SPARSITY_LOSS_WEIGHT: 0.001
+  MOE_TEMPERATURE: 0.5
+  MULTI_SCALE_SCALES: [4, 8, 16]
+  NAME: MambaPro
+  NECK: bnneck
+  NO_MARGIN: True
+  PREFIX_NUM: 1
+  PRETRAIN_PATH_T: /home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt
+  PROMPT: True
+  SIE_CAMERA: True
+  SIE_COE: 1.0
+  SIE_VIEW: False
+  STRIDE_SIZE: [16, 16]
+  TRANSFORMER_TYPE: ViT-B-16
+  TRIPLET_LOSS_WEIGHT: 1.0
+  USE_ATTENTION_FUSION: False
+  USE_CLIP_MULTI_SCALE: True
+  USE_GATE_FUSION: False
+  USE_MULTI_SCALE: False
+  USE_MULTI_SCALE_MOE: True
+OUTPUT_DIR: results/everyExperiments/experiment_20251210_125433/logs
+SOLVER:
+  BASE_LR: 0.0005
+  BIAS_LR_FACTOR: 2
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  CHECKPOINT_PERIOD: 10
+  CLUSTER_MARGIN: 0.3
+  COSINE_MARGIN: 0.5
+  COSINE_SCALE: 30
+  EVAL_PERIOD: 5
+  GAMMA: 0.1
+  IMS_PER_BATCH: 32
+  LARGE_FC_LR: False
+  LOG_PERIOD: 10
+  MARGIN: 0.3
+  MAX_EPOCHS: 60
+  MOE_BALANCE_LOSS_WEIGHT: 0.005
+  MOE_BALANCE_THRESHOLD: 0.3
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.005
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0005
+  MOMENTUM: 0.9
+  OPTIMIZER_NAME: Adam
+  RANGE_ALPHA: 0
+  RANGE_BETA: 1
+  RANGE_K: 2
+  RANGE_LOSS_WEIGHT: 1
+  RANGE_MARGIN: 0.3
+  SEED: 42
+  STEPS: (30, 50)
+  WARMUP_FACTOR: 0.01
+  WARMUP_ITERS: 20
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.0005
+  WEIGHT_DECAY_BIAS: 0.0005
+TEST:
+  FEAT: 0
+  FEAT_NORM: yes
+  IMS_PER_BATCH: 64
+  MI2025-12-10 12:54:36,852 MambaPro.train INFO: start training
+2025-12-10 12:54:39,426 MambaPro.train INFO: Epoch[1] Iteration[10/108] Loss: 8.747, Acc: 0.009, Base Lr: 2.97e-05
+2025-12-10 12:54:41,227 MambaPro.train INFO: Epoch[1] Iteration[20/108] Loss: 7.185, Acc: 0.006, Base Lr: 2.97e-05
+2025-12-10 12:54:43,047 MambaPro.train INFO: Epoch[1] Iteration[30/108] Loss: 6.542, Acc: 0.008, Base Lr: 2.97e-05
+2025-12-10 12:54:44,883 MambaPro.train INFO: Epoch[1] Iteration[40/108] Loss: 6.111, Acc: 0.010, Base Lr: 2.97e-05
+2025-12-10 12:54:46,705 MambaPro.train INFO: Epoch[1] Iteration[50/108] Loss: 5.825, Acc: 0.017, Base Lr: 2.97e-05
+2025-12-10 12:54:48,519 MambaPro.train INFO: Epoch[1] Iteration[60/108] Loss: 5.586, Acc: 0.018, Base Lr: 2.97e-05
+2025-12-10 12:54:50,329 MambaPro.train INFO: Epoch[1] Iteration[70/108] Loss: 5.353, Acc: 0.024, Base Lr: 2.97e-05
+2025-12-10 12:54:52,142 MambaPro.train INFO: Epoch[1] Iteration[80/108] Loss: 5.163, Acc: 0.027, Base Lr: 2.97e-05
+2025-12-10 12:54:53,958 MambaPro.train INFO: Epoch[1] Iteration[90/108] Loss: 4.980, Acc: 0.034, Base Lr: 2.97e-05
+2025-12-10 12:54:55,759 MambaPro.train INFO: Epoch[1] Iteration[100/108] Loss: 4.816, Acc: 0.044, Base Lr: 2.97e-05
+2025-12-10 12:54:57,059 MambaPro.train INFO: Epoch 1 done. Time per batch: 0.189[s] Speed: 169.6[samples/s]
+2025-12-10 12:54:59,126 MambaPro.train INFO: Epoch[2] Iteration[10/108] Loss: 3.540, Acc: 0.234, Base Lr: 5.45e-05
+2025-12-10 12:55:00,940 MambaPro.train INFO: Epoch[2] Iteration[20/108] Loss: 3.429, Acc: 0.217, Base Lr: 5.45e-05
+2025-12-10 12:55:02,751 MambaPro.train INFO: Epoch[2] Iteration[30/108] Loss: 3.362, Acc: 0.198, Base Lr: 5.45e-05
+2025-12-10 12:55:04,572 MambaPro.train INFO: Epoch[2] Iteration[40/108] Loss: 3.358, Acc: 0.180, Base Lr: 5.45e-05
+2025-12-10 12:55:06,384 MambaPro.train INFO: Epoch[2] Iteration[50/108] Loss: 3.333, Acc: 0.182, Base Lr: 5.45e-05
+2025-12-10 12:55:08,199 MambaPro.train INFO: Epoch[2] Iteration[60/108] Loss: 3.328, Acc: 0.177, Base Lr: 5.45e-05
+2025-12-10 12:55:10,016 MambaPro.train INFO: Epoch[2] Iteration[70/108] Loss: 3.248, Acc: 0.175, Base Lr: 5.45e-05
+2025-12-10 12:55:11,831 MambaPro.train INFO: Epoch[2] Iteration[80/108] Loss: 3.221, Acc: 0.185, Base Lr: 5.45e-05
+2025-12-10 12:55:13,641 MambaPro.train INFO: Epoch[2] Iteration[90/108] Loss: 3.205, Acc: 0.195, Base Lr: 5.45e-05
+2025-12-10 12:55:15,440 MambaPro.train INFO: Epoch[2] Iteration[100/108] Loss: 3.186, Acc: 0.196, Base Lr: 5.45e-05
+2025-12-10 12:55:16,738 MambaPro.train INFO: Epoch 2 done. Time per batch: 0.184[s] Speed: 174.0[samples/s]
+2025-12-10 12:55:18,908 MambaPro.train INFO: Epoch[3] Iteration[10/108] Loss: 2.777, Acc: 0.469, Base Lr: 7.92e-05
+2025-12-10 12:55:21,061 MambaPro.train INFO: Epoch[3] Iteration[20/108] Loss: 2.724, Acc: 0.428, Base Lr: 7.92e-05
+2025-12-10 12:55:22,876 MambaPro.train INFO: Epoch[3] Iteration[30/108] Loss: 2.683, Acc: 0.418, Base Lr: 7.92e-05
+2025-12-10 12:55:24,689 MambaPro.train INFO: Epoch[3] Iteration[40/108] Loss: 2.805, Acc: 0.399, Base Lr: 7.92e-05
+2025-12-10 12:55:26,505 MambaPro.train INFO: Epoch[3] Iteration[50/108] Loss: 2.758, Acc: 0.415, Base Lr: 7.92e-05
+2025-12-10 12:55:28,335 MambaPro.train INFO: Epoch[3] Iteration[60/108] Loss: 2.730, Acc: 0.390, Base Lr: 7.92e-05
+2025-12-10 12:55:30,158 MambaPro.train INFO: Epoch[3] Iteration[70/108] Loss: 2.713, Acc: 0.366, Base Lr: 7.92e-05
+2025-12-10 12:55:31,971 MambaPro.train INFO: Epoch[3] Iteration[80/108] Loss: 2.680, Acc: 0.359, Base Lr: 7.92e-05
+2025-12-10 12:55:33,786 MambaPro.train INFO: Epoch[3] Iteration[90/108] Loss: 2.673, Acc: 0.358, Base Lr: 7.92e-05
+2025-12-10 12:55:35,588 MambaPro.train INFO: Epoch[3] Iteration[100/108] Loss: 2.646, Acc: 0.353, Base Lr: 7.92e-05
+2025-12-10 12:55:36,886 MambaPro.train INFO: Epoch 3 done. Time per batch: 0.188[s] Speed: 169.9[samples/s]
+2025-12-10 12:55:38,937 MambaPro.train INFO: Epoch[4] Iteration[10/108] Loss: 2.109, Acc: 0.559, Base Lr: 1.04e-04
+2025-12-10 12:55:40,746 MambaPro.train INFO: Epoch[4] Iteration[20/108] Loss: 2.085, Acc: 0.609, Base Lr: 1.04e-04
+2025-12-10 12:55:42,558 MambaPro.train INFO: Epoch[4] Iteration[30/108] Loss: 2.149, Acc: 0.525, Base Lr: 1.04e-04
+2025-12-10 12:55:44,373 MambaPro.train INFO: Epoch[4] Iteration[40/108] Loss: 2.163, Acc: 0.520, Base Lr: 1.04e-04
+2025-12-10 12:55:46,186 MambaPro.train INFO: Epoch[4] Iteration[50/108] Loss: 2.263, Acc: 0.513, Base Lr: 1.04e-04
+2025-12-10 12:55:48,000 MambaPro.train INFO: Epoch[4] Iteration[60/108] Loss: 2.312, Acc: 0.507, Base Lr: 1.04e-04
+2025-12-10 12:55:49,811 MambaPro.train INFO: Epoch[4] Iteration[70/108] Loss: 2.315, Acc: 0.490, Base Lr: 1.04e-04
+2025-12-10 12:55:51,621 MambaPro.train INFO: Epoch[4] Iteration[80/108] Loss: 2.317, Acc: 0.474, Base Lr: 1.04e-04
+2025-12-10 12:55:53,434 MambaPro.train INFO: Epoch[4] Iteration[90/108] Loss: 2.316, Acc: 0.466, Base Lr: 1.04e-04
+2025-12-10 12:55:55,236 MambaPro.train INFO: Epoch[4] Iteration[100/108] Loss: 2.302, Acc: 0.470, Base Lr: 1.04e-04
+2025-12-10 12:55:56,617 MambaPro.train INFO: Epoch 4 done. Time per batch: 0.184[s] Speed: 173.5[samples/s]
+2025-12-10 12:55:58,674 MambaPro.train INFO: Epoch[5] Iteration[10/108] Loss: 2.236, Acc: 0.497, Base Lr: 1.29e-04
+2025-12-10 12:56:00,492 MambaPro.train INFO: Epoch[5] Iteration[20/108] Loss: 2.096, Acc: 0.556, Base Lr: 1.29e-04
+2025-12-10 12:56:02,308 MambaPro.train INFO: Epoch[5] Iteration[30/108] Loss: 2.116, Acc: 0.588, Base Lr: 1.29e-04
+2025-12-10 12:56:04,123 MambaPro.train INFO: Epoch[5] Iteration[40/108] Loss: 2.081, Acc: 0.586, Base Lr: 1.29e-04
+2025-12-10 12:56:05,938 MambaPro.train INFO: Epoch[5] Iteration[50/108] Loss: 2.070, Acc: 0.538, Base Lr: 1.29e-04
+2025-12-10 12:56:07,751 MambaPro.train INFO: Epoch[5] Iteration[60/108] Loss: 2.076, Acc: 0.533, Base Lr: 1.29e-04
+2025-12-10 12:56:09,563 MambaPro.train INFO: Epoch[5] Iteration[70/108] Loss: 2.065, Acc: 0.530, Base Lr: 1.29e-04
+2025-12-10 12:56:11,373 MambaPro.train INFO: Epoch[5] Iteration[80/108] Loss: 2.052, Acc: 0.526, Base Lr: 1.29e-04
+2025-12-10 12:56:13,182 MambaPro.train INFO: Epoch[5] Iteration[90/108] Loss: 2.029, Acc: 0.533, Base Lr: 1.29e-04
+2025-12-10 12:56:14,991 MambaPro.train INFO: Epoch[5] Iteration[100/108] Loss: 2.034, Acc: 0.517, Base Lr: 1.29e-04
+2025-12-10 12:56:16,302 MambaPro.train INFO: Epoch 5 done. Time per batch: 0.184[s] Speed: 173.9[samples/s]
+2025-12-10 12:56:24,082 MambaPro.train INFO: Validation Results - Epoch: 5
+2025-12-10 12:56:24,082 MambaPro.train INFO: mAP: 47.2%
+2025-12-10 12:56:24,082 MambaPro.train INFO: CMC curve, Rank-1  :50.4%
+2025-12-10 12:56:24,082 MambaPro.train INFO: CMC curve, Rank-5  :66.6%
+2025-12-10 12:56:24,082 MambaPro.train INFO: CMC curve, Rank-10 :73.2%
+2025-12-10 12:56:24,460 MambaPro.train INFO: Best mAP: 47.2%
+2025-12-10 12:56:24,460 MambaPro.train INFO: Best Rank-1: 50.4%
+2025-12-10 12:56:24,460 MambaPro.train INFO: Best Rank-5: 66.6%
+2025-12-10 12:56:24,460 MambaPro.train INFO: Best Rank-10: 73.2%
+2025-12-10 12:56:26,547 MambaPro.train INFO: Epoch[6] Iteration[10/108] Loss: 1.709, Acc: 0.700, Base Lr: 1.53e-04
+2025-12-10 12:56:28,355 MambaPro.train INFO: Epoch[6] Iteration[20/108] Loss: 1.771, Acc: 0.688, Base Lr: 1.53e-04
+2025-12-10 12:56:30,167 MambaPro.train INFO: Epoch[6] Iteration[30/108] Loss: 1.718, Acc: 0.703, Base Lr: 1.53e-04
+2025-12-10 12:56:31,984 MambaPro.train INFO: Epoch[6] Iteration[40/108] Loss: 1.712, Acc: 0.697, Base Lr: 1.53e-04
+2025-12-10 12:56:33,806 MambaPro.train INFO: Epoch[6] Iteration[50/108] Loss: 1.733, Acc: 0.686, Base Lr: 1.53e-04
+2025-12-10 12:56:35,621 MambaPro.train INFO: Epoch[6] Iteration[60/108] Loss: 1.722, Acc: 0.686, Base Lr: 1.53e-04
+2025-12-10 12:56:37,437 MambaPro.train INFO: Epoch[6] Iteration[70/108] Loss: 1.780, Acc: 0.658, Base Lr: 1.53e-04
+2025-12-10 12:56:39,257 MambaPro.train INFO: Epoch[6] Iteration[80/108] Loss: 1.784, Acc: 0.653, Base Lr: 1.53e-04
+2025-12-10 12:56:41,073 MambaPro.train INFO: Epoch[6] Iteration[90/108] Loss: 1.791, Acc: 0.650, Base Lr: 1.53e-04
+2025-12-10 12:56:42,875 MambaPro.train INFO: Epoch[6] Iteration[100/108] Loss: 1.785, Acc: 0.646, Base Lr: 1.53e-04
+2025-12-10 12:56:44,172 MambaPro.train INFO: Epoch 6 done. Time per batch: 0.184[s] Speed: 173.7[samples/s]
+2025-12-10 12:56:46,256 MambaPro.train INFO: Epoch[7] Iteration[10/108] Loss: 1.606, Acc: 0.716, Base Lr: 1.78e-04
+2025-12-10 12:56:48,071 MambaPro.train INFO: Epoch[7] Iteration[20/108] Loss: 1.513, Acc: 0.766, Base Lr: 1.78e-04
+2025-12-10 12:56:49,887 MambaPro.train INFO: Epoch[7] Iteration[30/108] Loss: 1.466, Acc: 0.713, Base Lr: 1.78e-04
+2025-12-10 12:56:51,702 MambaPro.train INFO: Epoch[7] Iteration[40/108] Loss: 1.456, Acc: 0.734, Base Lr: 1.78e-04
+2025-12-10 12:56:53,519 MambaPro.train INFO: Epoch[7] Iteration[50/108] Loss: 1.453, Acc: 0.733, Base Lr: 1.78e-04
+2025-12-10 12:56:55,333 MambaPro.train INFO: Epoch[7] Iteration[60/108] Loss: 1.433, Acc: 0.729, Base Lr: 1.78e-04
+2025-12-10 12:56:57,145 MambaPro.train INFO: Epoch[7] Iteration[70/108] Loss: 1.406, Acc: 0.724, Base Lr: 1.78e-04
+2025-12-10 12:56:58,971 MambaPro.train INFO: Epoch[7] Iteration[80/108] Loss: 1.391, Acc: 0.729, Base Lr: 1.78e-04
+2025-12-10 12:57:00,785 MambaPro.train INFO: Epoch[7] Iteration[90/108] Loss: 1.394, Acc: 0.726, Base Lr: 1.78e-04
+2025-12-10 12:57:02,590 MambaPro.train INFO: Epoch[7] Iteration[100/108] Loss: 1.415, Acc: 0.718, Base Lr: 1.78e-04
+2025-12-10 12:57:03,896 MambaPro.train INFO: Epoch 7 done. Time per batch: 0.184[s] Speed: 173.6[samples/s]
+2025-12-10 12:57:05,972 MambaPro.train INFO: Epoch[8] Iteration[10/108] Loss: 1.082, Acc: 0.809, Base Lr: 2.03e-04
+2025-12-10 12:57:07,785 MambaPro.train INFO: Epoch[8] Iteration[20/108] Loss: 1.081, Acc: 0.828, Base Lr: 2.03e-04
+2025-12-10 12:57:09,601 MambaPro.train INFO: Epoch[8] Iteration[30/108] Loss: 1.078, Acc: 0.832, Base Lr: 2.03e-04
+2025-12-10 12:57:11,424 MambaPro.train INFO: Epoch[8] Iteration[40/108] Loss: 1.131, Acc: 0.825, Base Lr: 2.03e-04
+2025-12-10 12:57:13,238 MambaPro.train INFO: Epoch[8] Iteration[50/108] Loss: 1.156, Acc: 0.829, Base Lr: 2.03e-04
+2025-12-10 12:57:15,054 MambaPro.train INFO: Epoch[8] Iteration[60/108] Loss: 1.167, Acc: 0.828, Base Lr: 2.03e-04
+2025-12-10 12:57:16,867 MambaPro.train INFO: Epoch[8] Iteration[70/108] Loss: 1.177, Acc: 0.819, Base Lr: 2.03e-04
+2025-12-10 12:57:18,679 MambaPro.train INFO: Epoch[8] Iteration[80/108] Loss: 1.161, Acc: 0.820, Base Lr: 2.03e-04
+2025-12-10 12:57:20,491 MambaPro.train INFO: Epoch[8] Iteration[90/108] Loss: 1.150, Acc: 0.819, Base Lr: 2.03e-04
+2025-12-10 12:57:22,293 MambaPro.train INFO: Epoch[8] Iteration[100/108] Loss: 1.176, Acc: 0.823, Base Lr: 2.03e-04
+2025-12-10 12:57:23,595 MambaPro.train INFO: Epoch 8 done. Time per batch: 0.184[s] Speed: 173.8[samples/s]
+2025-12-10 12:57:25,672 MambaPro.train INFO: Epoch[9] Iteration[10/108] Loss: 1.147, Acc: 0.863, Base Lr: 2.28e-04
+2025-12-10 12:57:27,486 MambaPro.train INFO: Epoch[9] Iteration[20/108] Loss: 1.105, Acc: 0.866, Base Lr: 2.28e-04
+2025-12-10 12:57:29,301 MambaPro.train INFO: Epoch[9] Iteration[30/108] Loss: 1.079, Acc: 0.854, Base Lr: 2.28e-04
+2025-12-10 12:57:31,119 MambaPro.train INFO: Epoch[9] Iteration[40/108] Loss: 1.049, Acc: 0.856, Base Lr: 2.28e-04
+2025-12-10 12:57:32,934 MambaPro.train INFO: Epoch[9] Iteration[50/108] Loss: 1.039, Acc: 0.862, Base Lr: 2.28e-04
+2025-12-10 12:57:34,750 MambaPro.train INFO: Epoch[9] Iteration[60/108] Loss: 1.054, Acc: 0.857, Base Lr: 2.28e-04
+2025-12-10 12:57:36,564 MambaPro.train INFO: Epoch[9] Iteration[70/108] Loss: 1.083, Acc: 0.854, Base Lr: 2.28e-04
+2025-12-10 12:57:38,381 MambaPro.train INFO: Epoch[9] Iteration[80/108] Loss: 1.099, Acc: 0.854, Base Lr: 2.28e-04
+2025-12-10 12:57:40,198 MambaPro.train INFO: Epoch[9] Iteration[90/108] Loss: 1.101, Acc: 0.841, Base Lr: 2.28e-04
+2025-12-10 12:57:42,002 MambaPro.train INFO: Epoch[9] Iteration[100/108] Loss: 1.095, Acc: 0.845, Base Lr: 2.28e-04
+2025-12-10 12:57:43,309 MambaPro.train INFO: Epoch 9 done. Time per batch: 0.184[s] Speed: 173.7[samples/s]
+2025-12-10 12:57:45,386 MambaPro.train INFO: Epoch[10] Iteration[10/108] Loss: 1.091, Acc: 0.856, Base Lr: 2.53e-04
+2025-12-10 12:57:47,203 MambaPro.train INFO: Epoch[10] Iteration[20/108] Loss: 1.093, Acc: 0.856, Base Lr: 2.53e-04
+2025-12-10 12:57:49,023 MambaPro.train INFO: Epoch[10] Iteration[30/108] Loss: 1.074, Acc: 0.861, Base Lr: 2.53e-04
+2025-12-10 12:57:50,840 MambaPro.train INFO: Epoch[10] Iteration[40/108] Loss: 1.050, Acc: 0.866, Base Lr: 2.53e-04
+2025-12-10 12:57:52,656 MambaPro.train INFO: Epoch[10] Iteration[50/108] Loss: 1.054, Acc: 0.861, Base Lr: 2.53e-04
+2025-12-10 12:57:54,472 MambaPro.train INFO: Epoch[10] Iteration[60/108] Loss: 1.103, Acc: 0.852, Base Lr: 2.53e-04
+2025-12-10 12:57:56,289 MambaPro.train INFO: Epoch[10] Iteration[70/108] Loss: 1.161, Acc: 0.846, Base Lr: 2.53e-04
+2025-12-10 12:57:58,103 MambaPro.train INFO: Epoch[10] Iteration[80/108] Loss: 1.160, Acc: 0.843, Base Lr: 2.53e-04
+2025-12-10 12:57:59,917 MambaPro.train INFO: Epoch[10] Iteration[90/108] Loss: 1.186, Acc: 0.840, Base Lr: 2.53e-04
+2025-12-10 12:58:01,720 MambaPro.train INFO: Epoch[10] Iteration[100/108] Loss: 1.185, Acc: 0.842, Base Lr: 2.53e-04
+2025-12-10 12:58:03,028 MambaPro.train INFO: Epoch 10 done. Time per batch: 0.184[s] Speed: 173.6[samples/s]
+2025-12-10 12:58:10,902 MambaPro.train INFO: Validation Results - Epoch: 10
+2025-12-10 12:58:10,902 MambaPro.train INFO: mAP: 46.0%
+2025-12-10 12:58:10,902 MambaPro.train INFO: CMC curve, Rank-1  :46.5%
+2025-12-10 12:58:10,902 MambaPro.train INFO: CMC curve, Rank-5  :64.4%
+2025-12-10 12:58:10,902 MambaPro.train INFO: CMC curve, Rank-10 :73.9%
+2025-12-10 12:58:10,902 MambaPro.train INFO: Best mAP: 47.2%
+2025-12-10 12:58:10,902 MambaPro.train INFO: Best Rank-1: 50.4%
+2025-12-10 12:58:10,902 MambaPro.train INFO: Best Rank-5: 66.6%
+2025-12-10 12:58:10,902 MambaPro.train INFO: Best Rank-10: 73.2%
+2025-12-10 12:58:13,121 MambaPro.train INFO: Epoch[11] Iteration[10/108] Loss: 1.045, Acc: 0.872, Base Lr: 2.77e-04
+2025-12-10 12:58:14,943 MambaPro.train INFO: Epoch[11] Iteration[20/108] Loss: 0.998, Acc: 0.884, Base Lr: 2.77e-04
+2025-12-10 12:58:16,761 MambaPro.train INFO: Epoch[11] Iteration[30/108] Loss: 1.054, Acc: 0.876, Base Lr: 2.77e-04
+2025-12-10 12:58:18,574 MambaPro.train INFO: Epoch[11] Iteration[40/108] Loss: 1.051, Acc: 0.879, Base Lr: 2.77e-04
+2025-12-10 12:58:20,391 MambaPro.train INFO: Epoch[11] Iteration[50/108] Loss: 1.147, Acc: 0.863, Base Lr: 2.77e-04
+2025-12-10 12:58:22,212 MambaPro.train INFO: Epoch[11] Iteration[60/108] Loss: 1.229, Acc: 0.852, Base Lr: 2.77e-04
+2025-12-10 12:58:24,032 MambaPro.train INFO: Epoch[11] Iteration[70/108] Loss: 1.276, Acc: 0.841, Base Lr: 2.77e-04
+2025-12-10 12:58:25,856 MambaPro.train INFO: Epoch[11] Iteration[80/108] Loss: 1.284, Acc: 0.843, Base Lr: 2.77e-04
+2025-12-10 12:58:27,681 MambaPro.train INFO: Epoch[11] Iteration[90/108] Loss: 1.265, Acc: 0.845, Base Lr: 2.77e-04
+2025-12-10 12:58:29,481 MambaPro.train INFO: Epoch[11] Iteration[100/108] Loss: 1.314, Acc: 0.833, Base Lr: 2.77e-04
+2025-12-10 12:58:30,607 MambaPro.train INFO: Epoch 11 done. Time per batch: 0.185[s] Speed: 173.3[samples/s]
+2025-12-10 12:58:32,682 MambaPro.train INFO: Epoch[12] Iteration[10/108] Loss: 1.247, Acc: 0.806, Base Lr: 3.02e-04
+2025-12-10 12:58:34,498 MambaPro.train INFO: Epoch[12] Iteration[20/108] Loss: 1.216, Acc: 0.830, Base Lr: 3.02e-04
+2025-12-10 12:58:36,317 MambaPro.train INFO: Epoch[12] Iteration[30/108] Loss: 1.214, Acc: 0.846, Base Lr: 3.02e-04
+2025-12-10 12:58:38,135 MambaPro.train INFO: Epoch[12] Iteration[40/108] Loss: 1.140, Acc: 0.863, Base Lr: 3.02e-04
+2025-12-10 12:58:39,957 MambaPro.train INFO: Epoch[12] Iteration[50/108] Loss: 1.117, Acc: 0.866, Base Lr: 3.02e-04
+2025-12-10 12:58:41,846 MambaPro.train INFO: Epoch[12] Iteration[60/108] Loss: 1.097, Acc: 0.870, Base Lr: 3.02e-04
+2025-12-10 12:58:43,662 MambaPro.train INFO: Epoch[12] Iteration[70/108] Loss: 1.086, Acc: 0.874, Base Lr: 3.02e-04
+2025-12-10 12:58:45,476 MambaPro.train INFO: Epoch[12] Iteration[80/108] Loss: 1.073, Acc: 0.877, Base Lr: 3.02e-04
+2025-12-10 12:58:47,291 MambaPro.train INFO: Epoch[12] Iteration[90/108] Loss: 1.098, Acc: 0.875, Base Lr: 3.02e-04
+ch[7] Iteration[100/108] Loss: 1.415, Acc: 0.718, Base Lr: 1.78e-04
+🔥 MoE损失: 平衡=1.2899, 稀疏性=0.0001, 多样性=0.0002
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000014, 有梯度: True
+2025-12-10 12:57:03,896 MambaPro.train INFO: Epoch 7 done. Time per batch: 0.184[s] Speed: 173.6[samples/s]
+🔥 MoE损失: 平衡=1.2899, 稀疏性=0.0000, 多样性=0.0001
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000006, 有梯度: True
+2025-12-10 12:57:05,972 MambaPro.train INFO: Epoch[8] Iteration[10/108] Loss: 1.082, Acc: 0.809, Base Lr: 2.03e-04
+2025-12-10 12:57:07,785 MambaPro.train INFO: Epoch[8] Iteration[20/108] Loss: 1.081, Acc: 0.828, Base Lr: 2.03e-04
+2025-12-10 12:57:09,601 MambaPro.train INFO: Epoch[8] Iteration[30/108] Loss: 1.078, Acc: 0.832, Base Lr: 2.03e-04
+2025-12-10 12:57:11,424 MambaPro.train INFO: Epoch[8] Iteration[40/108] Loss: 1.131, Acc: 0.825, Base Lr: 2.03e-04
+2025-12-10 12:57:13,238 MambaPro.train INFO: Epoch[8] Iteration[50/108] Loss: 1.156, Acc: 0.829, Base Lr: 2.03e-04
+2025-12-10 12:57:15,054 MambaPro.train INFO: Epoch[8] Iteration[60/108] Loss: 1.167, Acc: 0.828, Base Lr: 2.03e-04
+2025-12-10 12:57:16,867 MambaPro.train INFO: Epoch[8] Iteration[70/108] Loss: 1.177, Acc: 0.819, Base Lr: 2.03e-04
+2025-12-10 12:57:18,679 MambaPro.train INFO: Epoch[8] Iteration[80/108] Loss: 1.161, Acc: 0.820, Base Lr: 2.03e-04
+2025-12-10 12:57:20,491 MambaPro.train INFO: Epoch[8] Iteration[90/108] Loss: 1.150, Acc: 0.819, Base Lr: 2.03e-04
+2025-12-10 12:57:22,293 MambaPro.train INFO: Epoch[8] Iteration[100/108] Loss: 1.176, Acc: 0.823, Base Lr: 2.03e-04
+🔥 MoE损失: 平衡=1.2899, 稀疏性=0.0000, 多样性=0.0001
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000004, 有梯度: True
+2025-12-10 12:57:23,595 MambaPro.train INFO: Epoch 8 done. Time per batch: 0.184[s] Speed: 173.8[samples/s]
+🔥 MoE损失: 平衡=1.2899, 稀疏性=0.0001, 多样性=0.0002
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000009, 有梯度: True
+2025-12-10 12:57:25,672 MambaPro.train INFO: Epoch[9] Iteration[10/108] Loss: 1.147, Acc: 0.863, Base Lr: 2.28e-04
+2025-12-10 12:57:27,486 MambaPro.train INFO: Epoch[9] Iteration[20/108] Loss: 1.105, Acc: 0.866, Base Lr: 2.28e-04
+2025-12-10 12:57:29,301 MambaPro.train INFO: Epoch[9] Iteration[30/108] Loss: 1.079, Acc: 0.854, Base Lr: 2.28e-04
+2025-12-10 12:57:31,119 MambaPro.train INFO: Epoch[9] Iteration[40/108] Loss: 1.049, Acc: 0.856, Base Lr: 2.28e-04
+2025-12-10 12:57:32,934 MambaPro.train INFO: Epoch[9] Iteration[50/108] Loss: 1.039, Acc: 0.862, Base Lr: 2.28e-04
+2025-12-10 12:57:34,750 MambaPro.train INFO: Epoch[9] Iteration[60/108] Loss: 1.054, Acc: 0.857, Base Lr: 2.28e-04
+2025-12-10 12:57:36,564 MambaPro.train INFO: Epoch[9] Iteration[70/108] Loss: 1.083, Acc: 0.854, Base Lr: 2.28e-04
+2025-12-10 12:57:38,381 MambaPro.train INFO: Epoch[9] Iteration[80/108] Loss: 1.099, Acc: 0.854, Base Lr: 2.28e-04
+2025-12-10 12:57:40,198 MambaPro.train INFO: Epoch[9] Iteration[90/108] Loss: 1.101, Acc: 0.841, Base Lr: 2.28e-04
+2025-12-10 12:57:42,002 MambaPro.train INFO: Epoch[9] Iteration[100/108] Loss: 1.095, Acc: 0.845, Base Lr: 2.28e-04
+🔥 MoE损失: 平衡=1.2900, 稀疏性=0.0000, 多样性=0.0001
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000004, 有梯度: True
+2025-12-10 12:57:43,309 MambaPro.train INFO: Epoch 9 done. Time per batch: 0.184[s] Speed: 173.7[samples/s]
+🔥 MoE损失: 平衡=1.2900, 稀疏性=0.0000, 多样性=0.0001
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000006, 有梯度: True
+2025-12-10 12:57:45,386 MambaPro.train INFO: Epoch[10] Iteration[10/108] Loss: 1.091, Acc: 0.856, Base Lr: 2.53e-04
+2025-12-10 12:57:47,203 MambaPro.train INFO: Epoch[10] Iteration[20/108] Loss: 1.093, Acc: 0.856, Base Lr: 2.53e-04
+2025-12-10 12:57:49,023 MambaPro.train INFO: Epoch[10] Iteration[30/108] Loss: 1.074, Acc: 0.861, Base Lr: 2.53e-04
+2025-12-10 12:57:50,840 MambaPro.train INFO: Epoch[10] Iteration[40/108] Loss: 1.050, Acc: 0.866, Base Lr: 2.53e-04
+2025-12-10 12:57:52,656 MambaPro.train INFO: Epoch[10] Iteration[50/108] Loss: 1.054, Acc: 0.861, Base Lr: 2.53e-04
+2025-12-10 12:57:54,472 MambaPro.train INFO: Epoch[10] Iteration[60/108] Loss: 1.103, Acc: 0.852, Base Lr: 2.53e-04
+2025-12-10 12:57:56,289 MambaPro.train INFO: Epoch[10] Iteration[70/108] Loss: 1.161, Acc: 0.846, Base Lr: 2.53e-04
+2025-12-10 12:57:58,103 MambaPro.train INFO: Epoch[10] Iteration[80/108] Loss: 1.160, Acc: 0.843, Base Lr: 2.53e-04
+2025-12-10 12:57:59,917 MambaPro.train INFO: Epoch[10] Iteration[90/108] Loss: 1.186, Acc: 0.840, Base Lr: 2.53e-04
+2025-12-10 12:58:01,720 MambaPro.train INFO: Epoch[10] Iteration[100/108] Loss: 1.185, Acc: 0.842, Base Lr: 2.53e-04
+🔥 MoE损失: 平衡=1.2899, 稀疏性=0.0000, 多样性=0.0002
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000010, 有梯度: True
+2025-12-10 12:58:03,028 MambaPro.train INFO: Epoch 10 done. Time per batch: 0.184[s] Speed: 173.6[samples/s]
+The test feature is normalized
+=> Computing DistMat with euclidean_distance
+2025-12-10 12:58:10,902 MambaPro.train INFO: Validation Results - Epoch: 10
+2025-12-10 12:58:10,902 MambaPro.train INFO: mAP: 46.0%
+2025-12-10 12:58:10,902 MambaPro.train INFO: CMC curve, Rank-1  :46.5%
+2025-12-10 12:58:10,902 MambaPro.train INFO: CMC curve, Rank-5  :64.4%
+2025-12-10 12:58:10,902 MambaPro.train INFO: CMC curve, Rank-10 :73.9%
+2025-12-10 12:58:10,902 MambaPro.train INFO: Best mAP: 47.2%
+2025-12-10 12:58:10,902 MambaPro.train INFO: Best Rank-1: 50.4%
+2025-12-10 12:58:10,902 MambaPro.train INFO: Best Rank-5: 66.6%
+2025-12-10 12:58:10,902 MambaPro.train INFO: Best Rank-10: 73.2%
+🔥 MoE损失: 平衡=1.2899, 稀疏性=0.0000, 多样性=0.0002
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000009, 有梯度: True
+2025-12-10 12:58:13,121 MambaPro.train INFO: Epoch[11] Iteration[10/108] Loss: 1.045, Acc: 0.872, Base Lr: 2.77e-04
+2025-12-10 12:58:14,943 MambaPro.train INFO: Epoch[11] Iteration[20/108] Loss: 0.998, Acc: 0.884, Base Lr: 2.77e-04
+2025-12-10 12:58:16,761 MambaPro.train INFO: Epoch[11] Iteration[30/108] Loss: 1.054, Acc: 0.876, Base Lr: 2.77e-04
+2025-12-10 12:58:18,574 MambaPro.train INFO: Epoch[11] Iteration[40/108] Loss: 1.051, Acc: 0.879, Base Lr: 2.77e-04
+2025-12-10 12:58:20,391 MambaPro.train INFO: Epoch[11] Iteration[50/108] Loss: 1.147, Acc: 0.863, Base Lr: 2.77e-04
+2025-12-10 12:58:22,212 MambaPro.train INFO: Epoch[11] Iteration[60/108] Loss: 1.229, Acc: 0.852, Base Lr: 2.77e-04
+2025-12-10 12:58:24,032 MambaPro.train INFO: Epoch[11] Iteration[70/108] Loss: 1.276, Acc: 0.841, Base Lr: 2.77e-04
+2025-12-10 12:58:25,856 MambaPro.train INFO: Epoch[11] Iteration[80/108] Loss: 1.284, Acc: 0.843, Base Lr: 2.77e-04
+2025-12-10 12:58:27,681 MambaPro.train INFO: Epoch[11] Iteration[90/108] Loss: 1.265, Acc: 0.845, Base Lr: 2.77e-04
+2025-12-10 12:58:29,481 MambaPro.train INFO: Epoch[11] Iteration[100/108] Loss: 1.314, Acc: 0.833, Base Lr: 2.77e-04
+🔥 MoE损失: 平衡=1.2900, 稀疏性=0.0000, 多样性=0.0001
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000003, 有梯度: True
+2025-12-10 12:58:30,607 MambaPro.train INFO: Epoch 11 done. Time per batch: 0.185[s] Speed: 173.3[samples/s]
+🔥 MoE损失: 平衡=1.2900, 稀疏性=0.0000, 多样性=0.0001
+   📊 专家权重分布: [1.0000, 0.0000, 0.0000], 权重变化标准差: 0.000003, 有梯度: True
+2025-12-10 12:58:32,682 MambaPro.train INFO: Epoch[12] Iteration[10/108] Loss: 1.247, Acc: 0.806, Base Lr: 3.02e-04
+2025-12-10 12:58:34,498 MambaPro.train INFO: Epoch[12] Iteration[20/108] Loss: 1.216, Acc: 0.830, Base Lr: 3.02e-04
+2025-12-10 12:58:36,317 MambaPro.train INFO: Epoch[12] Iteration[30/108] Loss: 1.214, Acc: 0.846, Base Lr: 3.02e-04
+2025-12-10 12:58:38,135 MambaPro.train INFO: Epoch[12] Iteration[40/108] Loss: 1.140, Acc: 0.863, Base Lr: 3.02e-04
+2025-12-10 12:58:39,957 MambaPro.train INFO: Epoch[12] Iteration[50/108] Loss: 1.117, Acc: 0.866, Base Lr: 3.02e-04
+2025-12-10 12:58:41,846 MambaPro.train INFO: Epoch[12] Iteration[60/108] Loss: 1.097, Acc: 0.870, Base Lr: 3.02e-04
+2025-12-10 12:58:43,662 MambaPro.train INFO: Epoch[12] Iteration[70/108] Loss: 1.086, Acc: 0.874, Base Lr: 3.02e-04
+2025-12-10 12:58:45,476 MambaPro.train INFO: Epoch[12] Iteration[80/108] Loss: 1.073, Acc: 0.877, Base Lr: 3.02e-04
+2025-12-10 12:58:47,291 MambaPro.train INFO: Epoch[12] Iteration[90/108] Loss: 1.098, Acc: 0.875, Base Lr: 3.02e-04
