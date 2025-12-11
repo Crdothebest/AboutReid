@@ -34,14 +34,14 @@ def _format_numeric_value(value, precision=2):
         return str(value)
 
 
-def _format_metric_values(values, precision=2):
+def _format_metric_values(values, precision=1):
     """
     将浮点序列格式化为指定小数位的字符串列表，保证日志展示一致。
     """
     return [_format_numeric_value(val, precision=precision) for val in values]
 
 
-def _format_expert_history(expert_history, precision=3):
+def _format_expert_history(expert_history, precision=2):
     """
     将专家权重历史格式化为固定小数位，以便审阅长期趋势。
     """
@@ -64,21 +64,48 @@ def _log_metric_history(logger, history, title=None, best_expert_weights=None):
     if title:
         logger.info(title)
     for name, current_key, best_key in metric_fields:
-        history_values = _format_metric_values(history.get(current_key, []), precision=2)
-        best_values = _format_metric_values(history.get(best_key, []), precision=2)
-        history_line = ",".join(history_values)
-        best_line = ",".join(best_values)
+        history_raw = history.get(current_key, [])
+        unique_history = list(dict.fromkeys(history_raw))
+        history_line = " , ".join(_format_metric_values(unique_history, precision=1))
         logger.info(f"history_{name}:{{{history_line}}}")
-        logger.info(f"best_{name}:{{{best_line}}}")
+
+        best_values = history.get(best_key, [])
+        if best_values:
+            best_value = max(best_values)
+            best_line = _format_numeric_value(best_value, precision=1)
+            logger.info(f"best_{name}:{{{best_line}}}")
+        else:
+            logger.info(f"best_{name}:{{}}")
     
     expert_history = history.get('expert_weights', [])
     if expert_history:
-        formatted_history = _format_expert_history(expert_history, precision=3)
-        expert_entries = [f"[{','.join(weights)}]" for weights in formatted_history]
-        logger.info(f"history_Experts:{{{','.join(expert_entries)}}}")
+        formatted_history = _format_expert_history(expert_history, precision=2)
+        expert_entries = [f"[{' , '.join(weights)}]" for weights in formatted_history]
+        logger.info(f"history_Experts:{{{' , '.join(expert_entries)}}}")
     if best_expert_weights is not None:
-        best_formatted = ",".join(_format_metric_values(best_expert_weights, precision=3))
+        best_formatted = " , ".join(_format_metric_values(best_expert_weights, precision=2))
         logger.info(f"best_Experts:{{[{best_formatted}]}}")
+
+
+def _log_validation_moe(logger, moe_loss_dict, expert_weights):
+    """
+    在验证阶段输出MoE损失及专家权重分布（仅在mAP计算后调用）。
+    """
+    if moe_loss_dict:
+        bal_loss = _format_numeric_value(moe_loss_dict.get('moe_balance_loss'), precision=4)
+        spar_loss = _format_numeric_value(moe_loss_dict.get('moe_sparsity_loss'), precision=4)
+        div_loss = _format_numeric_value(moe_loss_dict.get('moe_diversity_loss'), precision=4)
+        total_loss = _format_numeric_value(moe_loss_dict.get('moe_total_loss'), precision=4)
+        bal_weight = _format_numeric_value(moe_loss_dict.get('moe_balance_weight'), precision=3)
+        spar_weight = _format_numeric_value(moe_loss_dict.get('moe_sparsity_weight'), precision=3)
+        div_weight = _format_numeric_value(moe_loss_dict.get('moe_diversity_weight'), precision=3)
+        logger.info(
+            f"🔥 MoE损失(Val): 平衡={bal_loss}, 稀疏性={spar_loss}, 多样性={div_loss}, 总={total_loss} "
+            f"(权重: 平衡={bal_weight}, 稀疏性={spar_weight}, 多样性={div_weight})"
+        )
+    if expert_weights:
+        weights_line = " , ".join(_format_metric_values(expert_weights, precision=2))
+        logger.info(f"   📊 专家权重分布(Val): [{weights_line}]")
 
 def do_train(cfg,
              model,
@@ -147,6 +174,7 @@ def do_train(cfg,
 
         # -------- 单个 epoch 内的迭代 --------
         enable_iter_log = getattr(cfg.SOLVER, 'ENABLE_ITER_LOG', False)
+        enable_moe_debug_log = getattr(cfg.SOLVER, 'ENABLE_MOE_DEBUG_LOG', False)
         for n_iter, (img, vid, target_cam, target_view, _) in enumerate(train_loader):
             optimizer.zero_grad()
             optimizer_center.zero_grad()
@@ -284,47 +312,47 @@ def do_train(cfg,
                             )
                             loss = loss + moe_loss
                             
-                            # 记录MoE损失信息（可选）
-                            if n_iter % 100 == 0:  # 每100个iteration打印一次
-                                # 🔧 添加调试信息：显示权重分布和梯度状态
-                                with torch.no_grad():
-                                    avg_weights = expert_weights.mean(dim=0).cpu().numpy()
-                                    weight_std = expert_weights.std(dim=0).mean().item()
-                                    has_grad = expert_weights.requires_grad
-                                
-                                # 显示动态权重信息（如果启用）
-                                weight_info = ""
-                                if getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False):
-                                    weight_info = (
-                                        " (动态权重: "
-                                        f"平衡={_format_numeric_value(moe_loss_dict.get('moe_balance_weight'), precision=3)}, "
-                                        f"多样性={_format_numeric_value(moe_loss_dict.get('moe_diversity_weight'), precision=3)})"
-                                    )
-                                
-                                # 🔥 新增：检查多样性损失是否激活
-                                diversity_loss_value = moe_loss_dict['moe_diversity_loss']
-                                diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
-                                
-                                print(f"🔥 MoE损失: 平衡={moe_loss_dict['moe_balance_loss']:.4f}, "
-                                      f"稀疏性={moe_loss_dict['moe_sparsity_loss']:.4f}, "
-                                      f"多样性={moe_loss_dict['moe_diversity_loss']:.4f} {diversity_status}{weight_info}")
-                                print(f"   📊 专家权重分布: [{avg_weights[0]:.3f}, {avg_weights[1]:.3f}, {avg_weights[2]:.3f}], "
-                                      f"权重变化标准差: {weight_std:.6f}, 有梯度: {has_grad}")
-                                
-                                # 🔥 新增：详细MoE Loss日志，检查多样性损失是否成功激活
-                                if n_iter % 500 == 0:  # 每500个iteration打印一次详细日志
-                                    print(f"📋 MoE Loss 详细日志 (Epoch {epoch}, Iter {n_iter}):")
-                                    print(f"   - 平衡损失 (L_Bal): {moe_loss_dict['moe_balance_loss']:.6f}")
-                                    print(f"   - 稀疏性损失 (L_Spar): {moe_loss_dict['moe_sparsity_loss']:.6f}")
-                                    print(f"   - 多样性损失 (L_Div): {moe_loss_dict['moe_diversity_loss']:.6f} {'✅ 已激活' if diversity_loss_value > 1e-6 else '⚠️ 未激活(0.0)'}")
-                                    print(f"   - 总损失 (L_Total): {moe_loss_dict['moe_total_loss']:.6f}")
-                                    if 'moe_balance_weight' in moe_loss_dict:
-                                        print(
-                                            "   - 损失权重: "
-                                            f"平衡={_format_numeric_value(moe_loss_dict['moe_balance_weight'], precision=3)}, "
-                                            f"稀疏性={_format_numeric_value(moe_loss_dict.get('moe_sparsity_weight'), precision=3)}, "
-                                            f"多样性={_format_numeric_value(moe_loss_dict['moe_diversity_weight'], precision=3)}"
-                                        )
+            # 记录MoE损失信息（可选：仅调试模式输出，默认关闭）
+            if enable_moe_debug_log and n_iter % 100 == 0:  # 每100个iteration打印一次
+                # 🔧 添加调试信息：显示权重分布和梯度状态
+                with torch.no_grad():
+                    avg_weights = expert_weights.mean(dim=0).cpu().numpy()
+                    weight_std = expert_weights.std(dim=0).mean().item()
+                    has_grad = expert_weights.requires_grad
+                
+                # 显示动态权重信息（如果启用）
+                weight_info = ""
+                if getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False):
+                    weight_info = (
+                        " (动态权重: "
+                        f"平衡={_format_numeric_value(moe_loss_dict.get('moe_balance_weight'), precision=3)}, "
+                        f"多样性={_format_numeric_value(moe_loss_dict.get('moe_diversity_weight'), precision=3)})"
+                    )
+                
+                # 🔥 新增：检查多样性损失是否激活
+                diversity_loss_value = moe_loss_dict['moe_diversity_loss']
+                diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
+                
+                print(f"🔥 MoE损失: 平衡={moe_loss_dict['moe_balance_loss']:.4f}, "
+                      f"稀疏性={moe_loss_dict['moe_sparsity_loss']:.4f}, "
+                      f"多样性={moe_loss_dict['moe_diversity_loss']:.4f} {diversity_status}{weight_info}")
+                print(f"   📊 专家权重分布: [{avg_weights[0]:.2f} , {avg_weights[1]:.2f} , {avg_weights[2]:.2f}], "
+                      f"权重变化标准差: {weight_std:.6f}, 有梯度: {has_grad}")
+                
+                # 🔥 新增：详细MoE Loss日志，检查多样性损失是否成功激活
+                if n_iter % 500 == 0:  # 每500个iteration打印一次详细日志
+                    print(f"📋 MoE Loss 详细日志 (Epoch {epoch}, Iter {n_iter}):")
+                    print(f"   - 平衡损失 (L_Bal): {moe_loss_dict['moe_balance_loss']:.6f}")
+                    print(f"   - 稀疏性损失 (L_Spar): {moe_loss_dict['moe_sparsity_loss']:.6f}")
+                    print(f"   - 多样性损失 (L_Div): {moe_loss_dict['moe_diversity_loss']:.6f} {'✅ 已激活' if diversity_loss_value > 1e-6 else '⚠️ 未激活(0.0)'}")
+                    print(f"   - 总损失 (L_Total): {moe_loss_dict['moe_total_loss']:.6f}")
+                    if 'moe_balance_weight' in moe_loss_dict:
+                        print(
+                            "   - 损失权重: "
+                            f"平衡={_format_numeric_value(moe_loss_dict['moe_balance_weight'], precision=3)}, "
+                            f"稀疏性={_format_numeric_value(moe_loss_dict.get('moe_sparsity_weight'), precision=3)}, "
+                            f"多样性={_format_numeric_value(moe_loss_dict['moe_diversity_weight'], precision=3)}"
+                        )
 
             # 反传 + 参数更新（混合精度）
             scaler.scale(loss).backward()
@@ -396,9 +424,9 @@ def do_train(cfg,
                                 ## 论文里的评价指标 cmc map
                     cmc, mAP, _, _, _, _, _ = evaluator.compute()  # 在这里计算
                     logger.info("Validation Results - Epoch: {}".format(epoch))
-                    logger.info("Current mAP: {:.2%}".format(mAP))
+                    logger.info("Current mAP: {:.1%}".format(mAP))
                     for r in [1, 5, 10]:   # 还可以加 234 等，可以看到别的值
-                        logger.info("CMC curve, Rank-{:<3}:{:.2%}".format(r, cmc[r - 1]))  # 打印日至
+                        logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))  # 打印日至
                     
                     # 🔥 新增：获取当前验证的专家权重分布和MoE损失
                     current_expert_weights = None
@@ -511,6 +539,7 @@ def do_train(cfg,
                         title=f"[Epoch {epoch}] 指标集合列表（历史）",
                         best_expert_weights=best_index.get('best_expert_weights')
                     )
+                    _log_validation_moe(logger, current_moe_loss_dict, current_expert_weights)
                 torch.cuda.empty_cache()
             else:
                 model.eval()
@@ -529,9 +558,9 @@ def do_train(cfg,
                             evaluator.update((feat, vid, camid))
                 cmc, mAP, _, _, _, _, _ = evaluator.compute()
                 logger.info("Validation Results - Epoch: {}".format(epoch))
-                logger.info("Current mAP: {:.2%}".format(mAP))
+                logger.info("Current mAP: {:.1%}".format(mAP))
                 for r in [1, 5, 10]:
-                    logger.info("CMC curve, Rank-{:<3}:{:.2%}".format(r, cmc[r - 1]))
+                    logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
 
                 # 🔥 新增：获取当前验证的专家权重分布和MoE损失
                 current_expert_weights = None
@@ -644,6 +673,7 @@ def do_train(cfg,
                     title=f"[Epoch {epoch}] 指标集合列表（历史）",
                     best_expert_weights=best_index.get('best_expert_weights')
                 )
+                _log_validation_moe(logger, current_moe_loss_dict, current_expert_weights)
 
                 torch.cuda.empty_cache()
 
@@ -651,13 +681,13 @@ def do_train(cfg,
     logger.info("✅ Training Finished")
     logger.info("   Total Epochs: {}".format(epochs))
     logger.info("   Best Epoch: {}".format(best_index['best_epoch']))
-    logger.info("   Best mAP: {:.2%}".format(best_index['mAP']))
-    logger.info("   Best Rank-1: {:.2%}".format(best_index['Rank-1']))
-    logger.info("   Best Rank-5: {:.2%}".format(best_index['Rank-5']))
-    logger.info("   Best Rank-10: {:.2%}".format(best_index['Rank-10']))
+    logger.info("   Best mAP: {:.1%}".format(best_index['mAP']))
+    logger.info("   Best Rank-1: {:.1%}".format(best_index['Rank-1']))
+    logger.info("   Best Rank-5: {:.1%}".format(best_index['Rank-5']))
+    logger.info("   Best Rank-10: {:.1%}".format(best_index['Rank-10']))
     if best_index['best_expert_weights'] is not None:
         weights = best_index['best_expert_weights']
-        logger.info("   🎯 Best Expert Weights: [{:.3f}, {:.3f}, {:.3f}]".format(
+        logger.info("   🎯 Best Expert Weights: [{:.2f} , {:.2f} , {:.2f}]".format(
             weights[0], weights[1], weights[2]))
     logger.info("=" * 60)
 
@@ -704,7 +734,7 @@ def do_inference(cfg,
 
     cmc, mAP, _, _, _, _, _ = evaluator.compute()
     logger.info("Validation Results ")
-    logger.info("mAP: {:.2%}".format(mAP))
+    logger.info("mAP: {:.1%}".format(mAP))
     for r in [1, 5, 10]:
-        logger.info("CMC curve, Rank-{:<3}:{:.2%}".format(r, cmc[r - 1]))
+        logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
     return cmc[0], cmc[4]                               # 返回 Rank-1 与 Rank-5
