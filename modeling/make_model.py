@@ -64,7 +64,6 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
         self.model_name = cfg.MODEL.TRANSFORMER_TYPE  # 骨干类型名
         self.trans_type = cfg.MODEL.TRANSFORMER_TYPE  # 同上
         self.flops_test = cfg.MODEL.FLOPS_TEST  # FLOPs 测试标志
-        print('using Transformer_type: {} as a backbone'.format(cfg.MODEL.TRANSFORMER_TYPE))  # 打印骨干类型
 
         if cfg.MODEL.SIE_CAMERA:
             self.camera_num = camera_num  # 相机数量（用于 SIE）
@@ -95,7 +94,6 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                                                             cfg = cfg)  # 从工厂构建 ViT
             self.clip = 0  # 标记非 CLIP 分支
             self.base.load_param(model_path)  # 加载 ImageNet 预训练
-            print('Loading pretrained model from ImageNet')  # 提示信息
             if cfg.MODEL.FROZEN:
                 lora_train(self.base)  # 仅训练 LoRA 参数（其余冻结）
         elif cfg.MODEL.TRANSFORMER_TYPE == 't2t_vit_t_24':
@@ -118,7 +116,6 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             )
             self.clip = 0  # 标记非 CLIP 分支
             self.base.load_param(model_path)  # 加载预训练权重
-            print('Loading pretrained T2T-ViT-24 model')  # 提示信息
             if cfg.MODEL.FROZEN:
                 lora_train(self.base)  # 仅训练 LoRA 参数（其余冻结）
         elif cfg.MODEL.TRANSFORMER_TYPE == 'ViT-B-16':
@@ -129,7 +126,6 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             clip_model = load_clip_to_cpu(cfg, self.model_name, cfg.INPUT.SIZE_TRAIN[0] // cfg.MODEL.STRIDE_SIZE[0],
                                           cfg.INPUT.SIZE_TRAIN[1] // cfg.MODEL.STRIDE_SIZE[1],
                                           cfg.MODEL.STRIDE_SIZE)  # 加载 CLIP 模型
-            print('Loading pretrained model from CLIP')  # 提示信息
             clip_model.to("cuda")  # 将 CLIP 模型移至 GPU
             self.base = clip_model.visual  # 使用视觉编码器作为骨干
             if cfg.MODEL.FROZEN:
@@ -276,15 +272,12 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             if cfg.MODEL.SIE_CAMERA and cfg.MODEL.SIE_VIEW:
                 self.cv_embed = nn.Parameter(torch.zeros(camera_num * view_num, 768))  # 相机×视角嵌入（CLIP实际维度）
                 trunc_normal_(self.cv_embed, std=.02)  # 截断正态初始化
-                print('camera number is : {}'.format(camera_num))  # 打印相机数
             elif cfg.MODEL.SIE_CAMERA:
                 self.cv_embed = nn.Parameter(torch.zeros(camera_num, 768))  # 仅相机嵌入（CLIP实际维度）
                 trunc_normal_(self.cv_embed, std=.02)
-                print('camera number is : {}'.format(camera_num))
             elif cfg.MODEL.SIE_VIEW:
                 self.cv_embed = nn.Parameter(torch.zeros(view_num, 768))  # 仅视角嵌入（CLIP实际维度）
                 trunc_normal_(self.cv_embed, std=.02)
-                print('camera number is : {}'.format(view_num))
 
         self.num_classes = num_classes
         self.ID_LOSS_TYPE = cfg.MODEL.ID_LOSS_TYPE
@@ -326,14 +319,6 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     # 🎯 Step 4: 传递epoch给MoE模块，激活温度调度
                     multi_scale_feature, expert_weights = self.clip_multi_scale_moe(patch_tokens)  # [B, 512], [B, 3]
                     
-                    # 🔥 MoE融合完成提示（仅在第一次调用时显示）
-                    if not hasattr(self, '_moe_fusion_called'):
-                        print(f"✅ MoE多尺度特征融合完成！")
-                        print(f"   - 输出特征形状: {multi_scale_feature.shape}")
-                        print(f"   - 专家权重形状: {expert_weights.shape}")
-                        print(f"   - 专家权重分布: {expert_weights[0].detach().cpu().numpy()}")
-                        self._moe_fusion_called = True
-                    
                     # 保存专家权重用于分析（可选）
                     if hasattr(self, 'expert_weights_history'):
                         self.expert_weights_history.append(expert_weights.detach().cpu())
@@ -345,12 +330,6 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                     # 🔥 使用传统MLP融合多尺度特征
                     # 核心算法：4x4/8x8/16x16滑动窗口 → MLP特征融合
                     multi_scale_feature = self.clip_multi_scale_extractor(patch_tokens)  # [B, 512]
-                    
-                    # 🔥 滑动窗口融合完成提示（仅在第一次调用时显示）
-                    if not hasattr(self, '_sliding_window_fusion_called'):
-                        print(f"✅ 多尺度滑动窗口特征融合完成！")
-                        print(f"   - 输出特征形状: {multi_scale_feature.shape}")
-                        self._sliding_window_fusion_called = True
                 
                 # 🔥 将多尺度特征与CLS token结合（残差连接）
                 # 增强CLS token：原始CLS + 多尺度特征
@@ -379,13 +358,11 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
         param_dict = torch.load(trained_path)
         for i in param_dict:
             self.state_dict()[i.replace('module.', '')].copy_(param_dict[i])
-        print('Loading pretrained model from {}'.format(trained_path))  # 打印来源
 
     def load_param_finetune(self, model_path):  # 精调：严格按键拷贝
         param_dict = torch.load(model_path)
         for i in param_dict:
             self.state_dict()[i].copy_(param_dict[i])
-        print('Loading pretrained model for finetuning from {}'.format(model_path))
 
 
 class MambaPro(nn.Module):  # 三模态组装与融合 head
@@ -400,7 +377,6 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
         else:
             # 默认值，如果都不匹配则使用512
             self.feat_dim = 512
-            print(f"⚠️  警告: 未识别的 TRANSFORMER_TYPE '{cfg.MODEL.TRANSFORMER_TYPE}'，使用默认特征维度 512")
         self.BACKBONE = build_transformer(num_classes, cfg, camera_num, view_num, factory,feat_dim=self.feat_dim)  # 共享骨干
         self.num_classes = num_classes
         self.cfg = cfg
@@ -432,7 +408,6 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
         param_dict = torch.load(trained_path)
         for i in param_dict:
             self.state_dict()[i].copy_(param_dict[i])
-        print('Loading pretrained model from {}'.format(trained_path))
 
     def forward(self, x, label=None, cam_label=None, view_label=None):  # 训练/测试两条路径
         if self.training:
@@ -541,5 +516,4 @@ __factory_T_type = {  # 骨干工厂映射
 
 def make_model(cfg, num_class, camera_num, view_num=0):  # 模型工厂
     model = MambaPro(num_class, cfg, camera_num, view_num, __factory_T_type)  # 实例化 MambaPro
-    print('===========Building MambaPro===========')  # 构建提示
     return model  # 返回模型

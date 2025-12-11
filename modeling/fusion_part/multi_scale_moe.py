@@ -862,9 +862,6 @@ class AttentionFusionConcat(nn.Module):
         for i in range(len(enhanced_multi_scale_features)):
             enhanced_multi_scale_features[i] = enhanced_multi_scale_features[i] + global_fusion * 0.2
         
-            print(f"   - 每个特征形状: {enhanced_multi_scale_features[0].shape}")
-            self._attention_fusion_completed = True
-        
         return enhanced_multi_scale_features
     
     def get_expert_usage_stats(self, expert_weights):
@@ -902,19 +899,8 @@ class AttentionFusionConcat(nn.Module):
                 final_weights = torch.mean(self._latest_expert_weights, dim=0).cpu().numpy()
                 
                 
-                # 动态打印专家权重，避免索引越界
-                for i in range(len(final_weights)):
-                    scale_name = f"{4*(i+1)}x{4*(i+1)}" if i < 3 else f"专家{i+1}"
-                    percentage = final_weights[i] * 100
-                    print(f"   {scale_name}专家: {final_weights[i]:.4f} ({percentage:.1f}%)")
-                
-                # 打印权重分布数组
-                weight_str = ", ".join([f"{final_weights[i]:.4f}" for i in range(len(final_weights))])
-                print(f"   最终权重分布: [{weight_str}]")
-                
                 return final_weights
         else:
-            print("⚠️ 未找到最终专家权重信息")
             return None
 
 

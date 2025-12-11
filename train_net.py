@@ -138,10 +138,6 @@ if __name__ == '__main__':
     
     # 打印最终配置（统一输出）
     print_final_config(cfg)
-    
-    logger.info("Saving model in the path :{}".format(cfg.OUTPUT_DIR))
-    if args.config_file != "":
-        logger.info("Loaded configuration file {}".format(args.config_file))
 
     if cfg.MODEL.DIST_TRAIN: # 如果使用分布式训练
         torch.distributed.init_process_group(backend='nccl', init_method='env://') # 初始化分布式训练

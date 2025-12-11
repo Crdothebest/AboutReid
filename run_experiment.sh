@@ -1,4 +1,19 @@
 #!/bin/bash
+
+# 启用别名扩展，便于自定义 echo 行为
+shopt -s expand_aliases
+
+# CONFIG_PRINTER_ONLY=1 表示仅保留 train_net.py/config_printer 的输出
+: "${CONFIG_PRINTER_ONLY:=1}"
+
+runexp_echo() {
+    if [ "$CONFIG_PRINTER_ONLY" -eq 1 ]; then
+        return
+    fi
+    command echo "$@"
+}
+
+alias echo=runexp_echo
 # =============================================================================
 # 智能实验记录脚本
 # 功能：自动记录任何训练命令的结果，支持动态参数
@@ -70,7 +85,7 @@ done
 
 # 检查配置文件是否存在
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "❌ 配置文件不存在: $CONFIG_FILE"
+    command echo "❌ 配置文件不存在: $CONFIG_FILE"
     exit 1  # 如果配置文件不存在，退出脚本
 fi
 
@@ -298,8 +313,8 @@ echo "🔍 验证配置文件YAML格式..."
 if python -c "import yaml; yaml.safe_load(open('$MODIFIED_CONFIG'))" 2>/dev/null; then
     echo "✅ 配置文件YAML格式正确"
 else
-    echo "❌ 配置文件YAML格式错误"
-    echo "🔍 配置文件内容检查："
+    command echo "❌ 配置文件YAML格式错误"
+    command echo "🔍 配置文件内容检查："
     tail -10 "$MODIFIED_CONFIG"
     exit 1
 fi
@@ -358,7 +373,7 @@ bash -c "$CMD"
 TRAIN_EXIT_CODE=$?
 
 if [ $TRAIN_EXIT_CODE -ne 0 ]; then
-    echo "❌ 训练命令执行失败，退出码: $TRAIN_EXIT_CODE"
+    command echo "❌ 训练命令执行失败，退出码: $TRAIN_EXIT_CODE"
     exit $TRAIN_EXIT_CODE
 fi
 
@@ -406,7 +421,7 @@ EOF
     
 else
     # 训练失败的情况
-    echo "❌ 训练失败"
+    command echo "❌ 训练失败"
     
     # 更新错误信息文件 - 记录失败状态
     cat > "$EXPERIMENT_DIR/experiment_info.txt" << EOF
