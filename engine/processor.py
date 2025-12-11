@@ -604,6 +604,21 @@ def do_train(cfg,
                 validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else [0.0, 0.0, 0.0])  # 默认值
                 
                 # 输出当前/最佳结果摘要
+                current_summary = (
+                    f"[Epoch {epoch}] CURRENT -> "
+                    f"mAP:{mAP * 100:.1f} | "
+                    f"Rank-1:{cmc[0] * 100:.1f} | "
+                    f"Rank-5:{cmc[4] * 100:.1f} | "
+                    f"Rank-10:{cmc[9] * 100:.1f}"
+                )
+                if current_expert_weights is not None:
+                    current_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
+                        current_expert_weights[0],
+                        current_expert_weights[1],
+                        current_expert_weights[2],
+                    )
+                logger.info(current_summary)
+
                 logger.info("=" * 60)
                 logger.info("📊 Current Results Summary (Epoch {}):".format(epoch))
                 logger.info("   Current mAP: {:.1%}".format(mAP))
@@ -630,6 +645,20 @@ def do_train(cfg,
                 logger.info("=" * 60)
                 
                 # 🔥 新增：输出Best值的完整信息（包括mAP、Rank和专家权重占比）
+                best_summary = (
+                    f"[Epoch {best_index['best_epoch']}] BEST -> "
+                    f"mAP:{best_index['mAP'] * 100:.1f} | "
+                    f"Rank-1:{best_index['Rank-1'] * 100:.1f} | "
+                    f"Rank-5:{best_index['Rank-5'] * 100:.1f} | "
+                    f"Rank-10:{best_index['Rank-10'] * 100:.1f}"
+                )
+                if best_index['best_expert_weights'] is not None:
+                    weights = best_index['best_expert_weights']
+                    best_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
+                        weights[0], weights[1], weights[2]
+                    )
+                logger.info(best_summary)
+
                 logger.info("=" * 60)
                 logger.info("🏆 Best Results Summary (Epoch {}):".format(best_index['best_epoch']))
                 logger.info("   Best mAP: {:.1%}".format(best_index['mAP']))
