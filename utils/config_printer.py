@@ -12,9 +12,9 @@ def print_final_config(cfg):
     Args:
         cfg: YACS配置对象
     """
-    print("=" * 80)
+    print("=" * 40)
     print("📋 最终训练配置（已考虑命令行覆盖）")
-    print("=" * 80)
+    print("=" * 40)
     
     # ========== 1. 基础配置 ==========
     print("\n【基础配置 BaseConfig】")
@@ -30,11 +30,13 @@ def print_final_config(cfg):
     # ========== 2. 模型结构 ==========
     print("\n【模型结构 ModelConfig】")
     print(f"  - 骨干 Backbone = {cfg.MODEL.TRANSFORMER_TYPE}")
-    print(f"  - 多尺度滑动窗口 MultiScaleWindow = {'ENABLED' if cfg.MODEL.USE_CLIP_MULTI_SCALE else 'DISABLED'}")
+    multi_scale_status = "✅ ENABLED" if cfg.MODEL.USE_CLIP_MULTI_SCALE else "❌ DISABLED"
+    print(f"  - 多尺度滑动窗口 MultiScaleWindow = {multi_scale_status}")
     if cfg.MODEL.USE_CLIP_MULTI_SCALE:
         print(f"    * 滑动窗口尺度 WindowScales = {cfg.MODEL.CLIP_MULTI_SCALE_SCALES}")
     
-    print(f"  - MoE特征融合 MultiScaleMoE = {'ENABLED' if cfg.MODEL.USE_MULTI_SCALE_MOE else 'DISABLED'}")
+    moe_status = "✅ ENABLED" if cfg.MODEL.USE_MULTI_SCALE_MOE else "❌ DISABLED"
+    print(f"  - MoE特征融合 MultiScaleMoE = {moe_status}")
     if cfg.MODEL.USE_MULTI_SCALE_MOE:
         print(f"    * MoE尺度 MoEScales = {cfg.MODEL.MOE_SCALES}")
         print(f"    * 专家数量 NumExperts = {cfg.MODEL.MOE_NUM_EXPERTS}")
@@ -45,48 +47,49 @@ def print_final_config(cfg):
         use_fixed = getattr(cfg.MODEL, 'MOE_USE_FIXED_WEIGHTS', False)
         if use_fixed:
             fixed_weights = getattr(cfg.MODEL, 'MOE_FIXED_WEIGHTS', [0.33, 0.33, 0.34])
-            print(f"    * 固定权重模式 FixedWeights = ENABLED, Weights = {fixed_weights}")
+            print(f"    * 固定权重模式 FixedWeights = ✅ ENABLED, Weights = {fixed_weights}")
         else:
-            print(f"    * 固定权重模式 FixedWeights = DISABLED (使用动态门控)")
+            print(f"    * 固定权重模式 FixedWeights = ❌ DISABLED (使用动态门控)")
         
         # Top-k路由
         use_top_k = getattr(cfg.MODEL, 'MOE_USE_TOP_K_ROUTING', False)
         if use_top_k:
             top_k = getattr(cfg.MODEL, 'MOE_TOP_K', 2)
             top_k_mode = getattr(cfg.MODEL, 'MOE_TOP_K_MODE', 'soft')
-            print(f"    * Top-k路由 TopKRouting = ENABLED, k={top_k}, mode={top_k_mode}")
+            print(f"    * Top-k路由 TopKRouting = ✅ ENABLED, k={top_k}, mode={top_k_mode}")
         else:
-            print(f"    * Top-k路由 TopKRouting = DISABLED (Soft Routing)")
+            print(f"    * Top-k路由 TopKRouting = ❌ DISABLED (Soft Routing)")
         
         # 预处理机制
         use_gate = getattr(cfg.MODEL, 'USE_GATE_FUSION', False)
         use_attention = getattr(cfg.MODEL, 'USE_ATTENTION_FUSION', False)
         if use_gate:
             gate_dropout = getattr(cfg.MODEL, 'GATE_DROPOUT', 0.1)
-            print(f"    * 门控融合预处理 GateFusion = ENABLED, Dropout={gate_dropout}")
+            print(f"    * 门控融合预处理 GateFusion = ✅ ENABLED, Dropout={gate_dropout}")
         else:
-            print(f"    * 门控融合预处理 GateFusion = DISABLED")
+            print(f"    * 门控融合预处理 GateFusion = ❌ DISABLED")
         
         if use_attention:
             attn_heads = getattr(cfg.MODEL, 'ATTENTION_NUM_HEADS', 8)
             attn_dropout = getattr(cfg.MODEL, 'ATTENTION_DROPOUT', 0.1)
-            print(f"    * 注意力融合预处理 AttentionFusion = ENABLED, Heads={attn_heads}, Dropout={attn_dropout}")
+            print(f"    * 注意力融合预处理 AttentionFusion = ✅ ENABLED, Heads={attn_heads}, Dropout={attn_dropout}")
         else:
-            print(f"    * 注意力融合预处理 AttentionFusion = DISABLED")
+            print(f"    * 注意力融合预处理 AttentionFusion = ❌ DISABLED")
     
     # ========== 3. 损失函数 ==========
     print("\n【损失函数 LossConfig】")
     print(f"  - ID损失权重 IDLossWeight = {cfg.MODEL.ID_LOSS_WEIGHT}")
     print(f"  - Triplet损失权重 TripletWeight = {cfg.MODEL.TRIPLET_LOSS_WEIGHT}")
     print(f"  - Triplet Margin TripletMargin = {cfg.SOLVER.MARGIN}")
-    print(f"  - 标签平滑 LabelSmooth = {'ENABLED' if cfg.MODEL.IF_LABELSMOOTH == 'on' else 'DISABLED'}")
+    label_smooth_status = "✅ ENABLED" if cfg.MODEL.IF_LABELSMOOTH == 'on' else "❌ DISABLED"
+    print(f"  - 标签平滑 LabelSmooth = {label_smooth_status}")
     
     use_center = getattr(cfg.MODEL, 'IF_WITH_CENTER', 'no')
     if use_center == 'yes':
         center_weight = getattr(cfg.SOLVER, 'CENTER_LOSS_WEIGHT', 0.0005)
-        print(f"  - Center Loss CenterLoss = ENABLED, Weight={center_weight}")
+        print(f"  - Center Loss CenterLoss = ✅ ENABLED, Weight={center_weight}")
     else:
-        print(f"  - Center Loss CenterLoss = DISABLED")
+        print(f"  - Center Loss CenterLoss = ❌ DISABLED")
     
     if cfg.MODEL.USE_MULTI_SCALE_MOE:
         balance_weight = getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', 0.01)
@@ -99,19 +102,19 @@ def print_final_config(cfg):
         # 动态权重调度
         use_dynamic = getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False)
         if use_dynamic:
-            print(f"  - MoE动态权重调度 MoEDynamicSchedule = ENABLED")
+            print(f"  - MoE动态权重调度 MoEDynamicSchedule = ✅ ENABLED")
             print(f"    * 平衡损失 BalanceWeightSchedule = {getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT_START', 0.001)} -> {getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT_END', 0.1)}")
             print(f"    * 多样性损失 DiversityWeightSchedule = {getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_START', 0.001)} -> {getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT_END', 0.1)}")
         else:
-            print(f"  - MoE动态权重调度 MoEDynamicSchedule = DISABLED")
+            print(f"  - MoE动态权重调度 MoEDynamicSchedule = ❌ DISABLED")
     
     # ========== 4. 数据增强 ==========
     print("\n【数据增强 DataAugConfig】")
     re_prob = getattr(cfg.INPUT, 'RE_PROB', 0.5)
     if re_prob > 0:
-        print(f"  - 随机擦除 RandomErasing = ENABLED, Prob={re_prob}")
+        print(f"  - 随机擦除 RandomErasing = ✅ ENABLED, Prob={re_prob}")
     else:
-        print(f"  - 随机擦除 RandomErasing = DISABLED")
+        print(f"  - 随机擦除 RandomErasing = ❌ DISABLED")
     
     flip_prob = getattr(cfg.INPUT, 'PROB', 0.5)
     print(f"  - 水平翻转概率 HorizontalFlipProb = {flip_prob}")

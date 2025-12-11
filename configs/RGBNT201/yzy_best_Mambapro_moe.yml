@@ -15,9 +15,8 @@ MODEL:
   MAMBA: True # 是否使用Mamba
   FROZEN: True # 是否冻结
   
-  # ========== 多尺度滑动窗口配置：启用多尺度特征提取 ==========
-  USE_CLIP_MULTI_SCALE: True   # 启用CLIP多尺度滑动窗口特征提取
-  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度（4x4小窗口，8x8中窗口，16x16大窗口）
+  USE_CLIP_MULTI_SCALE: True
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]
   
   # ========== MoE配置：启用多尺度MoE特征融合模块 ==========
   USE_MULTI_SCALE_MOE: True    # 启用多尺度MoE特征融合模块

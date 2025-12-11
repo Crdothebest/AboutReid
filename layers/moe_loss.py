@@ -234,35 +234,6 @@ def make_moe_loss(cfg):
     else:
         diversity_weight = 0.01  # 默认值
     
-    # 🔥 新增：调试输出，显示配置读取过程（显示来源）
-    print(f"🔍 调试：make_moe_loss配置读取:")
-    # 平衡损失权重
-    if hasattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT'):
-        print(f"   - SOLVER.MOE_BALANCE_LOSS_WEIGHT = {cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT} (类型: {type(cfg.SOLVER.MOE_BALANCE_LOSS_WEIGHT)}) ✅ 使用SOLVER命名空间")
-    elif hasattr(cfg.MODEL, 'MOE_BALANCE_LOSS_WEIGHT'):
-        print(f"   - MODEL.MOE_BALANCE_LOSS_WEIGHT = {cfg.MODEL.MOE_BALANCE_LOSS_WEIGHT} (类型: {type(cfg.MODEL.MOE_BALANCE_LOSS_WEIGHT)}) ✅ 使用MODEL命名空间")
-    else:
-        print(f"   - 未找到配置，使用默认值")
-    print(f"   - 最终读取的balance_weight: {balance_weight}")
-    
-    # 稀疏性损失权重
-    if hasattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT'):
-        print(f"   - SOLVER.MOE_SPARSITY_LOSS_WEIGHT = {cfg.SOLVER.MOE_SPARSITY_LOSS_WEIGHT} (类型: {type(cfg.SOLVER.MOE_SPARSITY_LOSS_WEIGHT)}) ✅ 使用SOLVER命名空间")
-    elif hasattr(cfg.MODEL, 'MOE_SPARSITY_LOSS_WEIGHT'):
-        print(f"   - MODEL.MOE_SPARSITY_LOSS_WEIGHT = {cfg.MODEL.MOE_SPARSITY_LOSS_WEIGHT} (类型: {type(cfg.MODEL.MOE_SPARSITY_LOSS_WEIGHT)}) ✅ 使用MODEL命名空间")
-    else:
-        print(f"   - 未找到配置，使用默认值")
-    print(f"   - 最终读取的sparsity_weight: {sparsity_weight}")
-    
-    # 多样性损失权重
-    if hasattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT'):
-        print(f"   - SOLVER.MOE_DIVERSITY_LOSS_WEIGHT = {cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT} (类型: {type(cfg.SOLVER.MOE_DIVERSITY_LOSS_WEIGHT)}) ✅ 使用SOLVER命名空间")
-    elif hasattr(cfg.MODEL, 'MOE_DIVERSITY_LOSS_WEIGHT'):
-        print(f"   - MODEL.MOE_DIVERSITY_LOSS_WEIGHT = {cfg.MODEL.MOE_DIVERSITY_LOSS_WEIGHT} (类型: {type(cfg.MODEL.MOE_DIVERSITY_LOSS_WEIGHT)}) ✅ 使用MODEL命名空间")
-    else:
-        print(f"   - 未找到配置，使用默认值")
-    print(f"   - 最终读取的diversity_weight: {diversity_weight}")
-    
     if hasattr(cfg.SOLVER, 'MOE_BALANCE_THRESHOLD'):
         balance_threshold = cfg.SOLVER.MOE_BALANCE_THRESHOLD
     else:
@@ -275,18 +246,4 @@ def make_moe_loss(cfg):
         diversity_weight=diversity_weight,
         balance_threshold=balance_threshold
     )
-    
-    print(f"🔥 MoE损失函数初始化完成（已修复模式坍塌问题）:")
-    print(f"   - 平衡损失权重: {balance_weight} {'✅ 已禁用（命令行设置）' if balance_weight == 0.0 else ''}")
-    print(f"   - 稀疏性损失权重: {sparsity_weight} {'✅ 已禁用（命令行设置）' if sparsity_weight == 0.0 else ''}")
-    print(f"   - 多样性损失权重: {diversity_weight} {'✅ 已禁用（命令行设置）' if diversity_weight == 0.0 else ''}")
-    print(f"   - 平衡损失阈值: {balance_threshold} (允许{balance_threshold*100:.0f}%偏差，防止强制平均)")
-    
-    # 🔥 新增：配置来源验证（确保命令行参数生效）
-    # 如果权重为0.0，说明可能是命令行设置的，验证配置是否正确
-    if balance_weight == 0.0:
-        print(f"   ✅ 平衡损失已禁用（权重=0.0），将不会影响Re-ID主任务优化")
-    if diversity_weight == 0.0:
-        print(f"   ✅ 多样性损失已禁用（权重=0.0），将不会影响Re-ID主任务优化")
-    
     return moe_loss
