@@ -28,7 +28,7 @@ MODEL:
   
   # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
   USE_GATE_FUSION: False
-  GATE_NUM_HEADS: 8
+  # GATE_NUM_HEADS: 8  # ⚠️ 旧版本遗留字段，已在当前代码中移除，保留注释避免KeyError
   GATE_DROPOUT: 0.1
   
   # ========== 最优MoE参数：基于经验的精心调优组合 ==========
@@ -146,7 +146,7 @@ TEST:
 # 实验目的：为MoE实验设置专门的输出目录
 # 功能：便于对比MoE与基线方法的性能差异
 # 🔥 MoE实验：多尺度滑动窗口 + 优化MoE融合
-OUTPUT_DIR: 'results/everyExperiments/experiment_20251013_110028/logs'
+OUTPUT_DIR: './outputs/replay_best_tml'
 
 # ========== MoE实验使用说明 ==========
 # 实验目的：验证优化MoE模块的有效性

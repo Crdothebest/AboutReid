@@ -4,7 +4,7 @@ import sys
 import os.path as osp
 
 
-def setup_logger(name, save_dir, if_train):
+def setup_logger(name, save_dir, if_train, filename=None):
     logger = logging.getLogger(name)  # 获取或创建名为 'name' 的logger
     logger.setLevel(logging.DEBUG)  # 设置日志记录器的级别为 DEBUG，这样所有级别的日志都会被记录
 
@@ -17,20 +17,15 @@ def setup_logger(name, save_dir, if_train):
     if save_dir:  # 如果提供了保存日志文件的目录
         if not osp.exists(save_dir):  # 如果目录不存在
             os.makedirs(save_dir)  # 创建目录
-        if if_train:  # 如果是训练阶段
-            # 🔥 修复：明确指定UTF-8编码，确保日志文件正确写入中文和特殊字符
-            fh = logging.FileHandler(
-                os.path.join(save_dir, "train_log.txt"), 
-                mode='w', 
-                encoding='utf-8'  # 显式指定UTF-8编码
-            )  # 创建一个文件处理器，将日志写入 train_log.txt
-        else:  # 如果是测试阶段
-            # 🔥 修复：明确指定UTF-8编码，确保日志文件正确写入中文和特殊字符
-            fh = logging.FileHandler(
-                os.path.join(save_dir, "test_log.txt"), 
-                mode='w', 
-                encoding='utf-8'  # 显式指定UTF-8编码
-            )  # 创建一个文件处理器，将日志写入 test_log.txt
+        log_filename = filename
+        if log_filename is None:
+            log_filename = "train_log.txt" if if_train else "test_log.txt"
+        # 🔥 修复：明确指定UTF-8编码，确保日志文件正确写入中文和特殊字符
+        fh = logging.FileHandler(
+            os.path.join(save_dir, log_filename),
+            mode='w',
+            encoding='utf-8'  # 显式指定UTF-8编码
+        )  # 创建一个文件处理器，将日志写入指定文件
         fh.setLevel(logging.DEBUG)  # 设置文件日志输出的级别为 DEBUG
         fh.setFormatter(formatter)  # 将格式化器设置给文件处理器
         logger.addHandler(fh)  # 将文件处理器添加到logger中

@@ -190,11 +190,30 @@ if __name__ == '__main__':
     if cfg.MODEL.DIST_TRAIN: # 如果使用分布式训练
         torch.cuda.set_device(args.local_rank) # 设置本地排名
 
-    output_dir = cfg.OUTPUT_DIR # 设置输出目录
-    if output_dir and not os.path.exists(output_dir): # 如果输出目录不存在
-        os.makedirs(output_dir) # 创建输出目录
+    base_output_dir = cfg.OUTPUT_DIR
+    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if base_output_dir:
+        os.makedirs(base_output_dir, exist_ok=True)
+        run_dir = os.path.join(base_output_dir, f"run_{run_timestamp}")
+        suffix = 1
+        while os.path.exists(run_dir):
+            run_dir = os.path.join(base_output_dir, f"run_{run_timestamp}_{suffix}")
+            suffix += 1
+        cfg.defrost()
+        cfg.OUTPUT_DIR = run_dir
+        cfg.freeze()
+    else:
+        run_dir = None
 
-    logger = setup_logger("MambaPro", output_dir, if_train=True)
+    output_dir = run_dir
+    logs_dir = output_dir
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+        logs_dir = os.path.join(output_dir, "logs")
+        os.makedirs(logs_dir, exist_ok=True)
+
+    log_filename = f"train_{run_timestamp}.log"
+    logger = setup_logger("MambaPro", logs_dir, if_train=True, filename=log_filename)
     
     # 打印最终配置（统一输出）
     print_final_config(cfg)

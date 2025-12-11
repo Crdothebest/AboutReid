@@ -13,6 +13,7 @@ import logging
 import os
 import time
 import math
+from datetime import datetime
 import torch
 import torch.nn as nn
 from utils.meter import AverageMeter            # 记录/平滑指标（loss/acc等）
@@ -49,6 +50,34 @@ def _format_expert_history(expert_history, precision=2):
     for weights in expert_history:
         formatted.append([_format_numeric_value(w, precision=precision) for w in weights])
     return formatted
+
+
+def _save_best_checkpoint(cfg, model, mAP, epoch, logger):
+    """
+    将当前最佳模型按照 mAP + 时间戳 命名保存到 OUTPUT_DIR/models 下，
+    同时保留兼容性的 <MODEL_NAME>best.pth。
+    """
+    output_dir = getattr(cfg, "OUTPUT_DIR", None)
+    if not output_dir:
+        logger.warning("⚠️ 未设置 OUTPUT_DIR，无法保存最佳模型。")
+        return None
+
+    model_dir = os.path.join(output_dir, "models")
+    os.makedirs(model_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    map_percent = max(float(mAP) * 100.0, 0.0)
+    best_filename = f"best_mAP_{map_percent:.1f}_{timestamp}.pth"
+    best_path = os.path.join(model_dir, best_filename)
+
+    state_dict = model.state_dict()
+    torch.save(state_dict, best_path)
+
+    legacy_path = os.path.join(model_dir, cfg.MODEL.NAME + 'best.pth')
+    torch.save(state_dict, legacy_path)
+
+    logger.info(f"💾 Best model 已保存到: {best_path}")
+    return best_path
 
 
 def _log_metric_history(logger, history, title=None, best_expert_weights=None):
@@ -518,8 +547,7 @@ def do_train(cfg,
                         best_index['best_epoch'] = epoch
                         best_index['best_expert_weights'] = current_expert_weights.copy() if current_expert_weights else None
                         logger.info("🎯 New Best! Saving model...")
-                        torch.save(model.state_dict(),
-                                   os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + 'best.pth'))
+                        _save_best_checkpoint(cfg, model, mAP, epoch, logger)
                     
                     # 🔥 新增：记录当前验证的current和best值
                     validation_history['epochs'].append(epoch)
