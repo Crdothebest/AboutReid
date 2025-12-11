@@ -51,9 +51,9 @@ def _format_expert_history(expert_history, precision=3):
     return formatted
 
 
-def _log_metric_history(logger, history, title=None):
+def _log_metric_history(logger, history, title=None, best_expert_weights=None):
     """
-    将每个指标以“当前/最佳”两个集合列表输出，便于观察全周期趋势。
+    按用户要求输出 history_xxx / best_xxx，所有数值均为字符串但无引号。
     """
     metric_fields = [
         ("mAP", "current_mAP", "best_mAP"),
@@ -63,11 +63,22 @@ def _log_metric_history(logger, history, title=None):
     ]
     if title:
         logger.info(title)
-    else:
-        logger.info("验证指标集合列表（当前 / 最佳）")
     for name, current_key, best_key in metric_fields:
-        logger.info(f"{name} 当前: {_format_metric_values(history.get(current_key, []), precision=2)}")
-        logger.info(f"{name} 最佳: {_format_metric_values(history.get(best_key, []), precision=2)}")
+        history_values = _format_metric_values(history.get(current_key, []), precision=2)
+        best_values = _format_metric_values(history.get(best_key, []), precision=2)
+        history_line = ",".join(history_values)
+        best_line = ",".join(best_values)
+        logger.info(f"history_{name}:{{{history_line}}}")
+        logger.info(f"best_{name}:{{{best_line}}}")
+    
+    expert_history = history.get('expert_weights', [])
+    if expert_history:
+        formatted_history = _format_expert_history(expert_history, precision=3)
+        expert_entries = [f"[{','.join(weights)}]" for weights in formatted_history]
+        logger.info(f"history_Experts:{{{','.join(expert_entries)}}}")
+    if best_expert_weights is not None:
+        best_formatted = ",".join(_format_metric_values(best_expert_weights, precision=3))
+        logger.info(f"best_Experts:{{[{best_formatted}]}}")
 
 def do_train(cfg,
              model,
@@ -135,6 +146,7 @@ def do_train(cfg,
         model.train()
 
         # -------- 单个 epoch 内的迭代 --------
+        enable_iter_log = getattr(cfg.SOLVER, 'ENABLE_ITER_LOG', False)
         for n_iter, (img, vid, target_cam, target_view, _) in enumerate(train_loader):
             optimizer.zero_grad()
             optimizer_center.zero_grad()
@@ -338,7 +350,7 @@ def do_train(cfg,
             acc_meter.update(acc, 1)
 
             torch.cuda.synchronize()                    # 避免异步导致计时不准
-            if (n_iter + 1) % log_period == 0:
+            if enable_iter_log and (n_iter + 1) % log_period == 0:
                 # 注意：scheduler._get_lr(epoch) 非标准API，取决于自定义调度器
                 logger.info("Epoch[{}] Iteration[{}/{}] Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
                             .format(epoch, (n_iter + 1), len(train_loader),
@@ -496,7 +508,8 @@ def do_train(cfg,
                     _log_metric_history(
                         logger,
                         validation_history,
-                        title=f"[Epoch {epoch}] 指标集合列表（历史）"
+                        title=f"[Epoch {epoch}] 指标集合列表（历史）",
+                        best_expert_weights=best_index.get('best_expert_weights')
                     )
                 torch.cuda.empty_cache()
             else:
@@ -625,42 +638,12 @@ def do_train(cfg,
                 validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
                 validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else [0.0, 0.0, 0.0])  # 默认值
                 
-                # 输出 CURRENT 行：指标 + 专家权重 + MoE Loss 状态
-                current_summary = (
-                    f"[Epoch {epoch}] CURRENT -> "
-                    f"mAP:{mAP * 100:.2f} | "
-                    f"Rank-1:{cmc[0] * 100:.2f} | "
-                    f"Rank-5:{cmc[4] * 100:.2f} | "
-                    f"Rank-10:{cmc[9] * 100:.2f}"
+                _log_metric_history(
+                    logger,
+                    validation_history,
+                    title=f"[Epoch {epoch}] 指标集合列表（历史）",
+                    best_expert_weights=best_index.get('best_expert_weights')
                 )
-                if current_expert_weights is not None:
-                    current_summary += " | Experts:[{:.3f}, {:.3f}, {:.3f}]".format(
-                        current_expert_weights[0],
-                        current_expert_weights[1],
-                        current_expert_weights[2],
-                    )
-                moe_loss_enabled = (
-                    (
-                        getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', 0.0) > 0.0
-                        or getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT', 0.0) > 0.0
-                        or getattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT', 0.0) > 0.0
-                    )
-                    or bool(getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False))
-                )
-                if moe_loss_enabled:
-                    balance_cfg = _format_numeric_value(getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', 'dyn'), precision=3)
-                    diversity_cfg = _format_numeric_value(getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT', 'dyn'), precision=3)
-                    sparsity_cfg = _format_numeric_value(getattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT', 'dyn'), precision=3)
-                    current_summary += (
-                        " | MoELoss: ENABLED"
-                        f" (Bal={balance_cfg},"
-                        f" Div={diversity_cfg},"
-                        f" Spr={sparsity_cfg},"
-                        f" Dyn={getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False)})"
-                    )
-                else:
-                    current_summary += " | MoELoss: DISABLED"
-                logger.info(current_summary)
 
                 torch.cuda.empty_cache()
 
