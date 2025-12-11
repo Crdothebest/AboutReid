@@ -22,20 +22,32 @@ import torch.distributed as dist                # 分布式训练
 from layers.supcontrast import SupConLoss       # 监督对比损失（本文件未直接使用）
 
 
+def _format_numeric_value(value, precision=2):
+    """
+    安全地将单个数值格式化为指定小数位；若无法转换为浮点数，则保持原样。
+    """
+    if value is None:
+        return "None"
+    try:
+        return f"{float(value):.{precision}f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def _format_metric_values(values, precision=2):
     """
     将浮点序列格式化为指定小数位的字符串列表，保证日志展示一致。
     """
-    return [f"{float(val):.{precision}f}" for val in values]
+    return [_format_numeric_value(val, precision=precision) for val in values]
 
 
-def _format_expert_history(expert_history, precision=5):
+def _format_expert_history(expert_history, precision=3):
     """
     将专家权重历史格式化为固定小数位，以便审阅长期趋势。
     """
     formatted = []
     for weights in expert_history:
-        formatted.append([f"{float(w):.{precision}f}" for w in weights])
+        formatted.append([_format_numeric_value(w, precision=precision) for w in weights])
     return formatted
 
 
@@ -271,7 +283,11 @@ def do_train(cfg,
                                 # 显示动态权重信息（如果启用）
                                 weight_info = ""
                                 if getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False):
-                                    weight_info = f" (动态权重: 平衡={moe_loss_dict.get('moe_balance_weight', 'N/A'):.4f}, 多样性={moe_loss_dict.get('moe_diversity_weight', 'N/A'):.4f})"
+                                    weight_info = (
+                                        " (动态权重: "
+                                        f"平衡={_format_numeric_value(moe_loss_dict.get('moe_balance_weight'), precision=3)}, "
+                                        f"多样性={_format_numeric_value(moe_loss_dict.get('moe_diversity_weight'), precision=3)})"
+                                    )
                                 
                                 # 🔥 新增：检查多样性损失是否激活
                                 diversity_loss_value = moe_loss_dict['moe_diversity_loss']
@@ -280,7 +296,7 @@ def do_train(cfg,
                                 print(f"🔥 MoE损失: 平衡={moe_loss_dict['moe_balance_loss']:.4f}, "
                                       f"稀疏性={moe_loss_dict['moe_sparsity_loss']:.4f}, "
                                       f"多样性={moe_loss_dict['moe_diversity_loss']:.4f} {diversity_status}{weight_info}")
-                                print(f"   📊 专家权重分布: [{avg_weights[0]:.4f}, {avg_weights[1]:.4f}, {avg_weights[2]:.4f}], "
+                                print(f"   📊 专家权重分布: [{avg_weights[0]:.3f}, {avg_weights[1]:.3f}, {avg_weights[2]:.3f}], "
                                       f"权重变化标准差: {weight_std:.6f}, 有梯度: {has_grad}")
                                 
                                 # 🔥 新增：详细MoE Loss日志，检查多样性损失是否成功激活
@@ -291,9 +307,12 @@ def do_train(cfg,
                                     print(f"   - 多样性损失 (L_Div): {moe_loss_dict['moe_diversity_loss']:.6f} {'✅ 已激活' if diversity_loss_value > 1e-6 else '⚠️ 未激活(0.0)'}")
                                     print(f"   - 总损失 (L_Total): {moe_loss_dict['moe_total_loss']:.6f}")
                                     if 'moe_balance_weight' in moe_loss_dict:
-                                        print(f"   - 损失权重: 平衡={moe_loss_dict['moe_balance_weight']:.4f}, "
-                                              f"稀疏性={moe_loss_dict.get('moe_sparsity_weight', 'N/A')}, "
-                                              f"多样性={moe_loss_dict['moe_diversity_weight']:.4f}")
+                                        print(
+                                            "   - 损失权重: "
+                                            f"平衡={_format_numeric_value(moe_loss_dict['moe_balance_weight'], precision=3)}, "
+                                            f"稀疏性={_format_numeric_value(moe_loss_dict.get('moe_sparsity_weight'), precision=3)}, "
+                                            f"多样性={_format_numeric_value(moe_loss_dict['moe_diversity_weight'], precision=3)}"
+                                        )
 
             # 反传 + 参数更新（混合精度）
             scaler.scale(loss).backward()
@@ -365,9 +384,9 @@ def do_train(cfg,
                                 ## 论文里的评价指标 cmc map
                     cmc, mAP, _, _, _, _, _ = evaluator.compute()  # 在这里计算
                     logger.info("Validation Results - Epoch: {}".format(epoch))
-                    logger.info("Current mAP: {:.1%}".format(mAP))
+                    logger.info("Current mAP: {:.2%}".format(mAP))
                     for r in [1, 5, 10]:   # 还可以加 234 等，可以看到别的值
-                        logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))  # 打印日至
+                        logger.info("CMC curve, Rank-{:<3}:{:.2%}".format(r, cmc[r - 1]))  # 打印日至
                     
                     # 🔥 新增：获取当前验证的专家权重分布和MoE损失
                     current_expert_weights = None
@@ -497,9 +516,9 @@ def do_train(cfg,
                             evaluator.update((feat, vid, camid))
                 cmc, mAP, _, _, _, _, _ = evaluator.compute()
                 logger.info("Validation Results - Epoch: {}".format(epoch))
-                logger.info("Current mAP: {:.1%}".format(mAP))
+                logger.info("Current mAP: {:.2%}".format(mAP))
                 for r in [1, 5, 10]:
-                    logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
+                    logger.info("CMC curve, Rank-{:<3}:{:.2%}".format(r, cmc[r - 1]))
 
                 # 🔥 新增：获取当前验证的专家权重分布和MoE损失
                 current_expert_weights = None
@@ -609,13 +628,13 @@ def do_train(cfg,
                 # 输出 CURRENT 行：指标 + 专家权重 + MoE Loss 状态
                 current_summary = (
                     f"[Epoch {epoch}] CURRENT -> "
-                    f"mAP:{mAP * 100:.1f} | "
-                    f"Rank-1:{cmc[0] * 100:.1f} | "
-                    f"Rank-5:{cmc[4] * 100:.1f} | "
-                    f"Rank-10:{cmc[9] * 100:.1f}"
+                    f"mAP:{mAP * 100:.2f} | "
+                    f"Rank-1:{cmc[0] * 100:.2f} | "
+                    f"Rank-5:{cmc[4] * 100:.2f} | "
+                    f"Rank-10:{cmc[9] * 100:.2f}"
                 )
                 if current_expert_weights is not None:
-                    current_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
+                    current_summary += " | Experts:[{:.3f}, {:.3f}, {:.3f}]".format(
                         current_expert_weights[0],
                         current_expert_weights[1],
                         current_expert_weights[2],
@@ -629,11 +648,14 @@ def do_train(cfg,
                     or bool(getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False))
                 )
                 if moe_loss_enabled:
+                    balance_cfg = _format_numeric_value(getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', 'dyn'), precision=3)
+                    diversity_cfg = _format_numeric_value(getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT', 'dyn'), precision=3)
+                    sparsity_cfg = _format_numeric_value(getattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT', 'dyn'), precision=3)
                     current_summary += (
                         " | MoELoss: ENABLED"
-                        f" (Bal={getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', 'dyn')},"
-                        f" Div={getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT', 'dyn')},"
-                        f" Spr={getattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT', 'dyn')},"
+                        f" (Bal={balance_cfg},"
+                        f" Div={diversity_cfg},"
+                        f" Spr={sparsity_cfg},"
                         f" Dyn={getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False)})"
                     )
                 else:
@@ -646,13 +668,13 @@ def do_train(cfg,
     logger.info("✅ Training Finished")
     logger.info("   Total Epochs: {}".format(epochs))
     logger.info("   Best Epoch: {}".format(best_index['best_epoch']))
-    logger.info("   Best mAP: {:.1%}".format(best_index['mAP']))
-    logger.info("   Best Rank-1: {:.1%}".format(best_index['Rank-1']))
-    logger.info("   Best Rank-5: {:.1%}".format(best_index['Rank-5']))
-    logger.info("   Best Rank-10: {:.1%}".format(best_index['Rank-10']))
+    logger.info("   Best mAP: {:.2%}".format(best_index['mAP']))
+    logger.info("   Best Rank-1: {:.2%}".format(best_index['Rank-1']))
+    logger.info("   Best Rank-5: {:.2%}".format(best_index['Rank-5']))
+    logger.info("   Best Rank-10: {:.2%}".format(best_index['Rank-10']))
     if best_index['best_expert_weights'] is not None:
         weights = best_index['best_expert_weights']
-        logger.info("   🎯 Best Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(
+        logger.info("   🎯 Best Expert Weights: [{:.3f}, {:.3f}, {:.3f}]".format(
             weights[0], weights[1], weights[2]))
     logger.info("=" * 60)
 
@@ -699,7 +721,7 @@ def do_inference(cfg,
 
     cmc, mAP, _, _, _, _, _ = evaluator.compute()
     logger.info("Validation Results ")
-    logger.info("mAP: {:.1%}".format(mAP))
+    logger.info("mAP: {:.2%}".format(mAP))
     for r in [1, 5, 10]:
-        logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
+        logger.info("CMC curve, Rank-{:<3}:{:.2%}".format(r, cmc[r - 1]))
     return cmc[0], cmc[4]                               # 返回 Rank-1 与 Rank-5
