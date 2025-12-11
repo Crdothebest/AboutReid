@@ -22,6 +22,23 @@ import torch.distributed as dist                # 分布式训练
 from layers.supcontrast import SupConLoss       # 监督对比损失（本文件未直接使用）
 
 
+def _format_metric_values(values, precision=2):
+    """
+    将浮点序列格式化为指定小数位的字符串列表，保证日志展示一致。
+    """
+    return [f"{float(val):.{precision}f}" for val in values]
+
+
+def _format_expert_history(expert_history, precision=5):
+    """
+    将专家权重历史格式化为固定小数位，以便审阅长期趋势。
+    """
+    formatted = []
+    for weights in expert_history:
+        formatted.append([f"{float(w):.{precision}f}" for w in weights])
+    return formatted
+
+
 def _log_metric_history(logger, history, title=None):
     """
     将每个指标以“当前/最佳”两个集合列表输出，便于观察全周期趋势。
@@ -37,8 +54,8 @@ def _log_metric_history(logger, history, title=None):
     else:
         logger.info("验证指标集合列表（当前 / 最佳）")
     for name, current_key, best_key in metric_fields:
-        logger.info(f"{name} 当前: {history.get(current_key, [])}")
-        logger.info(f"{name} 最佳: {history.get(best_key, [])}")
+        logger.info(f"{name} 当前: {_format_metric_values(history.get(current_key, []), precision=2)}")
+        logger.info(f"{name} 最佳: {_format_metric_values(history.get(best_key, []), precision=2)}")
 
 def do_train(cfg,
              model,
@@ -462,10 +479,7 @@ def do_train(cfg,
                         validation_history,
                         title=f"[Epoch {epoch}] 指标集合列表（历史）"
                     )
-                    if validation_history['expert_weights']:
-                        logger.info(f"Experts 历史: {validation_history['expert_weights']}")
-                    
-                    torch.cuda.empty_cache()
+                torch.cuda.empty_cache()
             else:
                 model.eval()
                 for n_iter, (img, vid, camid, camids, target_view, _) in enumerate(val_loader):
@@ -592,13 +606,39 @@ def do_train(cfg,
                 validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
                 validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else [0.0, 0.0, 0.0])  # 默认值
                 
-                _log_metric_history(
-                    logger,
-                    validation_history,
-                    title=f"[Epoch {epoch}] 指标集合列表（历史）"
+                # 输出 CURRENT 行：指标 + 专家权重 + MoE Loss 状态
+                current_summary = (
+                    f"[Epoch {epoch}] CURRENT -> "
+                    f"mAP:{mAP * 100:.1f} | "
+                    f"Rank-1:{cmc[0] * 100:.1f} | "
+                    f"Rank-5:{cmc[4] * 100:.1f} | "
+                    f"Rank-10:{cmc[9] * 100:.1f}"
                 )
-                if validation_history['expert_weights']:
-                    logger.info(f"Experts 历史: {validation_history['expert_weights']}")
+                if current_expert_weights is not None:
+                    current_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
+                        current_expert_weights[0],
+                        current_expert_weights[1],
+                        current_expert_weights[2],
+                    )
+                moe_loss_enabled = (
+                    (
+                        getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', 0.0) > 0.0
+                        or getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT', 0.0) > 0.0
+                        or getattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT', 0.0) > 0.0
+                    )
+                    or bool(getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False))
+                )
+                if moe_loss_enabled:
+                    current_summary += (
+                        " | MoELoss: ENABLED"
+                        f" (Bal={getattr(cfg.SOLVER, 'MOE_BALANCE_LOSS_WEIGHT', 'dyn')},"
+                        f" Div={getattr(cfg.SOLVER, 'MOE_DIVERSITY_LOSS_WEIGHT', 'dyn')},"
+                        f" Spr={getattr(cfg.SOLVER, 'MOE_SPARSITY_LOSS_WEIGHT', 'dyn')},"
+                        f" Dyn={getattr(cfg.SOLVER, 'MOE_USE_DYNAMIC_LOSS_WEIGHT', False)})"
+                    )
+                else:
+                    current_summary += " | MoELoss: DISABLED"
+                logger.info(current_summary)
 
                 torch.cuda.empty_cache()
 
