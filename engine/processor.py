@@ -438,44 +438,35 @@ def do_train(cfg,
                     validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
                     validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else [0.0, 0.0, 0.0])  # 默认值
                     
-                    # 输出当前/最佳结果摘要
-                    logger.info("=" * 60)
-                    logger.info("📊 Current Results Summary (Epoch {}):".format(epoch))
-                    logger.info("   Current mAP: {:.1%}".format(mAP))
-                    logger.info("   Current Rank-1: {:.1%}".format(cmc[0]))
-                    logger.info("   Current Rank-5: {:.1%}".format(cmc[4]))
-                    logger.info("   Current Rank-10: {:.1%}".format(cmc[9]))
+                    current_summary = (
+                        f"[Epoch {epoch}] CURRENT -> "
+                        f"mAP:{mAP * 100:.1f} | "
+                        f"Rank-1:{cmc[0] * 100:.1f} | "
+                        f"Rank-5:{cmc[4] * 100:.1f} | "
+                        f"Rank-10:{cmc[9] * 100:.1f}"
+                    )
                     if current_expert_weights is not None:
-                        logger.info("   🎯 Current Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(
-                            current_expert_weights[0], current_expert_weights[1], current_expert_weights[2]))
-                    if current_moe_loss_dict is not None:
-                        diversity_loss_value = current_moe_loss_dict['moe_diversity_loss']
-                        diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
-                        logger.info("📋 MoE Loss 详细日志 (Epoch {}, Iter 0):".format(epoch))
-                        logger.info("   - 平衡损失 (L_Bal): {:.6f}".format(current_moe_loss_dict['moe_balance_loss']))
-                        logger.info("   - 稀疏性损失 (L_Spar): {:.6f}".format(current_moe_loss_dict['moe_sparsity_loss']))
-                        logger.info("   - 多样性损失 (L_Div): {:.6f} {}".format(
-                            current_moe_loss_dict['moe_diversity_loss'], diversity_status))
-                        logger.info("   - 总损失 (L_Total): {:.6f}".format(current_moe_loss_dict['moe_total_loss']))
-                        if 'moe_balance_weight' in current_moe_loss_dict:
-                            logger.info("   - 损失权重: 平衡={:.4f}, 稀疏性={}, 多样性={:.4f}".format(
-                                current_moe_loss_dict['moe_balance_weight'],
-                                current_moe_loss_dict.get('moe_sparsity_weight', 'N/A'),
-                                current_moe_loss_dict['moe_diversity_weight']))
-                    logger.info("=" * 60)
+                        current_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
+                            current_expert_weights[0],
+                            current_expert_weights[1],
+                            current_expert_weights[2],
+                        )
+                    logger.info(current_summary)
                     
-                    # 🔥 新增：输出Best值的完整信息（包括mAP、Rank和专家权重占比）
-                    logger.info("=" * 60)
-                    logger.info("🏆 Best Results Summary (Epoch {}):".format(best_index['best_epoch']))
-                    logger.info("   Best mAP: {:.1%}".format(best_index['mAP']))
-                    logger.info("   Best Rank-1: {:.1%}".format(best_index['Rank-1']))
-                    logger.info("   Best Rank-5: {:.1%}".format(best_index['Rank-5']))
-                    logger.info("   Best Rank-10: {:.1%}".format(best_index['Rank-10']))
+                    best_summary = (
+                        f"[Epoch {best_index['best_epoch']}] BEST -> "
+                        f"mAP:{best_index['mAP'] * 100:.1f} | "
+                        f"Rank-1:{best_index['Rank-1'] * 100:.1f} | "
+                        f"Rank-5:{best_index['Rank-5'] * 100:.1f} | "
+                        f"Rank-10:{best_index['Rank-10'] * 100:.1f}"
+                    )
                     if best_index['best_expert_weights'] is not None:
                         weights = best_index['best_expert_weights']
-                        logger.info("   🎯 Best Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(weights[0], weights[1], weights[2]))
-                        logger.info("   📊 Expert Weight Percentages: [{:.1f}%, {:.1f}%, {:.1f}%]".format(
-                            weights[0] * 100, weights[1] * 100, weights[2] * 100))
+                        best_summary += " | Experts:[{:.4f}, {:.4f}, {:.4f}]".format(
+                            weights[0], weights[1], weights[2]
+                        )
+                    logger.info(best_summary)
+                    
                     torch.cuda.empty_cache()
             else:
                 model.eval()
@@ -619,32 +610,6 @@ def do_train(cfg,
                     )
                 logger.info(current_summary)
 
-                logger.info("=" * 60)
-                logger.info("📊 Current Results Summary (Epoch {}):".format(epoch))
-                logger.info("   Current mAP: {:.1%}".format(mAP))
-                logger.info("   Current Rank-1: {:.1%}".format(cmc[0]))
-                logger.info("   Current Rank-5: {:.1%}".format(cmc[4]))
-                logger.info("   Current Rank-10: {:.1%}".format(cmc[9]))
-                if current_expert_weights is not None:
-                    logger.info("   🎯 Current Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(
-                        current_expert_weights[0], current_expert_weights[1], current_expert_weights[2]))
-                if current_moe_loss_dict is not None:
-                    diversity_loss_value = current_moe_loss_dict['moe_diversity_loss']
-                    diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
-                    logger.info("📋 MoE Loss 详细日志 (Epoch {}, Iter 0):".format(epoch))
-                    logger.info("   - 平衡损失 (L_Bal): {:.6f}".format(current_moe_loss_dict['moe_balance_loss']))
-                    logger.info("   - 稀疏性损失 (L_Spar): {:.6f}".format(current_moe_loss_dict['moe_sparsity_loss']))
-                    logger.info("   - 多样性损失 (L_Div): {:.6f} {}".format(
-                        current_moe_loss_dict['moe_diversity_loss'], diversity_status))
-                    logger.info("   - 总损失 (L_Total): {:.6f}".format(current_moe_loss_dict['moe_total_loss']))
-                    if 'moe_balance_weight' in current_moe_loss_dict:
-                        logger.info("   - 损失权重: 平衡={:.4f}, 稀疏性={}, 多样性={:.4f}".format(
-                            current_moe_loss_dict['moe_balance_weight'],
-                            current_moe_loss_dict.get('moe_sparsity_weight', 'N/A'),
-                            current_moe_loss_dict['moe_diversity_weight']))
-                logger.info("=" * 60)
-                
-                # 🔥 新增：输出Best值的完整信息（包括mAP、Rank和专家权重占比）
                 best_summary = (
                     f"[Epoch {best_index['best_epoch']}] BEST -> "
                     f"mAP:{best_index['mAP'] * 100:.1f} | "
@@ -659,36 +624,21 @@ def do_train(cfg,
                     )
                 logger.info(best_summary)
 
-                logger.info("=" * 60)
-                logger.info("🏆 Best Results Summary (Epoch {}):".format(best_index['best_epoch']))
-                logger.info("   Best mAP: {:.1%}".format(best_index['mAP']))
-                logger.info("   Best Rank-1: {:.1%}".format(best_index['Rank-1']))
-                logger.info("   Best Rank-5: {:.1%}".format(best_index['Rank-5']))
-                logger.info("   Best Rank-10: {:.1%}".format(best_index['Rank-10']))
-                if best_index['best_expert_weights'] is not None:
-                    weights = best_index['best_expert_weights']
-                    logger.info("   🎯 Best Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(weights[0], weights[1], weights[2]))
-                    logger.info("   📊 Expert Weight Percentages: [{:.1f}%, {:.1f}%, {:.1f}%]".format(
-                        weights[0] * 100, weights[1] * 100, weights[2] * 100))
-                else:
-                    logger.info("   ⚠️  Expert Weights: Not available (MoE may not be enabled)")
-                # 🔥 新增：如果是新的best，输出对应的MoE Loss日志
-                if mAP >= best_index['mAP'] and current_moe_loss_dict is not None:
-                    diversity_loss_value = current_moe_loss_dict['moe_diversity_loss']
-                    diversity_status = "✅ 已激活" if diversity_loss_value > 1e-6 else "⚠️ 未激活(0.0)"
-                    logger.info("📋 MoE Loss 详细日志 (Epoch {}, Iter 0):".format(epoch))
-                    logger.info("   - 平衡损失 (L_Bal): {:.6f}".format(current_moe_loss_dict['moe_balance_loss']))
-                    logger.info("   - 稀疏性损失 (L_Spar): {:.6f}".format(current_moe_loss_dict['moe_sparsity_loss']))
-                    logger.info("   - 多样性损失 (L_Div): {:.6f} {}".format(
-                        current_moe_loss_dict['moe_diversity_loss'], diversity_status))
-                    logger.info("   - 总损失 (L_Total): {:.6f}".format(current_moe_loss_dict['moe_total_loss']))
-                    if 'moe_balance_weight' in current_moe_loss_dict:
-                        logger.info("   - 损失权重: 平衡={:.4f}, 稀疏性={}, 多样性={:.4f}".format(
-                            current_moe_loss_dict['moe_balance_weight'],
-                            current_moe_loss_dict.get('moe_sparsity_weight', 'N/A'),
-                            current_moe_loss_dict['moe_diversity_weight']))
-                logger.info("=" * 60)
                 torch.cuda.empty_cache()
+
+    logger.info("=" * 60)
+    logger.info("✅ Training Finished")
+    logger.info("   Total Epochs: {}".format(epochs))
+    logger.info("   Best Epoch: {}".format(best_index['best_epoch']))
+    logger.info("   Best mAP: {:.1%}".format(best_index['mAP']))
+    logger.info("   Best Rank-1: {:.1%}".format(best_index['Rank-1']))
+    logger.info("   Best Rank-5: {:.1%}".format(best_index['Rank-5']))
+    logger.info("   Best Rank-10: {:.1%}".format(best_index['Rank-10']))
+    if best_index['best_expert_weights'] is not None:
+        weights = best_index['best_expert_weights']
+        logger.info("   🎯 Best Expert Weights: [{:.4f}, {:.4f}, {:.4f}]".format(
+            weights[0], weights[1], weights[2]))
+    logger.info("=" * 60)
 
 
 def do_inference(cfg,
