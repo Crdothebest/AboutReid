@@ -1,7 +1,0 @@
-实验ID: experiment_20251211_033814
-开始时间: 2025年 12月 11日 星期四 03:38:14 CST
-命令: python train_net.py --config_file results/everyExperiments/experiment_20251211_033814/configs/experiment_config.yml MODEL.MOE_USE_TOP_K_ROUTING True MODEL.MOE_TOP_K 2 MODEL.MOE_TOP_K_MODE soft SOLVER.MOE_BALANCE_LOSS_WEIGHT 0.0010 SOLVER.MOE_DIVERSITY_LOSS_WEIGHT 0.0010 SOLVER.STEPS (35, 45) SOLVER.GAMMA 0.1 OUTPUT_DIR ./outputs/V25.0_Top2_LR_Lock 2>&1 | tee results/everyExperiments/experiment_20251211_033814/logs/train_log.txt
-参数: 
-状态: 运行中
-目录: results/everyExperiments/experiment_20251211_033814
-原始配置文件: configs/RGBNT201/yzy_best_Mambapro_moe.yml
