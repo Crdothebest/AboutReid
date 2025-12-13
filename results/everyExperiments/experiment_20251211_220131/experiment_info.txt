@@ -1,0 +1,7 @@
+实验ID: experiment_20251211_220131
+开始时间: 2025年 12月 11日 星期四 22:01:32 CST
+命令: python train_net.py --config_file results/everyExperiments/experiment_20251211_220131/configs/experiment_config.yml OUTPUT_DIR ./outputs/best_tml_retrain 2>&1 | tee results/everyExperiments/experiment_20251211_220131/logs/train_log.txt
+参数: 
+状态: 运行中
+目录: results/everyExperiments/experiment_20251211_220131
+原始配置文件: mybest_model/experiment_20251013_110028/configs/experiment_config.yml

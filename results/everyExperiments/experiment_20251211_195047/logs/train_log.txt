@@ -1,0 +1,9 @@
+❌ --opts 参数解析错误: Non-existent key: MODEL.WAVELET_ENABLE
+Traceback (most recent call last):
+  File "/home/zubuntu/workspace/yzy/MambaPro/train_net.py", line 78, in <module>
+    cfg.merge_from_list(args.opts)
+  File "/home/zubuntu/miniconda/envs/MambaPro/lib/python3.10/site-packages/yacs/config.py", line 243, in merge_from_list
+    _assert_with_logging(subkey in d, "Non-existent key: {}".format(full_key))
+  File "/home/zubuntu/miniconda/envs/MambaPro/lib/python3.10/site-packages/yacs/config.py", line 545, in _assert_with_logging
+    assert cond, msg
+AssertionError: Non-existent key: MODEL.WAVELET_ENABLE

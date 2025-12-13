@@ -1,0 +1,639 @@
+🔍 原始 --opts 参数: ['MODEL.MOE_USE_TOP_K_ROUTING', 'True', 'MODEL.MOE_TOP_K', '2', 'MODEL.MOE_TOP_K_MODE', 'soft', 'SOLVER.MOE_BALANCE_LOSS_WEIGHT', '0.0010', 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT', '0.0010', 'OUTPUT_DIR', './outputs/V24.1_Top2_Soft_Minimal']
+✅ 通过 --opts 修改配置（最高优先级）
+🔍 USE_ATTENTION_FUSION = False (类型: <class 'bool'>)
+🔍 USE_GATE_FUSION = False (类型: <class 'bool'>)
+🔍 MOE_USE_TOP_K_ROUTING = True (类型: <class 'bool'>)
+🔍 验证MoE Loss权重（命令行覆盖后）:
+   - 平衡损失权重: 0.001 (类型: <class 'float'>)
+   - 多样性损失权重: 0.001 (类型: <class 'float'>)
+   ⚠️  警告：MOE_BALANCE_LOSS_WEIGHT 应该为 0.0，但实际值为 0.001
+🔍 布尔值参数检查: MODEL.USE_ATTENTION_FUSION = False (类型: <class 'bool'>)
+🔍 布尔值参数检查: MODEL.USE_GATE_FUSION = False (类型: <class 'bool'>)
+🔍 布尔值参数检查: MODEL.MOE_USE_FIXED_WEIGHTS = False (类型: <class 'bool'>)
+🔍 布尔值参数检查: MODEL.MOE_USE_TOP_K_ROUTING = True (类型: <class 'bool'>)
+🔍 最终注意力融合参数: USE_ATTENTION_FUSION = False (类型: <class 'bool'>)
+🔍 最终门控融合参数: USE_GATE_FUSION = False (类型: <class 'bool'>)
+🔍 随机擦除参数: INPUT.RE_PROB = 0.5 (类型: <class 'float'>)
+   ✅ 随机擦除数据增强已启用，概率: 0.5 (50.0%)
+🔥 使用配置文件设置: USE_CLIP_MULTI_SCALE = True
+🚀 使用配置文件设置: USE_MULTI_SCALE_MOE = True
+2025-12-11 02:47:55,116 MambaPro INFO: Saving model in the path :./outputs/V24.1_Top2_Soft_Minimal
+2025-12-11 02:47:55,116 MambaPro INFO: Namespace(config_file='results/everyExperiments/experiment_20251211_024752/configs/experiment_config.yml', fea_cft=0, opts=['MODEL.MOE_USE_TOP_K_ROUTING', 'True', 'MODEL.MOE_TOP_K', '2', 'MODEL.MOE_TOP_K_MODE', 'soft', 'SOLVER.MOE_BALANCE_LOSS_WEIGHT', '0.0010', 'SOLVER.MOE_DIVERSITY_LOSS_WEIGHT', '0.0010', 'OUTPUT_DIR', './outputs/V24.1_Top2_Soft_Minimal'], local_rank=0, use_multi_scale=False, no_multi_scale=False, use_moe=False, disable_moe=False, no_moe=False, use_attention=False, disable_attention=False, attention_heads=8, attention_dropout=0.1)
+2025-12-11 02:47:55,116 MambaPro INFO: 🔥 MoE模块状态: 启用
+2025-12-11 02:47:55,116 MambaPro INFO: 🔥 多尺度滑动窗口状态: 启用
+2025-12-11 02:47:55,116 MambaPro INFO: 🔥 MoE滑动窗口尺度: [4, 8, 16]
+2025-12-11 02:47:55,116 MambaPro INFO: Loaded configuration file results/everyExperiments/experiment_20251211_024752/configs/experiment_config.yml
+2025-12-11 02:47:55,116 MambaPro INFO: 
+# 文档说明：是将 yzy_MambaPro_moe.yml 中的参数进行优化，并添加了MoE的参数；
+
+
+MODEL:
+  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
+  TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
+  STRIDE_SIZE: [ 16, 16 ] # 步长
+  SIE_CAMERA: True # 是否使用相机嵌入
+  DIRECT: 1 # 直接
+  SIE_COE: 1.0 # 相机嵌入系数
+  ID_LOSS_WEIGHT: 0.25 # 分类损失权重
+  TRIPLET_LOSS_WEIGHT: 1.0 # 三元组损失权重
+  PROMPT: True # 是否使用提示
+  ADAPTER: True # 是否使用适配器
+  MAMBA: True # 是否使用Mamba
+  FROZEN: True # 是否冻结
+  
+  # ========== 多尺度滑动窗口配置：启用多尺度特征提取 ==========
+  USE_CLIP_MULTI_SCALE: True   # 启用CLIP多尺度滑动窗口特征提取
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]  # 滑动窗口尺度（4x4小窗口，8x8中窗口，16x16大窗口）
+  
+  # ========== MoE配置：启用多尺度MoE特征融合模块 ==========
+  USE_MULTI_SCALE_MOE: True    # 启用多尺度MoE特征融合模块
+  MOE_SCALES: [4, 8, 16]       # MoE滑动窗口尺度（与多尺度滑动窗口保持一致）
+  
+  # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
+  # 注意：门控融合使用MLP门控网络，不需要GATE_NUM_HEADS参数
+  USE_GATE_FUSION: False
+  GATE_DROPOUT: 0.1
+  
+  # ========== 优化MoE参数：提升专家网络性能 ==========
+  MOE_EXPERT_HIDDEN_DIM: 1280   # 🔧 优化：从1024增加到1280，增强专家网络表达能力
+  MOE_TEMPERATURE: 0.5          # 🔧 优化：从0.7降低到0.5，使专家权重分布更尖锐，专家分工更明确
+  
+  # 🔧 优化：降低Dropout，让专家网络学习更充分
+  MOE_EXPERT_DROPOUT: 0.05      # 🔧 优化：从0.1降低到0.05，减少正则化，增强学习能力
+  
+  # 🔧 优化：降低门控网络Dropout，提升决策准确性
+  MOE_GATE_DROPOUT: 0.05        # 🔧 优化：从0.1降低到0.05，让门控网络决策更准确
+  
+  # 保持2层结构，平衡表达能力和训练稳定性
+  MOE_EXPERT_LAYERS: 2          # 专家网络层数（保持2层）
+  
+  # 保持2层结构，平衡决策复杂度和稳定性
+  MOE_GATE_LAYERS: 2            # 门控网络层数（保持2层）
+  
+  # 🔧 优化：降低激活阈值，让专家激活更敏感
+  MOE_EXPERT_THRESHOLD: 0.05    # 🔧 优化：从0.1降低到0.05，提高专家激活敏感性
+  
+  # 保持完整残差连接
+  MOE_RESIDUAL_WEIGHT: 1.0      # 残差连接权重（保持1.0）
+  
+  # ========== 专家初始权重配置（可选） ==========
+  # MOE_INIT_WEIGHTS: [0.35, 0.3, 0.35]  # 专家初始权重（可选，不设置则使用随机初始化）
+  # 说明：设置专家网络的初始权重分布，用于引导训练方向
+  # 格式：列表，长度必须等于专家数量（与MOE_SCALES数量一致）
+  # 示例：[0.35, 0.3, 0.35] 表示三个专家的初始权重分别为35%、30%、35%
+
+INPUT:
+  SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
+  SIZE_TEST: [ 256, 128 ] # 测试尺寸
+  PROB: 0.5 # random horizontal flip # 随机水平翻转
+  RE_PROB: 0.5 # random erasing # 随机擦除
+  PADDING: 10 # 填充
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet' # 采样器
+  NUM_INSTANCE: 8 # 每个批次实例数 (提高采样多样性)
+  NUM_WORKERS: 8 # 工作线程数
+
+DATASETS:
+  NAMES: ('RGBNT201') # 数据集名称
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
+
+SOLVER:
+  # 优化器设置
+  OPTIMIZER_NAME: 'Adam' # 优化器名称
+  BASE_LR: 0.0005 # 基础学习率 (论文baseline推荐值，不可轻易更改)
+  WEIGHT_DECAY: 0.0005 # 权重衰减
+  WEIGHT_DECAY_BIAS: 0.0005 # 偏置权重衰减
+  MOMENTUM: 0.9 # 动量
+  
+  # 训练设置
+  MAX_EPOCHS: 60 # 最大迭代数 (论文标准设置)
+  IMS_PER_BATCH: 32 # 每个批次图像数 (提高训练稳定性)
+  WARMUP_ITERS: 20 # 预热迭代数 (充分预热)
+  WARMUP_METHOD: 'linear' # 预热方法
+  WARMUP_FACTOR: 0.01 # 预热因子
+  
+  # 损失函数设置
+  MARGIN: 0.3 # 三元组损失边界
+  CENTER_LOSS_WEIGHT: 0.0005 # 中心损失权重
+  CENTER_LR: 0.5 # 中心学习率
+  
+  # ========== 优化MoE损失权重：平衡专家协作和任务性能 ==========
+  MOE_BALANCE_LOSS_WEIGHT: 0.01  # 🎯 增强：从0.005增加到0.01，更强调专家使用平衡
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0005 # 保持：适度促进专家选择稀疏性
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.01  # 🎯 增强：从0.005增加到0.01，更强调专家分工多样性
+  
+  # ========================================================================
+  # 【门控网络独立学习率设置：解决模式坍塌问题】
+  # ========================================================================
+  # 
+  # 【功能】为门控网络参数设置独立且更低的学习率
+  # 【原因】解决MoE训练中的模式坍塌问题
+  # 
+  # 【问题背景】
+  # 门控网络负责动态分配专家权重，其更新速度直接影响训练稳定性。
+  # 原有实现中，门控网络使用与普通参数相同的学习率（BASE_LR = 0.0005），
+  # 导致门控网络更新过快，容易形成自强化循环，某个专家快速垄断99.9%
+  # 的路由权重，即使设置了平衡损失也无法阻止模式坍塌。
+  # 
+  # 【解决方案】
+  # 为门控网络设置独立且更低的学习率（BASE_LR × MOE_GATE_LR_FACTOR），
+  # 实现"慢速决策、快速执行"的策略：
+  # - 门控网络（决策层）：使用极低学习率（BASE_LR × 0.01 = 0.000005）
+  # - 专家网络（执行层）：使用正常学习率（BASE_LR = 0.0005）
+  # 
+  # 【参数说明】
+  # - MOE_GATE_LR_FACTOR: 门控网络学习率倍数
+  # - 默认值：0.01（即BASE_LR的1%）
+  # - 建议范围：0.001 ~ 0.1
+  #   * 过小（<0.001）：门控网络几乎不更新，无法学习
+  #   * 过大（>0.1）：接近普通学习率，无法解决模式坍塌
+  #   * 推荐值：0.01（经过实验验证的最优值）
+  # 
+  # 【学习率计算】
+  # 假设 BASE_LR = 0.0005, MOE_GATE_LR_FACTOR = 0.01, BIAS_LR_FACTOR = 2.0
+  # - 门控网络权重：0.0005 × 0.01 = 0.000005（降低100倍）
+  # - 门控网络偏置：0.0005 × 0.01 × 2.0 = 0.00001（降低100倍）
+  # 
+  # 【预期效果】
+  # 1. 门控网络更新更慢，减少模式坍塌风险
+  # 2. 给专家网络更多时间学习，形成更好的专业化分工
+  # 3. 训练更稳定，收敛更平滑
+  # 4. 提高最终mAP性能
+  # 
+  # 【相关文件】
+  # - 实现代码：solver/make_optimizer.py (第14-28行)
+  # - 默认配置：config/defaults.py (第202行)
+  # ========================================================================
+  MOE_GATE_LR_FACTOR: 0.01  # 🎯 门控网络学习率倍数（BASE_LR × 0.01 = 0.000005）
+  
+  # 学习率调度
+  GAMMA: 0.1 # 衰减率
+  STEPS: (30, 50) # 学习率衰减步数
+  
+  # 其他设置
+  SEED: 42 # 随机种子 (确保可复现性)
+  CHECKPOINT_PERIOD: 10 # 检查点保存周期
+  LOG_PERIOD: 10 # 日志打印周期
+  EVAL_PERIOD: 5 # 验证周期
+
+TEST:
+  IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
+  RE_RANKING: 'no' # 是否重新排序
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
+  FEAT_NORM: 'yes' # 特征归一化
+  MISS: "nothing" # 缺失
+
+# ========== MoE实验输出目录 ==========
+# 实验目的：为MoE实验设置专门的输出目录
+# 功能：便于对比MoE与基线方法的性能差异
+# 🔥 MoE实验：多尺度滑动窗口 + 优化MoE融合
+OUTPUT_DIR: 'results/everyExperiments/experiment_20251211_024752/logs'
+
+
+2025-12-11 02:47:55,116 MambaPro INFO: Running with config:
+DATALOADER:
+  NUM_INSTANCE: 8
+  NUM_WORKERS: 8
+  SAMPLER: softmax_triplet
+DATASETS:
+  NAMES: RGBNT201
+  ROOT_DIR: /home/zubuntu/workspace/yzy/MambaPro/data/
+INPUT:
+  PADDING: 10
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  PROB: 0.5
+  RE_PROB: 0.5
+  SIZE_TEST: [256, 128]
+  SIZE_TRAIN: [256, 128]
+MODEL:
+  ADAPTER: True
+  ATTENTION_DIM: 512
+  ATTENTION_DROPOUT: 0.1
+  ATTENTION_NUM_HEADS: 8
+  ATT_DROP_RATE: 0.0
+  CLIP_MULTI_SCALE_SCALES: [4, 8, 16]
+  DEVICE: cuda
+  DEVICE_ID: 0
+  DIRECT: 1
+  DIST_TRAIN: False
+  DROP_OUT: 0.0
+  DROP_PATH: 0.1
+  FLOPS_TEST: False
+  FROZEN: True
+  GATE_DROPOUT: 0.1
+  ID_LOSS_TYPE: softmax
+  ID_LOSS_WEIGHT: 0.25
+  IF_LABELSMOOTH: on
+  IF_WITH_CENTER: no
+  LAYER: -1
+  MAMBA: True
+  MAMBA_BI: False
+  METRIC_LOSS_TYPE: triplet
+  MOE_BALANCE_LOSS_WEIGHT: 0.01
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.01
+  MOE_EXPERT_DROPOUT: 0.05
+  MOE_EXPERT_HIDDEN_DIM: 1280
+  MOE_EXPERT_LAYERS: 2
+  MOE_EXPERT_THRESHOLD: 0.05
+  MOE_FIXED_WEIGHTS: [0.33, 0.33, 0.34]
+  MOE_GATE_DROPOUT: 0.05
+  MOE_GATE_LAYERS: 2
+  MOE_INIT_WEIGHTS: None
+  MOE_NUM_EXPERTS: 3
+  MOE_RESIDUAL_WEIGHT: 1.0
+  MOE_SCALES: [4, 8, 16]
+  MOE_SPARSITY_LOSS_WEIGHT: 0.001
+  MOE_TEMPERATURE: 0.5
+  MOE_TOP_K: 2
+  MOE_TOP_K_MODE: soft
+  MOE_USE_FIXED_WEIGHTS: False
+  MOE_USE_TOP_K_ROUTING: True
+  MULTI_SCALE_SCALES: [4, 8, 16]
+  NAME: MambaPro
+  NECK: bnneck
+  NO_MARGIN: True
+  PREFIX_NUM: 1
+  PRETRAIN_PATH_T: /home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt
+  PROMPT: True
+  SIE_CAMERA: True
+  SIE_COE: 1.0
+  SIE_VIEW: False
+  STRIDE_SIZE: [16, 16]
+  TRANSFORMER_TYPE: ViT-B-16
+  TRIPLET_LOSS_WEIGHT: 1.0
+  USE_ATTENTION_FUSION: False
+  USE_CLIP_MULTI_SCALE: True
+  USE_GATE_FUSION: False
+  USE_MULTI_SCALE: False
+  USE_MULTI_SCALE_MOE: True
+OUTPUT_DIR: ./outputs/V24.1_Top2_Soft_Minimal
+SOLVER:
+  BASE_LR: 0.0005
+  BIAS_LR_FACTOR: 2
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  CHECKPOINT_PERIOD: 10
+  CLUSTER_MARGIN: 0.3
+  COSINE_MARGIN: 0.5
+  COSINE_SCALE: 30
+  EVAL_PERIOD: 5
+  GAMMA: 0.1
+  IMS_PER_BATCH: 32
+  LARGE_FC_LR: False
+  LOG_PERIOD: 10
+  MARGIN: 0.3
+  MAX_EPOCHS: 60
+  MOE_BALANCE_LOSS_WEIGHT: 0.001
+  MOE_BALANCE_LOSS_WEIGHT_END: 0.1
+  MOE_BALANCE_LOSS_WEIGHT_START: 0.001
+  MOE_BALANCE_THRESHOLD: 0.3
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.001
+  MOE_DIVERSITY_LOSS_WEIGHT_END: 0.1
+  MOE_DIVERSITY_LOSS_WEIGHT_START: 0.001
+  MOE_GATE_LR_FACTOR: 0.01
+  MOE_LOSS_WEIGHT_SCHEDULE_TYPE: cosine
+  MOE_LOSS_WEIGHT_WARMUP_EPOCHS: 5
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0005
+  MOE_USE_DYNAMIC_LOSS_WEIGHT: False
+  MOMENTUM: 0.9
+  OPTIMIZER_NAME: Adam
+  RANGE_ALPHA: 0
+  RANGE_BETA: 1
+  RANGE_K: 2
+  RANGE_LOSS_WEIGHT: 1
+  RANGE_MARGIN: 0.3
+  SEED: 42
+  STEPS: (30, 50)
+  WARMUP_FACTOR: 0.01
+  WARMUP_ITERS: 20
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.0005
+  WEIGHT_DECAY_BIAS: 0.0005
+TEST:
+  FEAT: 0
+  FEAT_NORM: yes
+  IMS_PER_BATCH: 64
+  MISS: nothing
+  NECK_FEAT: after
+  RE_RANKING: no
+  WEIGHT: /home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth
+🔥 随机擦除（Random Erasing）数据增强：已启用
+   - 擦除概率: 0.5 (50.0%)
+   - 擦除模式: pixel（每像素随机颜色）
+   - 最大擦除块数: 1
+=> RGBNT201 loaded
+Dataset statistics:
+  ----------------------------------------
+  subset   | # ids | # images | # cameras
+  ----------------------------------------
+  train    |   171 |     3951 |         4
+  query    |    30 |      836 |         2
+  gallery  |    30 |      836 |         2
+  ----------------------------------------
+data is ready
+using Transformer_type: ViT-B-16 as a backbone
+Resized position embedding: %s to %s torch.Size([197, 768]) torch.Size([129, 768])
+Position embedding resize to height:16 width: 8
+Loading pretrained model from CLIP
+✅ 为CLIP启用多尺度滑动窗口特征提取模块
+   - 滑动窗口尺度: [4, 8, 16]
+   - 特征维度: 512 (CLIP投影维度)
+🔍 [make_model] 读取 USE_ATTENTION_FUSION: False (类型: <class 'bool'>)
+🔍 [make_model] 注意力融合参数（布尔值）: False
+🔍 固定权重参数验证:
+   - MOE_USE_FIXED_WEIGHTS: False (类型: <class 'bool'>)
+   - MOE_FIXED_WEIGHTS: [0.33, 0.33, 0.34] (类型: <class 'list'>)
+   ⚠️  固定权重模式未启用，将使用动态门控网络
+🔍 make_model.py: 从 cfg.MODEL 读取 MOE_USE_TOP_K_ROUTING = True (类型: <class 'bool'>)
+🔍 make_model.py: MOE_USE_TOP_K_ROUTING = True (类型: <class 'bool'>)
+🔍 make_model.py: Top-k 路由最终参数（传递给 CLIPMultiScaleMoE 之前）:
+   - use_top_k_routing = True (类型: <class 'bool'>, 值: True)
+   - top_k = 2 (类型: <class 'int'>)
+   - top_k_mode = soft (类型: <class 'str'>)
+🔍 CLIPMultiScaleMoE.__init__: 接收到的 Top-k 路由参数:
+   - use_top_k_routing = True (类型: <class 'bool'>, 值: True)
+   - top_k = 2 (类型: <class 'int'>)
+   - top_k_mode = soft (类型: <class 'str'>)
+🔍 MultiScaleMoE.__init__: 接收到的 Top-k 路由参数:
+   - use_top_k_routing = True (类型: <class 'bool'>, 值: True)
+   - top_k = 2 (类型: <class 'int'>)
+   - top_k_mode = soft (类型: <class 'str'>)
+🔥 Top-k 路由：已启用 (k=2, mode=soft)
+🔥 门控加权-预处理机制：已禁用 (使用传统MLP融合)
+🔥 注意力-预处理机制：已禁用 (使用传统MLP融合)
+🔥 多尺度MoE模块初始化完成:
+   - 特征维度: 512
+   - 滑动窗口尺度: [4, 8, 16]
+   - 专家数量: 3
+   - 门控输入维度: 1536
+   - 专家隐藏层维度: 1280
+🔥 CLIP多尺度MoE模块初始化完成:
+   - 特征维度: 512
+   - 滑动窗口尺度: [4, 8, 16]
+   - 专家隐藏层维度: 1280
+   - 门控加权-预处理机制: 已禁用
+   - 注意力-预处理机制: 已禁用
+🔥 为CLIP启用多尺度MoE特征融合模块
+   - 滑动窗口尺度: [4, 8, 16]
+   - 特征维度: 512 (CLIP投影维度)
+   - 专家隐藏层维度: 1280
+   - 门控网络温度: 0.5
+   - 门控融合机制: 已禁用
+   - 注意力融合机制: 已禁用
+camera number is : 4
+AAM HERE!!!
+===========Building MambaPro===========
+🔍 调试：make_moe_loss配置读取:
+   - SOLVER.MOE_BALANCE_LOSS_WEIGHT = 0.001 (类型: <class 'float'>) ✅ 使用SOLVER命名空间
+   - 最终读取的balance_weight: 0.001
+   - SOLVER.MOE_SPARSITY_LOSS_WEIGHT = 0.0005 (类型: <class 'float'>) ✅ 使用SOLVER命名空间
+   - 最终读取的sparsity_weight: 0.0005
+   - SOLVER.MOE_DIVERSITY_LOSS_WEIGHT = 0.001 (类型: <class 'float'>) ✅ 使用SOLVER命名空间
+   - 最终读取的diversity_weight: 0.001
+🔥 MoE损失函数初始化完成（已修复模式坍塌问题）:
+   - 平衡损失权重: 0.001 
+   - 稀疏性损失权重: 0.0005 
+   - 多样性损失权重: 0.001 
+   - 平衡损失阈值: 0.3 (允许30%偏差，防止强制平均)
+🔥 启用MoE损失函数
+using soft triplet loss for training
+label smooth on, numclasses: 171
+✅ MoE参数已添加到优化器: BACKBONE.clip_multi_scale_moe.multi_scale_extractor.sliding_windows.0.weight, shape=torch.Size([512, 512, 4]), requires_grad=True
+✅ MoE参数已添加到优化器: BACKBONE.clip_multi_scale_moe.multi_scale_extractor.sliding_windows.0.bias, shape=torch.Size([512]), requires_grad=True
+✅ MoE参数已添加到优化器: BACKBONE.clip_multi_scale_moe.multi_scale_extractor.sliding_windows.1.weight, shape=torch.Size([512, 512, 8]), requires_grad=True
+✅ MoE参数已添加到优化器: BACKBONE.clip_multi_scale_moe.multi_scale_extractor.sliding_windows.1.bias, shape=torch.Size([512]), requires_grad=True
+✅ MoE参数已添加到优化器: BACKBONE.clip_multi_scale_moe.multi_scale_extractor.sliding_windows.2.weight, shape=torch.Size([512, 512, 16]), requires_grad=True
+✅ 总共找到 32 个MoE相关参数，已全部添加到优化器
+2025-12-11 02:47:57,231 MambaPro.train INFO: start training
+🎯 CLIP多尺度MoE模块启动！
+   - 输入patch tokens形状: torch.Size([32, 128, 512])
+   - 滑动窗口尺度: [4, 8, 16]
+   - 特征维度: 512
+
+🚀 多尺度MoE模块启动！
+   - 输入特征数量: 3
+   - 每个特征形状: torch.Size([32, 512])
+   - 滑动窗口尺度: [4, 8, 16]
+   - 专家数量: 3
+   - 门控加权-预处理机制: 已禁用
+   - 注意力-预处理机制: 已禁用
+   - Top-k 路由机制: ✅ 已启用 (k=2, mode=soft)
+
+🎯 拼接融合：使用无预处理（无预处理）
+   - 拼接方式: torch.cat() 直接拼接
+   - 拼接维度: feat_dim * num_scales = 512 * 3 = 1536
+   - 步骤：直接拼接 → 门控网络计算专家权重 → 专家网络处理 → 加权融合
+
+🎯 专家网络处理：使用门控网络和专家网络
+   - 专家数量: 3
+   - 专家隐藏层维度: 1280
+   - 专家层数: 2
+   - 门控网络计算专家权重
+   - Top-k 路由: 将强制激活 Top-2 专家 (模式: soft)
+   - 专家网络处理多尺度特征
+   - 加权融合得到最终特征
+
+🎯 门控网络处理：计算专家权重
+   - 输入特征形状: torch.Size([32, 1536])
+   - 输出权重形状: [32, 3]
+   - 说明：根据输入特征动态计算专家权重，权重会随训练优化
+   - ⚠️  注意：Top-k 路由将在此后处理，只保留 Top-2 专家的权重
+🎯 Top-k 路由处理：强制激活 Top-2 专家
+   - 输入权重形状: torch.Size([32, 3])
+   - Top-k 值: 2 (将激活 2/3 个专家)
+   - 路由模式: soft
+   - 专家总数: 3
+   - 原始权重分布（第一个样本）: [0.3333, 0.3331, 0.3336]
+✅ 软 Top-k 路由完成
+   - 输出权重形状: torch.Size([32, 3])
+   - Top-2 专家权重已重新归一化
+   - 非 Top-2 专家权重已设为 0（但保留梯度）
+   - 路由后权重分布（第一个样本）: [0.4998, 0.0000, 0.5002]
+   - 激活的专家索引: [2, 0] (对应尺度: [16, 4])
+   - 说明：保留被屏蔽专家的梯度，减少与损失函数的冲突
+🧠 专家网络开始处理特征: torch.Size([32, 512])
+🧠 专家网络开始处理特征: torch.Size([32, 512])
+🧠 专家网络开始处理特征: torch.Size([32, 512])
+🎯 最终融合：专家输出融合
+   - 融合特征形状: torch.Size([32, 512])
+   - 最终特征形状: [B, 512]
+✅ MoE多尺度特征融合完成！
+   - 输出特征形状: torch.Size([32, 512])
+   - 专家权重形状: torch.Size([32, 3])
+   - 专家权重分布: [0.4998191 0.        0.5001809]
+🔥 MoE损失: 平衡=0.1011, 稀疏性=0.7500, 多样性=5.3333 ✅ 已激活
+   📊 专家权重分布: [0.4373, 0.0624, 0.5003], 权重变化标准差: 0.112006, 有梯度: True
+📋 MoE Loss 详细日志 (Epoch 1, Iter 0):
+   - 平衡损失 (L_Bal): 0.101115
+   - 稀疏性损失 (L_Spar): 0.750000
+   - 多样性损失 (L_Div): 5.333333 ✅ 已激活
+   - 总损失 (L_Total): 0.005809
+   - 损失权重: 平衡=0.0010, 稀疏性=0.0005, 多样性=0.0010
+2025-12-11 02:47:59,828 MambaPro.train INFO: Epoch[1] Iteration[10/108] Loss: 14.315, Acc: 0.000, Base Lr: 2.97e-05
+2025-12-11 02:48:01,686 MambaPro.train INFO: Epoch[1] Iteration[20/108] Loss: 9.984, Acc: 0.006, Base Lr: 2.97e-05
+2025-12-11 02:48:03,601 MambaPro.train INFO: Epoch[1] Iteration[30/108] Loss: 8.339, Acc: 0.014, Base Lr: 2.97e-05
+2025-12-11 02:48:05,525 MambaPro.train INFO: Epoch[1] Iteration[40/108] Loss: 7.405, Acc: 0.021, Base Lr: 2.97e-05
+2025-12-11 02:48:07,382 MambaPro.train INFO: Epoch[1] Iteration[50/108] Loss: 6.795, Acc: 0.029, Base Lr: 2.97e-05
+2025-12-11 02:48:09,240 MambaPro.train INFO: Epoch[1] Iteration[60/108] Loss: 6.339, Acc: 0.030, Base Lr: 2.97e-05
+2025-12-11 02:48:11,092 MambaPro.train INFO: Epoch[1] Iteration[70/108] Loss: 6.000, Acc: 0.034, Base Lr: 2.97e-05
+2025-12-11 02:48:12,946 MambaPro.train INFO: Epoch[1] Iteration[80/108] Loss: 5.709, Acc: 0.036, Base Lr: 2.97e-05
+2025-12-11 02:48:14,782 MambaPro.train INFO: Epoch[1] Iteration[90/108] Loss: 5.434, Acc: 0.044, Base Lr: 2.97e-05
+2025-12-11 02:48:16,671 MambaPro.train INFO: Epoch[1] Iteration[100/108] Loss: 5.214, Acc: 0.054, Base Lr: 2.97e-05
+🔥 MoE损失: 平衡=0.1904, 稀疏性=0.7498, 多样性=5.3307 ✅ 已激活
+   📊 专家权重分布: [0.4919, 0.0000, 0.5081], 权重变化标准差: 0.000290, 有梯度: True
+2025-12-11 02:48:17,994 MambaPro.train INFO: Epoch 1 done. Time per batch: 0.194[s] Speed: 165.0[samples/s]
+🔥 MoE损失: 平衡=0.1904, 稀疏性=0.7498, 多样性=5.3307 ✅ 已激活
+   📊 专家权重分布: [0.4923, 0.0000, 0.5077], 权重变化标准差: 0.000346, 有梯度: True
+📋 MoE Loss 详细日志 (Epoch 2, Iter 0):
+   - 平衡损失 (L_Bal): 0.190356
+   - 稀疏性损失 (L_Spar): 0.749821
+   - 多样性损失 (L_Div): 5.330729 ✅ 已激活
+   - 总损失 (L_Total): 0.005896
+   - 损失权重: 平衡=0.0010, 稀疏性=0.0005, 多样性=0.0010
+2025-12-11 02:48:20,149 MambaPro.train INFO: Epoch[2] Iteration[10/108] Loss: 3.266, Acc: 0.309, Base Lr: 5.45e-05
+2025-12-11 02:48:22,026 MambaPro.train INFO: Epoch[2] Iteration[20/108] Loss: 3.227, Acc: 0.280, Base Lr: 5.45e-05
+2025-12-11 02:48:23,915 MambaPro.train INFO: Epoch[2] Iteration[30/108] Loss: 3.237, Acc: 0.258, Base Lr: 5.45e-05
+2025-12-11 02:48:25,755 MambaPro.train INFO: Epoch[2] Iteration[40/108] Loss: 3.228, Acc: 0.241, Base Lr: 5.45e-05
+2025-12-11 02:48:27,631 MambaPro.train INFO: Epoch[2] Iteration[50/108] Loss: 3.223, Acc: 0.242, Base Lr: 5.45e-05
+2025-12-11 02:48:29,516 MambaPro.train INFO: Epoch[2] Iteration[60/108] Loss: 3.196, Acc: 0.239, Base Lr: 5.45e-05
+2025-12-11 02:48:31,383 MambaPro.train INFO: Epoch[2] Iteration[70/108] Loss: 3.129, Acc: 0.233, Base Lr: 5.45e-05
+2025-12-11 02:48:33,237 MambaPro.train INFO: Epoch[2] Iteration[80/108] Loss: 3.106, Acc: 0.240, Base Lr: 5.45e-05
+2025-12-11 02:48:35,068 MambaPro.train INFO: Epoch[2] Iteration[90/108] Loss: 3.081, Acc: 0.250, Base Lr: 5.45e-05
+2025-12-11 02:48:36,894 MambaPro.train INFO: Epoch[2] Iteration[100/108] Loss: 3.075, Acc: 0.247, Base Lr: 5.45e-05
+🔥 MoE损失: 平衡=0.1901, 稀疏性=0.7500, 多样性=5.3333 ✅ 已激活
+   📊 专家权重分布: [0.4965, 0.0000, 0.5035], 权重变化标准差: 0.000448, 有梯度: True
+2025-12-11 02:48:38,349 MambaPro.train INFO: Epoch 2 done. Time per batch: 0.190[s] Speed: 168.2[samples/s]
+🔥 MoE损失: 平衡=0.1901, 稀疏性=0.7500, 多样性=5.3333 ✅ 已激活
+   📊 专家权重分布: [0.4965, 0.0000, 0.5035], 权重变化标准差: 0.000267, 有梯度: True
+📋 MoE Loss 详细日志 (Epoch 3, Iter 0):
+   - 平衡损失 (L_Bal): 0.190072
+   - 稀疏性损失 (L_Spar): 0.749964
+   - 多样性损失 (L_Div): 5.333333 ✅ 已激活
+   - 总损失 (L_Total): 0.005898
+   - 损失权重: 平衡=0.0010, 稀疏性=0.0005, 多样性=0.0010
+2025-12-11 02:48:40,470 MambaPro.train INFO: Epoch[3] Iteration[10/108] Loss: 2.811, Acc: 0.503, Base Lr: 7.92e-05
+2025-12-11 02:48:42,300 MambaPro.train INFO: Epoch[3] Iteration[20/108] Loss: 2.681, Acc: 0.480, Base Lr: 7.92e-05
+2025-12-11 02:48:44,162 MambaPro.train INFO: Epoch[3] Iteration[30/108] Loss: 2.611, Acc: 0.457, Base Lr: 7.92e-05
+2025-12-11 02:48:46,023 MambaPro.train INFO: Epoch[3] Iteration[40/108] Loss: 2.700, Acc: 0.436, Base Lr: 7.92e-05
+2025-12-11 02:48:47,866 MambaPro.train INFO: Epoch[3] Iteration[50/108] Loss: 2.666, Acc: 0.445, Base Lr: 7.92e-05
+2025-12-11 02:48:49,775 MambaPro.train INFO: Epoch[3] Iteration[60/108] Loss: 2.650, Acc: 0.418, Base Lr: 7.92e-05
+2025-12-11 02:48:51,702 MambaPro.train INFO: Epoch[3] Iteration[70/108] Loss: 2.641, Acc: 0.395, Base Lr: 7.92e-05
+2025-12-11 02:48:53,573 MambaPro.train INFO: Epoch[3] Iteration[80/108] Loss: 2.623, Acc: 0.386, Base Lr: 7.92e-05
+2025-12-11 02:48:55,516 MambaPro.train INFO: Epoch[3] Iteration[90/108] Loss: 2.605, Acc: 0.385, Base Lr: 7.92e-05
+2025-12-11 02:48:57,455 MambaPro.train INFO: Epoch[3] Iteration[100/108] Loss: 2.581, Acc: 0.377, Base Lr: 7.92e-05
+🔥 MoE损失: 平衡=0.1900, 稀疏性=0.7500, 多样性=5.3333 ✅ 已激活
+   📊 专家权重分布: [0.4991, 0.0000, 0.5009], 权重变化标准差: 0.000419, 有梯度: True
+2025-12-11 02:48:58,835 MambaPro.train INFO: Epoch 3 done. Time per batch: 0.191[s] Speed: 167.1[samples/s]
+🔥 MoE损失: 平衡=0.1900, 稀疏性=0.7500, 多样性=5.3333 ✅ 已激活
+   📊 专家权重分布: [0.4996, 0.0000, 0.5004], 权重变化标准差: 0.000300, 有梯度: True
+📋 MoE Loss 详细日志 (Epoch 4, Iter 0):
+   - 平衡损失 (L_Bal): 0.190001
+   - 稀疏性损失 (L_Spar): 0.749999
+   - 多样性损失 (L_Div): 5.333333 ✅ 已激活
+   - 总损失 (L_Total): 0.005898
+   - 损失权重: 平衡=0.0010, 稀疏性=0.0005, 多样性=0.0010
+2025-12-11 02:49:00,952 MambaPro.train INFO: Epoch[4] Iteration[10/108] Loss: 2.048, Acc: 0.584, Base Lr: 1.04e-04
+2025-12-11 02:49:02,771 MambaPro.train INFO: Epoch[4] Iteration[20/108] Loss: 2.018, Acc: 0.628, Base Lr: 1.04e-04
+2025-12-11 02:49:04,628 MambaPro.train INFO: Epoch[4] Iteration[30/108] Loss: 2.088, Acc: 0.533, Base Lr: 1.04e-04
+2025-12-11 02:49:06,453 MambaPro.train INFO: Epoch[4] Iteration[40/108] Loss: 2.086, Acc: 0.538, Base Lr: 1.04e-04
+2025-12-11 02:49:08,328 MambaPro.train INFO: Epoch[4] Iteration[50/108] Loss: 2.260, Acc: 0.516, Base Lr: 1.04e-04
+2025-12-11 02:49:10,201 MambaPro.train INFO: Epoch[4] Iteration[60/108] Loss: 2.328, Acc: 0.501, Base Lr: 1.04e-04
+2025-12-11 02:49:12,078 MambaPro.train INFO: Epoch[4] Iteration[70/108] Loss: 2.317, Acc: 0.487, Base Lr: 1.04e-04
+2025-12-11 02:49:13,970 MambaPro.train INFO: Epoch[4] Iteration[80/108] Loss: 2.293, Acc: 0.475, Base Lr: 1.04e-04
+2025-12-11 02:49:15,809 MambaPro.train INFO: Epoch[4] Iteration[90/108] Loss: 2.299, Acc: 0.481, Base Lr: 1.04e-04
+2025-12-11 02:49:17,638 MambaPro.train INFO: Epoch[4] Iteration[100/108] Loss: 2.286, Acc: 0.484, Base Lr: 1.04e-04
+🔥 MoE损失: 平衡=0.1900, 稀疏性=0.7500, 多样性=5.3333 ✅ 已激活
+   📊 专家权重分布: [0.5009, 0.0000, 0.4991], 权重变化标准差: 0.000348, 有梯度: True
+2025-12-11 02:49:18,956 MambaPro.train INFO: Epoch 4 done. Time per batch: 0.188[s] Speed: 170.2[samples/s]
+🔥 MoE损失: 平衡=0.1900, 稀疏性=0.7500, 多样性=5.3333 ✅ 已激活
+   📊 专家权重分布: [0.5011, 0.0000, 0.4989], 权重变化标准差: 0.000324, 有梯度: True
+📋 MoE Loss 详细日志 (Epoch 5, Iter 0):
+   - 平衡损失 (L_Bal): 0.190007
+   - 稀疏性损失 (L_Spar): 0.749996
+   - 多样性损失 (L_Div): 5.333333 ✅ 已激活
+   - 总损失 (L_Total): 0.005898
+   - 损失权重: 平衡=0.0010, 稀疏性=0.0005, 多样性=0.0010
+2025-12-11 02:49:21,152 MambaPro.train INFO: Epoch[5] Iteration[10/108] Loss: 1.991, Acc: 0.541, Base Lr: 1.29e-04
+2025-12-11 02:49:23,025 MambaPro.train INFO: Epoch[5] Iteration[20/108] Loss: 1.955, Acc: 0.605, Base Lr: 1.29e-04
+2025-12-11 02:49:24,886 MambaPro.train INFO: Epoch[5] Iteration[30/108] Loss: 1.954, Acc: 0.622, Base Lr: 1.29e-04
+2025-12-11 02:49:26,798 MambaPro.train INFO: Epoch[5] Iteration[40/108] Loss: 1.889, Acc: 0.634, Base Lr: 1.29e-04
+2025-12-11 02:49:28,639 MambaPro.train INFO: Epoch[5] Iteration[50/108] Loss: 1.894, Acc: 0.597, Base Lr: 1.29e-04
+2025-12-11 02:49:30,520 MambaPro.train INFO: Epoch[5] Iteration[60/108] Loss: 1.900, Acc: 0.598, Base Lr: 1.29e-04
+2025-12-11 02:49:32,390 MambaPro.train INFO: Epoch[5] Iteration[70/108] Loss: 1.894, Acc: 0.596, Base Lr: 1.29e-04
+2025-12-11 02:49:34,269 MambaPro.train INFO: Epoch[5] Iteration[80/108] Loss: 1.886, Acc: 0.581, Base Lr: 1.29e-04
+2025-12-11 02:49:36,119 MambaPro.train INFO: Epoch[5] Iteration[90/108] Loss: 1.884, Acc: 0.578, Base Lr: 1.29e-04
+2025-12-11 02:49:38,085 MambaPro.train INFO: Epoch[5] Iteration[100/108] Loss: 1.898, Acc: 0.556, Base Lr: 1.29e-04
+🔥 MoE损失: 平衡=0.1900, 稀疏性=0.7500, 多样性=5.3333 ✅ 已激活
+   📊 专家权重分布: [0.5026, 0.0000, 0.4974], 权重变化标准差: 0.000342, 有梯度: True
+2025-12-11 02:49:39,444 MambaPro.train INFO: Epoch 5 done. Time per batch: 0.191[s] Speed: 167.1[samples/s]
+The test feature is normalized
+=> Computing DistMat with euclidean_distance
+2025-12-11 02:49:47,035 MambaPro.train INFO: Validation Results - Epoch: 5
+2025-12-11 02:49:47,035 MambaPro.train INFO: Current mAP: 42.1%
+2025-12-11 02:49:47,035 MambaPro.train INFO: CMC curve, Rank-1  :44.0%
+2025-12-11 02:49:47,035 MambaPro.train INFO: CMC curve, Rank-5  :59.6%
+2025-12-11 02:49:47,035 MambaPro.train INFO: CMC curve, Rank-10 :67.3%
+2025-12-11 02:49:47,036 MambaPro.train INFO: 🎯 New Best! Saving model...
+2025-12-11 02:49:47,431 MambaPro.train INFO: 🔍 调试：找到 1 个Current mAP匹配: ['42.1']
+2025-12-11 02:49:47,431 MambaPro.train INFO: 📊 Current mAP列表: ['42.1']
+2025-12-11 02:49:47,431 MambaPro.train INFO: 🔍 调试：找到 1 个Best mAP匹配: ['42.1']
+2025-12-11 02:49:47,431 MambaPro.train INFO: 🏆 Best mAP列表: ['42.1']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🔍 调试：找到 1 个Current Rank-1匹配: ['44.0']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 📊 Current Rank-1列表: ['44.0']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🔍 调试：找到 1 个Best Rank-1匹配: ['44.0']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🏆 Best Rank-1列表: ['44.0']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🔍 调试：找到 1 个Current Rank-5匹配: ['59.6']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 📊 Current Rank-5列表: ['59.6']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🔍 调试：找到 1 个Best Rank-5匹配: ['59.6']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🏆 Best Rank-5列表: ['59.6']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🔍 调试：找到 1 个Current Rank-10匹配: ['67.3']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 📊 Current Rank-10列表: ['67.3']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🔍 调试：找到 1 个Best Rank-10匹配: ['67.3']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🏆 Best Rank-10列表: ['67.3']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🔍 调试：找到 1 个专家权重分布匹配: ['[0.5025, 0.0000, 0.4975]']
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🎯 专家权重分布列表: ['[0.5025, 0.0000, 0.4975]']
+2025-12-11 02:49:47,432 MambaPro.train INFO: ============================================================
+2025-12-11 02:49:47,432 MambaPro.train INFO: 📊 Current Results Summary (Epoch 5):
+2025-12-11 02:49:47,432 MambaPro.train INFO:    Current mAP: 42.1%
+2025-12-11 02:49:47,432 MambaPro.train INFO:    Current Rank-1: 44.0%
+2025-12-11 02:49:47,432 MambaPro.train INFO:    Current Rank-5: 59.6%
+2025-12-11 02:49:47,432 MambaPro.train INFO:    Current Rank-10: 67.3%
+2025-12-11 02:49:47,432 MambaPro.train INFO:    🎯 Current Expert Weights: [0.5025, 0.0000, 0.4975]
+2025-12-11 02:49:47,432 MambaPro.train INFO: 📋 MoE Loss 详细日志 (Epoch 5, Iter 0):
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 平衡损失 (L_Bal): 0.190038
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 稀疏性损失 (L_Spar): 0.749981
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 多样性损失 (L_Div): 1.333265 ✅ 已激活
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 总损失 (L_Total): 0.001898
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 损失权重: 平衡=0.0010, 稀疏性=0.0005, 多样性=0.0010
+2025-12-11 02:49:47,432 MambaPro.train INFO: ============================================================
+2025-12-11 02:49:47,432 MambaPro.train INFO: ============================================================
+2025-12-11 02:49:47,432 MambaPro.train INFO: 🏆 Best Results Summary (Epoch 5):
+2025-12-11 02:49:47,432 MambaPro.train INFO:    Best mAP: 42.1%
+2025-12-11 02:49:47,432 MambaPro.train INFO:    Best Rank-1: 44.0%
+2025-12-11 02:49:47,432 MambaPro.train INFO:    Best Rank-5: 59.6%
+2025-12-11 02:49:47,432 MambaPro.train INFO:    Best Rank-10: 67.3%
+2025-12-11 02:49:47,432 MambaPro.train INFO:    🎯 Best Expert Weights: [0.5025, 0.0000, 0.4975]
+2025-12-11 02:49:47,432 MambaPro.train INFO:    📊 Expert Weight Percentages: [50.3%, 0.0%, 49.7%]
+2025-12-11 02:49:47,432 MambaPro.train INFO: 📋 MoE Loss 详细日志 (Epoch 5, Iter 0):
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 平衡损失 (L_Bal): 0.190038
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 稀疏性损失 (L_Spar): 0.749981
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 多样性损失 (L_Div): 1.333265 ✅ 已激活
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 总损失 (L_Total): 0.001898
+2025-12-11 02:49:47,432 MambaPro.train INFO:    - 损失权重: 平衡=0.0010, 稀疏性=0.0005, 多样性=0.0010
+2025-12-11 02:49:47,432 MambaPro.train INFO: ============================================================
+🔥 MoE损失: 平衡=0.1901, 稀疏性=0.7500, 多样性=5.3333 ✅ 已激活
+   📊 专家权重分布: [0.5031, 0.0000, 0.4969], 权重变化标准差: 0.000409, 有梯度: True
+📋 MoE Loss 详细日志 (Epoch 6, Iter 0):
+   - 平衡损失 (L_Bal): 0.190057
+   - 稀疏性损失 (L_Spar): 0.749970
+   - 多样性损失 (L_Div): 5.333333 ✅ 已激活
+   - 总损失 (L_Total): 0.005898
+   - 损失权重: 平衡=0.0010, 稀疏性=0.0005, 多样性=0.0010
+2025-12-11 02:49:49,749 MambaPro.train INFO: Epoch[6] Iteration[10/108] Loss: 1.744, Acc: 0.681, Base Lr: 1.53e-04
+2025-12-11 02:49:51,629 MambaPro.train INFO: Epoch[6] Iteration[20/108] Loss: 1.898, Acc: 0.680, Base Lr: 1.53e-04
+2025-12-11 02:49:53,557 MambaPro.train INFO: Epoch[6] Iteration[30/108] Loss: 1.858, Acc: 0.688, Base Lr: 1.53e-04
+2025-12-11 02:49:55,396 MambaPro.train INFO: Epoch[6] Iteration[40/108] Loss: 1.834, Acc: 0.681, Base Lr: 1.53e-04
+2025-12-11 02:49:57,284 MambaPro.train INFO: Epoch[6] Iteration[50/108] Loss: 1.843, Acc: 0.674, Base Lr: 1.53e-04
