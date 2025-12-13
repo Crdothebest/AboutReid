@@ -22,7 +22,8 @@ while true; do
     CMD="python train_net.py \
       --use_multi_scale \
       --config_file ${CFG} \
-      --opts OUTPUT_DIR ${OUT_DIR} MODEL.CLIP_MULTI_SCALE_SCALES \"${SCALES}\""
+      OUTPUT_DIR ${OUT_DIR} \
+      --opts MODEL.CLIP_MULTI_SCALE_SCALES \"${SCALES}\""
     # If you want MoE scales to match, append:
     #   --opts MODEL.CLIP_MULTI_SCALE_SCALES \"${SCALES}\" MODEL.MOE_SCALES \"${SCALES}\"
 
