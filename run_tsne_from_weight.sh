@@ -34,13 +34,45 @@ if [[ -z "${WEIGHT_PATH}" ]]; then
   exit 1
 fi
 
+# 调试信息：显示当前工作目录和路径信息
+echo "🔍 调试信息："
+echo "   当前工作目录: $(pwd)"
+echo "   传入的权重路径: ${WEIGHT_PATH}"
+echo "   配置文件路径: ${CONFIG_PATH}"
+
+# 尝试规范化路径（如果系统支持 realpath）
+if command -v realpath &> /dev/null; then
+  WEIGHT_PATH_NORM=$(realpath "${WEIGHT_PATH}" 2>/dev/null || echo "${WEIGHT_PATH}")
+  CONFIG_PATH_NORM=$(realpath "${CONFIG_PATH}" 2>/dev/null || echo "${CONFIG_PATH}")
+  echo "   规范化后的权重路径: ${WEIGHT_PATH_NORM}"
+  echo "   规范化后的配置路径: ${CONFIG_PATH_NORM}"
+else
+  WEIGHT_PATH_NORM="${WEIGHT_PATH}"
+  CONFIG_PATH_NORM="${CONFIG_PATH}"
+fi
+
+# 检查配置文件
 if [[ ! -f "${CONFIG_PATH}" ]]; then
   echo "❌ 配置文件不存在: ${CONFIG_PATH}"
+  echo "   尝试的绝对路径: $(cd "$(dirname "${CONFIG_PATH}")" 2>/dev/null && pwd)/$(basename "${CONFIG_PATH}")"
   exit 1
 fi
 
+# 检查权重文件
 if [[ ! -f "${WEIGHT_PATH}" ]]; then
   echo "❌ 权重文件不存在: ${WEIGHT_PATH}"
+  echo "   尝试的绝对路径: $(cd "$(dirname "${WEIGHT_PATH}")" 2>/dev/null && pwd)/$(basename "${WEIGHT_PATH}")"
+  echo "   当前目录下的文件列表:"
+  if [[ -d "$(dirname "${WEIGHT_PATH}")" ]]; then
+    ls -la "$(dirname "${WEIGHT_PATH}")" | head -20 || true
+  else
+    echo "   目录不存在: $(dirname "${WEIGHT_PATH}")"
+  fi
+  echo ""
+  echo "💡 提示："
+  echo "   1. 请确认文件路径是否正确"
+  echo "   2. 如果使用相对路径，请确认当前工作目录是否正确"
+  echo "   3. 可以尝试使用绝对路径"
   exit 1
 fi
 
