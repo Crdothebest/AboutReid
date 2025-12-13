@@ -23,9 +23,9 @@ while true; do
       --use_multi_scale \
       --config_file ${CFG} \
       OUTPUT_DIR ${OUT_DIR} \
-      --opts MODEL.CLIP_MULTI_SCALE_SCALES \"${SCALES}\""
-    # If you want MoE scales to match, append:
-    #   --opts MODEL.CLIP_MULTI_SCALE_SCALES \"${SCALES}\" MODEL.MOE_SCALES \"${SCALES}\"
+      MODEL.CLIP_MULTI_SCALE_SCALES \"${SCALES}\""
+    # 如果希望 MoE 的尺度与 CLIP 多尺度一致，追加：
+    #   MODEL.CLIP_MULTI_SCALE_SCALES \"${SCALES}\" MODEL.MOE_SCALES \"${SCALES}\"
 
     echo "========================================"
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] window=${SCALES} start..."
