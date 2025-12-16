@@ -184,3 +184,12 @@
 2025-12-16 22:58:22,469 MambaPro.train INFO: start training
 2025-12-16 22:58:49,394 MambaPro.train INFO: Epoch 1 done. Time per batch: 0.251[s] Speed: 127.3[samples/s]
 2025-12-16 22:59:16,441 MambaPro.train INFO: Epoch 2 done. Time per batch: 0.253[s] Speed: 126.6[samples/s]
+2025-12-16 22:59:44,401 MambaPro.train INFO: Epoch 3 done. Time per batch: 0.261[s] Speed: 122.5[samples/s]
+2025-12-16 23:00:11,631 MambaPro.train INFO: Epoch 4 done. Time per batch: 0.254[s] Speed: 125.7[samples/s]
+2025-12-16 23:00:39,715 MambaPro.train INFO: Epoch 5 done. Time per batch: 0.262[s] Speed: 121.9[samples/s]
+2025-12-16 23:00:48,781 MambaPro.train INFO: Validation Results - Epoch: 5
+2025-12-16 23:00:48,782 MambaPro.train INFO: Current mAP: 54.4%
+2025-12-16 23:00:48,782 MambaPro.train INFO: CMC curve, Rank-1  :59.3%
+2025-12-16 23:00:48,782 MambaPro.train INFO: CMC curve, Rank-5  :71.3%
+2025-12-16 23:00:48,782 MambaPro.train INFO: CMC curve, Rank-10 :76.2%
+2025-12-16 23:00:48,783 MambaPro.train INFO: 🎯 New Best! Saving model...
