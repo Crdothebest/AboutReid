@@ -1,5 +1,5 @@
 MODEL:
-  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
+  PRETRAIN_PATH_T: 'AboutReid/pths/ViT-B-16.pt'
   TRANSFORMER_TYPE: 'ViT-B-16'
   STRIDE_SIZE: [ 16, 16 ]
   SIE_CAMERA: True
@@ -11,7 +11,6 @@ MODEL:
   ADAPTER: True
   MAMBA: True
   FROZEN: True
-  FLOPS_TEST : False
 
 INPUT:
   SIZE_TRAIN: [ 128, 256 ]
@@ -22,33 +21,29 @@ INPUT:
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
-  NUM_INSTANCE: 16
+  NUM_INSTANCE: 4
   NUM_WORKERS: 8 # or 14
 
 DATASETS:
-  NAMES: ('RGBNT100')
-  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data'
+  NAMES: ('MSVR310')
+  ROOT_DIR: '..'
 
 SOLVER:
- # BASE_LR: 0.00035
- # 根据 jzb 的经验而修改的学习率
-  BASE_LR: 0.000175
-  WARMUP_ITERS: 5
-  MAX_EPOCHS: 30
+  BASE_LR: 0.00035
+  WARMUP_ITERS: 10
+  MAX_EPOCHS: 60
   OPTIMIZER_NAME: 'Adam'
+  STEPS: [ 30, 50 ]
   GAMMA: 0.1
-  IMS_PER_BATCH: 64   ##这里是需要成64的
+  IMS_PER_BATCH: 64
 
 TEST:
   IMS_PER_BATCH: 64
   RE_RANKING: 'no'
-  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth'
+  WEIGHT: ''
   NECK_FEAT: 'before'
   FEAT_NORM: 'yes'
   MISS: "nothing"
 
-OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/rgbnt100_moe_experiment' # RGBNT100 MoE实验输出目录
-
-
-
+OUTPUT_DIR: 'outputs'
 
