@@ -1,5 +1,6 @@
 absl-py==2.1.0
-causal-conv1d==1.1.1
+# 最好是去看CSDN的教材来下载，先下载 causal-conv1d再下载mamba-ssm
+causal-conv1d==1.1.1   
 certifi==2022.12.7
 cffi==1.16.0
 chardet==5.2.0
@@ -71,12 +72,12 @@ tikzplotlib==0.10.1
 timm==0.4.12
 tokenizers==0.15.2
 tomli==2.0.1
-# torch==2.1.1
-# torchaudio==2.1.1
-# torchvision==0.16.1
-torch==2.3.0
-torchaudio==2.3.0
-torchvision==0.18.0
+torch==2.1.1
+torchaudio==2.1.1
+torchvision==0.16.1
+# torch==2.3.0
+# torchaudio==2.3.0
+# torchvision==0.18.0
 tornado==6.4
 tqdm==4.66.2
 transformers==4.38.2
