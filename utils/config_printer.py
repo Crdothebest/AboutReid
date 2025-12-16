@@ -33,13 +33,27 @@ def print_final_config(cfg):
     multi_scale_status = "✅ ENABLED" if cfg.MODEL.USE_CLIP_MULTI_SCALE else "❌ DISABLED"
     print(f"  - 多尺度滑动窗口 MultiScaleWindow (MODEL.USE_CLIP_MULTI_SCALE) = {multi_scale_status}")
     if cfg.MODEL.USE_CLIP_MULTI_SCALE:
-        print(f"    * 滑动窗口尺度 WindowScales (MODEL.CLIP_MULTI_SCALE_SCALES) = {cfg.MODEL.CLIP_MULTI_SCALE_SCALES}")
+        scales = cfg.MODEL.CLIP_MULTI_SCALE_SCALES
+        # 将尺度列表转换为友好的显示格式，例如 [4] -> "4x4窗口", [4,8] -> "4x4+8x8窗口"
+        if isinstance(scales, (list, tuple)):
+            scale_labels = [f"{s}x{s}" for s in scales]
+            scale_display = "+".join(scale_labels) + "窗口"
+        else:
+            scale_display = str(scales)
+        print(f"    * 滑动窗口尺度 WindowScales (MODEL.CLIP_MULTI_SCALE_SCALES) = {scales} ({scale_display})")
     
     moe_status = "✅ ENABLED" if cfg.MODEL.USE_MULTI_SCALE_MOE else "❌ DISABLED"
     print(f"  - MoE特征融合 MultiScaleMoE (MODEL.USE_MULTI_SCALE_MOE) = {moe_status}")
     if cfg.MODEL.USE_MULTI_SCALE_MOE:
-        print(f"    * MoE尺度 MoEScales (MODEL.MOE_SCALES) = {cfg.MODEL.MOE_SCALES}")
-        print(f"    * 专家数量 NumExperts (MODEL.MOE_NUM_EXPERTS) = {cfg.MODEL.MOE_NUM_EXPERTS}")
+        moe_scales = cfg.MODEL.MOE_SCALES
+        # 将尺度列表转换为友好的显示格式
+        if isinstance(moe_scales, (list, tuple)):
+            moe_scale_labels = [f"{s}x{s}" for s in moe_scales]
+            moe_scale_display = "+".join(moe_scale_labels) + "窗口"
+        else:
+            moe_scale_display = str(moe_scales)
+        print(f"    * MoE尺度 MoEScales (MODEL.MOE_SCALES) = {moe_scales} ({moe_scale_display})")
+        print(f"    * 专家数量 NumExperts (MODEL.MOE_NUM_EXPERTS) = {cfg.MODEL.MOE_NUM_EXPERTS} (自动匹配窗口数量)")
         print(f"    * 专家隐藏层维度 ExpertHiddenDim (MODEL.MOE_EXPERT_HIDDEN_DIM) = {cfg.MODEL.MOE_EXPERT_HIDDEN_DIM}")
         print(f"    * 门控网络温度 GatingTemperature (MODEL.MOE_TEMPERATURE) = {cfg.MODEL.MOE_TEMPERATURE}")
         

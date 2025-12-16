@@ -14,6 +14,23 @@ class RGBNT201(BaseImageDataset):
         # 处理根目录路径，支持 ~ 用户目录
         self.root = osp.abspath(osp.expanduser(root))
         self.dataset_dir = osp.join(self.root, self.dataset_dir)
+        
+        # 如果默认路径不存在，尝试查找常见的数据路径
+        if not osp.exists(self.dataset_dir) and root:
+            # 尝试在常见位置查找数据集
+            possible_roots = [
+                '/autodl-fs/data',
+                '/root/autodl-fs',
+                osp.join(osp.expanduser('~'), 'data'),
+            ]
+            for possible_root in possible_roots:
+                possible_dir = osp.join(possible_root, self.dataset_dir.split('/')[-1])
+                if osp.exists(possible_dir):
+                    if verbose:
+                        print(f"Warning: Using alternative path: {possible_dir}")
+                    self.root = possible_root
+                    self.dataset_dir = possible_dir
+                    break
 
         # 兼容旧的数据集目录结构
         self.data_dir = self.dataset_dir
@@ -53,8 +70,19 @@ class RGBNT201(BaseImageDataset):
 
     def _check_before_run(self):
         """检查所有文件夹是否存在"""
+        # 提供更详细的错误信息，包括可能的替代路径
         if not osp.exists(self.dataset_dir):
-            raise RuntimeError("'{}' is not available".format(self.dataset_dir))
+            # 尝试查找常见的数据路径
+            possible_paths = [
+                osp.join('/autodl-fs/data', self.dataset_dir.split('/')[-1]),
+                osp.join('/root/autodl-fs', self.dataset_dir.split('/')[-1]),
+                osp.join(osp.expanduser('~'), 'data', self.dataset_dir.split('/')[-1]),
+            ]
+            error_msg = "'{}' is not available".format(self.dataset_dir)
+            error_msg += "\nTried paths:"
+            for path in possible_paths:
+                error_msg += "\n  - {} ({})".format(path, "exists" if osp.exists(path) else "not found")
+            raise RuntimeError(error_msg)
         if not osp.exists(self.train_dir):
             raise RuntimeError("'{}' is not available".format(self.train_dir))
         if not osp.exists(self.query_dir):

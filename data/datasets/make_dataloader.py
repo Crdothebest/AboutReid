@@ -209,7 +209,17 @@ def make_dataloader(cfg):
 
     num_workers = cfg.DATALOADER.NUM_WORKERS
 
-    dataset = __factory[cfg.DATASETS.NAMES](root=cfg.DATASETS.ROOT_DIR)
+    # Handle both tuple and string formats for DATASETS.NAMES
+    dataset_name = cfg.DATASETS.NAMES
+    if isinstance(dataset_name, tuple):
+        dataset_name = dataset_name[0]
+    
+    # Handle both tuple and string formats for DATASETS.ROOT_DIR
+    root_dir = cfg.DATASETS.ROOT_DIR
+    if isinstance(root_dir, tuple):
+        root_dir = root_dir[0]
+    
+    dataset = __factory[dataset_name](root=root_dir)
 
     train_set = ImageDataset(dataset.train, train_transforms)
     train_set_normal = ImageDataset(dataset.train, val_transforms)

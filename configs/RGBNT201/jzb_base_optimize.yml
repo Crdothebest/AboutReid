@@ -1,7 +1,7 @@
 # 文件说明：该部分是复制粘贴的 jzb 设置的对论文复现的参数；也就是我们在后期需要用到的 baseline
 
 MODEL:
-  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
+  PRETRAIN_PATH_T: 'AboutReid/pths/ViT-B-16.pt'
   TRANSFORMER_TYPE: 'ViT-B-16'
   STRIDE_SIZE: [ 16, 16 ]
   SIE_CAMERA: True

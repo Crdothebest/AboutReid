@@ -1,7 +1,7 @@
 # best_pth 路径：/home/zubuntu/workspace/yzy/MambaPro/mybest_model/experiment_20251014_184036/models/MambaProbest.pth
 
 MODEL:
-  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt'
+  PRETRAIN_PATH_T: 'AboutReid/pths/ViT-B-16.pt'
   TRANSFORMER_TYPE: 'ViT-B-16'
   STRIDE_SIZE: [ 16, 16 ]
   SIE_CAMERA: True

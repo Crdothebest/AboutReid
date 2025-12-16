@@ -133,8 +133,16 @@ def _log_validation_moe(logger, moe_loss_dict, expert_weights):
             f"(权重: 平衡={bal_weight}, 稀疏性={spar_weight}, 多样性={div_weight})"
         )
     if expert_weights:
+        # 🔥 动态输出专家权重分布，适应任意数量的专家
+        # expert_weights 应该是列表（从 avg_weights.tolist() 转换而来）
+        if isinstance(expert_weights, (list, tuple)):
+            num_experts = len(expert_weights)
+        elif hasattr(expert_weights, 'shape'):
+            num_experts = expert_weights.shape[0] if len(expert_weights.shape) > 0 else 1
+        else:
+            num_experts = len(expert_weights) if hasattr(expert_weights, '__len__') else 1
         weights_line = " , ".join(_format_metric_values(expert_weights, precision=2))
-        logger.info(f"   📊 专家权重分布(Val): [{weights_line}]")
+        logger.info(f"   📊 专家权重分布(Val, {num_experts}个专家): [{weights_line}]")
 
 def do_train(cfg,
              model,
@@ -365,7 +373,10 @@ def do_train(cfg,
                 print(f"🔥 MoE损失: 平衡={moe_loss_dict['moe_balance_loss']:.4f}, "
                       f"稀疏性={moe_loss_dict['moe_sparsity_loss']:.4f}, "
                       f"多样性={moe_loss_dict['moe_diversity_loss']:.4f} {diversity_status}{weight_info}")
-                print(f"   📊 专家权重分布: [{avg_weights[0]:.2f} , {avg_weights[1]:.2f} , {avg_weights[2]:.2f}], "
+                # 🔥 动态输出专家权重分布，适应任意数量的专家
+                num_experts = len(avg_weights)
+                weights_str = " , ".join([f"{w:.2f}" for w in avg_weights])
+                print(f"   📊 专家权重分布({num_experts}个专家): [{weights_str}], "
                       f"权重变化标准差: {weight_std:.6f}, 有梯度: {has_grad}")
                 
                 # 🔥 新增：详细MoE Loss日志，检查多样性损失是否成功激活
@@ -559,7 +570,10 @@ def do_train(cfg,
                     validation_history['best_Rank5'].append(best_index['Rank-5'] * 100)
                     validation_history['current_Rank10'].append(cmc[9] * 100)
                     validation_history['best_Rank10'].append(best_index['Rank-10'] * 100)
-                    validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else [0.0, 0.0, 0.0])  # 默认值
+                    # 🔥 动态获取专家数量，用于默认值
+                    num_experts = len(current_expert_weights) if current_expert_weights else getattr(cfg.MODEL, 'MOE_NUM_EXPERTS', 3)
+                    default_weights = [0.0] * num_experts
+                    validation_history['expert_weights'].append(current_expert_weights if current_expert_weights else default_weights)
                     
                     _log_metric_history(
                         logger,
@@ -716,8 +730,10 @@ def do_train(cfg,
     logger.info("   Best Rank-10: {:.1%}".format(best_index['Rank-10']))
     if best_index['best_expert_weights'] is not None:
         weights = best_index['best_expert_weights']
-        logger.info("   🎯 Best Expert Weights: [{:.2f} , {:.2f} , {:.2f}]".format(
-            weights[0], weights[1], weights[2]))
+        # 🔥 动态输出最佳专家权重，适应任意数量的专家
+        num_experts = len(weights)
+        weights_str = " , ".join([f"{w:.2f}" for w in weights])
+        logger.info(f"   🎯 Best Expert Weights({num_experts}个专家): [{weights_str}]")
     logger.info("=" * 60)
     return best_index
 

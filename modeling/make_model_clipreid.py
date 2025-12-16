@@ -185,16 +185,80 @@ def load_clip_to_cpu(cfg, backbone_name, h_resolution, w_resolution, vision_stri
         h_resolution, w_resolution: 输入图像的分辨率
         vision_stride_size: 图像编码器的步幅大小
     """
-    # 从配置文件读取预训练模型路径，如果没有配置则使用默认路径
-    model_path = getattr(cfg.MODEL, 'PRETRAIN_PATH_T', '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt')
+    import os.path as osp
+    
+    # 从配置文件读取预训练模型路径
+    model_path = getattr(cfg.MODEL, 'PRETRAIN_PATH_T', '')
+    
+    # 获取项目根目录（AboutReid目录）
+    # 从当前文件位置向上查找：modeling/make_model_clipreid.py -> modeling -> AboutReid
+    current_file = osp.abspath(__file__)
+    project_root = osp.dirname(osp.dirname(current_file))  # AboutReid目录
+    
+    # 如果路径为空或不存在，尝试自动查找
+    if not model_path or not osp.exists(model_path):
+        # 尝试常见路径
+        possible_paths = [
+            osp.join(project_root, 'pths', 'ViT-B-16.pt'),  # AboutReid/pths/ViT-B-16.pt
+            osp.join(project_root, 'AboutReid', 'pths', 'ViT-B-16.pt'),  # 兼容旧路径格式
+            'pths/ViT-B-16.pt',
+            '../pths/ViT-B-16.pt',
+            '/root/autodl-fs/AboutReid/pths/ViT-B-16.pt',
+            '/autodl-fs/data/AboutReid/pths/ViT-B-16.pt',
+        ]
+        
+        # 如果配置了路径但不存在，也尝试相对路径解析
+        if model_path:
+            # 处理相对路径：如果以 'AboutReid/' 开头，去掉它
+            if model_path.startswith('AboutReid/'):
+                model_path = model_path[10:]  # 去掉 'AboutReid/' 前缀
+            
+            # 尝试将相对路径转换为绝对路径
+            possible_paths.insert(0, osp.join(project_root, model_path))
+            possible_paths.insert(1, osp.abspath(osp.expanduser(model_path)))
+            # 如果原始路径是绝对路径，也保留
+            if osp.isabs(model_path):
+                possible_paths.insert(0, model_path)
+        
+        # 查找存在的路径
+        found_path = None
+        for path in possible_paths:
+            abs_path = osp.abspath(osp.expanduser(path))
+            if osp.exists(abs_path):
+                found_path = abs_path
+                if model_path and model_path != found_path:
+                    import warnings
+                    warnings.warn(f"Pretrained model path '{model_path}' not found, using '{found_path}' instead.")
+                break
+        
+        if found_path:
+            model_path = found_path
+        elif not model_path:
+            # 如果完全没有配置，使用默认路径
+            model_path = possible_paths[0]  # 使用相对路径作为默认值
+        else:
+            # 如果配置了路径但找不到，抛出错误
+            raise FileNotFoundError(
+                f"Pretrained model not found at '{model_path}'. "
+                f"Tried paths: {possible_paths[:3]}"
+            )
+    else:
+        # 如果路径存在，确保是绝对路径
+        model_path = osp.abspath(osp.expanduser(model_path))
 
     try:
         # 优先尝试加载 JIT 编译好的 TorchScript 模型
         model = torch.jit.load(model_path, map_location="cpu").eval()
         state_dict = None
-    except RuntimeError: 
+    except (RuntimeError, ValueError) as e:
         # 如果 JIT 加载失败，就直接加载普通的 state_dict 参数
-        state_dict = torch.load(model_path, map_location="cpu")
+        try:
+            state_dict = torch.load(model_path, map_location="cpu")
+        except Exception as load_error:
+            raise FileNotFoundError(
+                f"Failed to load pretrained model from '{model_path}'. "
+                f"JIT load error: {e}, State dict load error: {load_error}"
+            )
 
     # 使用 clip.build_model() 构建 CLIP 模型
     # 如果 state_dict 存在，加载权重；否则用 JIT 模型的权重

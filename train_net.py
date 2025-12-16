@@ -71,7 +71,8 @@ def log_run_parameters(logger, args, cfg):
 
 def rename_output_directory(output_dir, best_map):
     """
-    将输出目录重命名为 "<best_mAP>mAP_<MMDD_HHMM>_<原目录名>"，返回新的目录路径。
+    将输出目录重命名为 "<mAP>_<组合方式>_<时间戳>"，返回新的目录路径。
+    格式示例：85.23_4x4+8x8_20251216_220218
     """
     if not output_dir or not os.path.isdir(output_dir):
         return None
@@ -85,8 +86,38 @@ def rename_output_directory(output_dir, best_map):
         best_map_value = 0.0
 
     best_map_percent = max(best_map_value * 100.0, 0.0)
-    timestamp = datetime.now().strftime("%m%d_%H%M")
-    base_candidate = f"{best_map_percent:.1f}mAP_{timestamp}_{base_name}"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # 尝试从目录名中提取组合方式（例如：4x4+8x8_20251216_220218 -> 4x4+8x8）
+    # 组合方式格式：可能包含 x 和 +，例如 4x4, 8x8, 4x4+8x8 等
+    scale_label = None
+    if '_' in base_name:
+        # 如果目录名包含下划线，尝试提取第一部分作为组合方式
+        parts = base_name.split('_')
+        # 检查第一部分是否匹配组合方式格式（包含 x 或 +）
+        if len(parts) > 0 and ('x' in parts[0] or '+' in parts[0]):
+            scale_label = parts[0]
+            # 如果提取到了组合方式，从时间戳中提取原始时间戳（如果有）
+            if len(parts) > 1:
+                # 尝试从后续部分提取时间戳
+                for part in parts[1:]:
+                    if len(part) == 17 and part.replace('_', '').isdigit():
+                        timestamp = part
+                        break
+    
+    # 如果未提取到组合方式，尝试从 run_ 前缀后的名称中提取
+    if scale_label is None and base_name.startswith('run_'):
+        # run_20251216_220218_s4s8 -> 尝试提取 s4s8 并转换为 4x4+8x8
+        # 这里简化处理，如果无法提取，就使用原始目录名
+        scale_label = base_name.replace('run_', '').split('_')[0] if '_' in base_name else None
+    
+    # 构建新的目录名：mAP_组合方式_时间戳
+    if scale_label:
+        base_candidate = f"{best_map_percent:.2f}_{scale_label}_{timestamp}"
+    else:
+        # 如果无法提取组合方式，使用原始格式（兼容性）
+        base_candidate = f"{best_map_percent:.2f}_{base_name}_{timestamp}"
+    
     candidate = os.path.join(parent_dir, base_candidate)
 
     suffix = 1
@@ -102,8 +133,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="MambaPro Training") # 创建命令行解析器
     parser.add_argument( # 添加配置文件路径参数
-        "--config_file", default="/home/zubuntu/workspace/yzy/MambaPro/configs/MSVR310/MambaPro.yml", help="path to config file", type=str
-    )# 默认配置文件路径
+        "--config_file", default="", help="path to config file", type=str
+    )# 默认配置文件路径（留空，必须通过命令行指定）
     parser.add_argument("--fea_cft", default=0, help="Feature choose to be tested", type=int) # 添加特征选择参数
     parser.add_argument("opts", help="Modify config options using the command-line", default=None,
                         nargs=argparse.REMAINDER) # 添加命令行参数
@@ -183,6 +214,32 @@ if __name__ == '__main__':
     elif args.disable_attention:
         cfg.MODEL.USE_GATE_FUSION = False
     
+    # 🔥 自动调整 MOE_NUM_EXPERTS 使其与 MOE_SCALES 的长度一致
+    if cfg.MODEL.USE_MULTI_SCALE_MOE:
+        cfg.defrost()
+        moe_scales = cfg.MODEL.MOE_SCALES
+        if isinstance(moe_scales, str):
+            # 如果 MOE_SCALES 是字符串，尝试解析为列表
+            import ast
+            try:
+                moe_scales = ast.literal_eval(moe_scales)
+            except:
+                moe_scales = [4, 8, 16]  # 默认值
+        
+        num_scales = len(moe_scales) if isinstance(moe_scales, (list, tuple)) else 1
+        cfg.MODEL.MOE_NUM_EXPERTS = num_scales
+        
+        # 如果使用固定权重，确保权重数量与专家数量一致
+        if hasattr(cfg.MODEL, 'MOE_USE_FIXED_WEIGHTS') and cfg.MODEL.MOE_USE_FIXED_WEIGHTS:
+            fixed_weights = getattr(cfg.MODEL, 'MOE_FIXED_WEIGHTS', None)
+            if fixed_weights and len(fixed_weights) != num_scales:
+                # 如果固定权重数量不匹配，使用均等权重
+                import warnings
+                warnings.warn(f"MOE_FIXED_WEIGHTS 数量 ({len(fixed_weights)}) 与专家数量 ({num_scales}) 不匹配，将使用均等权重")
+                cfg.MODEL.MOE_FIXED_WEIGHTS = [1.0 / num_scales] * num_scales
+        
+        cfg.freeze()
+    
     cfg.freeze() # 冻结配置
 
     set_seed(cfg.SOLVER.SEED) # 设置随机种子
@@ -193,12 +250,24 @@ if __name__ == '__main__':
     base_output_dir = cfg.OUTPUT_DIR
     run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if base_output_dir:
-        os.makedirs(base_output_dir, exist_ok=True)
-        run_dir = os.path.join(base_output_dir, f"run_{run_timestamp}")
-        suffix = 1
-        while os.path.exists(run_dir):
-            run_dir = os.path.join(base_output_dir, f"run_{run_timestamp}_{suffix}")
-            suffix += 1
+        # 检查 OUTPUT_DIR 是否已经是一个完整的路径（包含组合方式和时间戳）
+        # 如果目录名包含组合方式标识（x 或 +），则不再创建子目录
+        normalized_base = os.path.normpath(base_output_dir.rstrip(os.sep))
+        base_name = os.path.basename(normalized_base)
+        
+        # 如果目录名包含组合方式标识（x 或 +），说明是循环脚本设置的完整路径
+        # 直接使用该路径，不再创建子目录
+        if 'x' in base_name or '+' in base_name:
+            run_dir = normalized_base
+        else:
+            # 否则，在基础目录下创建 run_{timestamp} 子目录（保持向后兼容）
+            os.makedirs(base_output_dir, exist_ok=True)
+            run_dir = os.path.join(base_output_dir, f"run_{run_timestamp}")
+            suffix = 1
+            while os.path.exists(run_dir):
+                run_dir = os.path.join(base_output_dir, f"run_{run_timestamp}_{suffix}")
+                suffix += 1
+        
         cfg.defrost()
         cfg.OUTPUT_DIR = run_dir
         cfg.freeze()
@@ -214,6 +283,27 @@ if __name__ == '__main__':
 
     log_filename = f"train_{run_timestamp}.log"
     logger = setup_logger("MambaPro", logs_dir, if_train=True, filename=log_filename)
+    
+    # 🔥 打印窗口尺度信息（在配置输出之前，更醒目）
+    if cfg.MODEL.USE_MULTI_SCALE_MOE:
+        moe_scales = cfg.MODEL.MOE_SCALES
+        if isinstance(moe_scales, (list, tuple)):
+            moe_scale_labels = [f"{s}x{s}" for s in moe_scales]
+            window_display = "+".join(moe_scale_labels)
+            num_experts = cfg.MODEL.MOE_NUM_EXPERTS
+            print("\n" + "=" * 80)
+            print(f"🔥 当前训练配置：使用 {window_display} 窗口，{num_experts} 个MoE专家")
+            print("=" * 80 + "\n")
+            logger.info(f"🔥 窗口配置：{window_display} ({moe_scales}), MoE专家数量：{num_experts}")
+    elif cfg.MODEL.USE_CLIP_MULTI_SCALE:
+        scales = cfg.MODEL.CLIP_MULTI_SCALE_SCALES
+        if isinstance(scales, (list, tuple)):
+            scale_labels = [f"{s}x{s}" for s in scales]
+            window_display = "+".join(scale_labels)
+            print("\n" + "=" * 80)
+            print(f"🔥 当前训练配置：使用 {window_display} 窗口（传统MLP融合）")
+            print("=" * 80 + "\n")
+            logger.info(f"🔥 窗口配置：{window_display} ({scales})")
     
     # 打印最终配置（统一输出）
     print_final_config(cfg)

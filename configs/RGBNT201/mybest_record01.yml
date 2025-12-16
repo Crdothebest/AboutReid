@@ -2,7 +2,7 @@
 
 
 MODEL:
-  PRETRAIN_PATH_T: '/home/zubuntu/workspace/yzy/MambaPro/pths/ViT-B-16.pt' # 预训练权重
+  PRETRAIN_PATH_T: 'AboutReid/pths/ViT-B-16.pt' # 预训练权重
   TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
   STRIDE_SIZE: [ 16, 16 ] # 步长
   SIE_CAMERA: True # 是否使用相机嵌入
