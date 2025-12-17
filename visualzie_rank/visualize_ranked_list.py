@@ -92,75 +92,264 @@ def get_pid_from_path(path):
 def extract_feature(model, paths, transform, device, modality):
     """
     使用指定模型提取图像特征
+    
+    功能说明：
+    - 批量处理图像，提取 ReID 特征向量
+    - 支持多模态输入（RGB、NI、TI），但每次只激活一种模态
+    - 使用 torch.no_grad() 禁用梯度计算，节省内存和加速
+    
+    处理流程：
+    1. 加载图像（PIL Image 格式）
+    2. 预处理：调整尺寸、归一化、转换为张量
+    3. 构建多模态输入字典（只激活指定模态）
+    4. 模型前向传播，提取特征
+    5. 转换为 numpy 数组并堆叠
+    
+    Args:
+        model (nn.Module): 训练好的 ReID 模型
+        paths (list): 图像路径列表，每个元素是一个图像文件路径
+        transform (transforms.Compose): 图像预处理变换管道
+        device (torch.device): 计算设备（CPU 或 GPU）
+        modality (str): 模态类型，可选值：'RGB'、'NI'、'TI'
+            - 'RGB': 可见光图像
+            - 'NI': 近红外图像
+            - 'TI': 热红外图像
+        
+    Returns:
+        np.ndarray: 特征矩阵，形状为 (n_samples, feature_dim)
+            - n_samples: 图像数量（等于 len(paths)）
+            - feature_dim: 特征维度（通常为 512 或 768）
+    
+    示例:
+        >>> model = make_model(cfg, num_class=num_classes, camera_num=camera_num)
+        >>> paths = ['image1.jpg', 'image2.jpg', 'image3.jpg']
+        >>> features = extract_feature(model, paths, transform, device, 'RGB')
+        >>> # features 形状: (3, 512)
     """
     features = []
     for p in tqdm(paths, desc=f"提取 {modality} 特征"):
+        # 加载图像：使用 PIL 加载并转换为 RGB 格式（确保3通道）
         img = Image.open(p).convert('RGB')
-        img_tensor = transform(img).unsqueeze(0).to(device)
         
+        # 预处理：调整尺寸、归一化、转换为张量
+        # transform 输出形状: [C, H, W]，值域已归一化
+        img_tensor = transform(img).unsqueeze(0).to(device)  # [1, C, H, W]
+        
+        # 构建多模态输入字典
+        # ReID 模型期望接收字典格式的输入，包含 RGB、NI、TI 三种模态
+        # 对于单模态特征提取，只激活指定模态，其他模态用零张量填充
         input_dict = {
-            'RGB': torch.zeros_like(img_tensor),
-            'NI': torch.zeros_like(img_tensor),
-            'TI': torch.zeros_like(img_tensor)
+            'RGB': torch.zeros_like(img_tensor),  # RGB 模态占位符（如果当前不是 RGB）
+            'NI': torch.zeros_like(img_tensor),   # NI 模态占位符（如果当前不是 NI）
+            'TI': torch.zeros_like(img_tensor)     # TI 模态占位符（如果当前不是 TI）
         }
-        input_dict[modality] = img_tensor
+        input_dict[modality] = img_tensor  # 激活当前模态
         
+        # 特征提取：禁用梯度计算以节省内存和加速
+        # cam_label 和 view_label 用于相机/视角嵌入（SIE），这里使用默认值
         with torch.no_grad():
-            feat = model(input_dict, 
-                        cam_label=torch.tensor([0]).to(device), 
-                        view_label=torch.tensor([0]).to(device))
-        features.append(feat.cpu().numpy())
+            feat = model(
+                input_dict, 
+                cam_label=torch.tensor([0]).to(device),   # 相机ID（默认0）
+                view_label=torch.tensor([0]).to(device)  # 视角ID（默认0）
+            )
+        # 转换为 numpy 数组并添加到列表
+        features.append(feat.cpu().numpy())  # 移到 CPU 并转换为 numpy
     
-    return np.vstack(features)
+    # 堆叠所有特征为矩阵：从列表转换为数组
+    return np.vstack(features)  # 形状: (n_samples, feature_dim)
 
 def compute_similarity_matrix(query_feats, gallery_feats):
     """
-    计算Query和Gallery之间的相似度矩阵
+    计算 Query 和 Gallery 之间的相似度矩阵
+    
+    功能说明：
+    - 使用矩阵乘法计算所有 Query-Gallery 对之间的相似度
+    - 假设特征已经 L2 归一化，则点积等于余弦相似度
+    - 相似度值范围：[-1, 1]（如果特征已归一化）
+    
+    算法：
+        sim_mat[i, j] = query_feats[i] · gallery_feats[j]^T
+        其中 · 表示点积（内积）
+    
+    Args:
+        query_feats (np.ndarray): Query 特征矩阵，形状为 (n_query, feature_dim)
+        gallery_feats (np.ndarray): Gallery 特征矩阵，形状为 (n_gallery, feature_dim)
+        
+    Returns:
+        np.ndarray: 相似度矩阵，形状为 (n_query, n_gallery)
+            - sim_mat[i, j] 表示第 i 个 Query 与第 j 个 Gallery 的相似度
+            - 值越大表示越相似
+    
+    示例:
+        >>> query_feats = np.random.randn(10, 512)  # 10个Query
+        >>> gallery_feats = np.random.randn(100, 512)  # 100个Gallery
+        >>> sim_mat = compute_similarity_matrix(query_feats, gallery_feats)
+        >>> # sim_mat 形状: (10, 100)
+        >>> # sim_mat[0, 5] 表示 Query 0 与 Gallery 5 的相似度
     """
+    # 矩阵乘法：query_feats @ gallery_feats.T
+    # 结果形状: (n_query, n_gallery)
+    # 每个元素 sim_mat[i, j] = sum(query_feats[i, k] * gallery_feats[j, k] for k in range(feature_dim))
     return np.matmul(query_feats, gallery_feats.T)
 
 def get_topk_ranked_results(query_feat, gallery_feats, gallery_paths, query_pid, k=9):
     """
-    获取Top-K检索结果，包含相似度分数和Ground Truth标注
+    获取 Top-K 检索结果，包含相似度分数和 Ground Truth 标注
+    
+    功能说明：
+    - 计算单个 Query 与所有 Gallery 的相似度
+    - 找出 Top-K 最相似的 Gallery 图像
+    - 为每个结果标注是否为正确匹配（相同人员ID）
+    - 返回排序后的结果列表，包含排名、路径、相似度等信息
+    
+    算法流程：
+    1. 计算相似度：sim = query_feat @ gallery_feats.T
+    2. 排序：找出 Top-K 最相似的索引
+    3. 标注：检查每个结果是否为正确匹配（gallery_pid == query_pid）
+    4. 构建结果列表：包含排名、路径、相似度、正确性等信息
+    
+    Args:
+        query_feat (np.ndarray): 单个 Query 的特征向量，形状为 (feature_dim,)
+        gallery_feats (np.ndarray): Gallery 特征矩阵，形状为 (n_gallery, feature_dim)
+        gallery_paths (list): Gallery 图像路径列表，长度为 n_gallery
+        query_pid (int): Query 的人员ID（用于判断匹配正确性）
+        k (int): Top-K 检索的 K 值，默认 9。表示返回前 K 个最相似的结果
+        
+    Returns:
+        list: Top-K 检索结果列表，每个元素是一个字典，包含：
+            - 'rank' (int): 排名（1 到 k）
+            - 'gallery_path' (str): Gallery 图像路径
+            - 'gallery_pid' (int): Gallery 图像的人员ID
+            - 'similarity_score' (float): 相似度分数（值越大越相似）
+            - 'is_correct' (bool): 是否为正确匹配（True 表示相同人员ID，False 表示不同）
+    
+    示例:
+        >>> query_feat = np.random.randn(512)  # 单个Query特征
+        >>> gallery_feats = np.random.randn(100, 512)  # 100个Gallery特征
+        >>> results = get_topk_ranked_results(query_feat, gallery_feats, gallery_paths, query_pid=123, k=10)
+        >>> # results[0] = {'rank': 1, 'gallery_path': '...', 'gallery_pid': 123, 'similarity_score': 0.95, 'is_correct': True}
     """
+    # 计算相似度：单个 Query 与所有 Gallery 的点积
+    # similarities 形状: (n_gallery,)
     similarities = np.dot(query_feat, gallery_feats.T)
+    
+    # 获取 Top-K 最相似的 Gallery 索引
+    # np.argsort(similarities) 返回相似度从小到大的索引
+    # [::-1] 反转，得到从大到小的索引（最相似的在前面）
+    # [:k] 取前 k 个，得到 Top-K 索引
     topk_indices = np.argsort(similarities)[::-1][:k]
     
+    # 构建结果列表
     ranked_results = []
     for i, idx in enumerate(topk_indices):
-        gallery_path = gallery_paths[idx]
-        gallery_pid = get_pid_from_path(gallery_path)
-        similarity_score = similarities[idx]
-        is_correct = (gallery_pid == query_pid)
+        gallery_path = gallery_paths[idx]  # 获取 Gallery 图像路径
+        gallery_pid = get_pid_from_path(gallery_path)  # 从路径提取人员ID
+        similarity_score = similarities[idx]  # 获取相似度分数
+        is_correct = (gallery_pid == query_pid)  # 判断是否为正确匹配
         
+        # 添加到结果列表
         ranked_results.append({
-            'rank': i + 1,
-            'gallery_path': gallery_path,
-            'gallery_pid': gallery_pid,
-            'similarity_score': similarity_score,
-            'is_correct': is_correct
+            'rank': i + 1,                    # 排名（从1开始）
+            'gallery_path': gallery_path,     # Gallery 图像路径
+            'gallery_pid': gallery_pid,       # Gallery 人员ID
+            'similarity_score': similarity_score,  # 相似度分数
+            'is_correct': is_correct          # 是否为正确匹配（True/False）
         })
     
     return ranked_results
 
 def draw_ground_truth_box(img, is_correct, thickness=3):
     """
-    在图像上绘制Ground Truth标注框
-    - 正确匹配：绿色框 (0, 255, 0) - RGB格式
-    - 错误匹配：红色框 (255, 0, 0) - RGB格式
+    在图像上绘制 Ground Truth 标注框
+    
+    功能说明：
+    - 在图像周围绘制彩色边框，用于标注检索结果的正确性
+    - 绿色框：表示正确匹配（Gallery 图像与 Query 是相同人员）
+    - 红色框：表示错误匹配（Gallery 图像与 Query 是不同人员）
+    - 用于可视化中快速识别检索结果的正确性
+    
+    颜色编码：
+    - 绿色 (0, 255, 0)：正确匹配，表示模型成功找到了相同的人员
+    - 红色 (255, 0, 0)：错误匹配，表示模型误匹配了不同的人员
+    
+    Args:
+        img (np.ndarray): 输入图像，形状为 [H, W, 3]（RGB 格式，值域 [0, 255]）
+        is_correct (bool): 是否为正确匹配
+            - True: 绘制绿色框（正确匹配）
+            - False: 绘制红色框（错误匹配）
+        thickness (int): 边框厚度（像素），默认 3
+    
+    Returns:
+        np.ndarray: 绘制了边框的图像，形状与输入相同（RGB 格式）
+    
+    示例:
+        >>> img = cv2.imread('image.jpg')
+        >>> img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        >>> img_with_box = draw_ground_truth_box(img_rgb, is_correct=True, thickness=3)
+        >>> # 图像周围会绘制绿色边框
     """
-    img_copy = img.copy()
+    img_copy = img.copy()  # 复制图像，避免修改原始图像
+    
+    # 根据匹配正确性选择颜色
     if is_correct:
         color = (0, 255, 0)  # 绿色框表示正确匹配 (RGB格式)
     else:
         color = (255, 0, 0)  # 红色框表示错误匹配 (RGB格式)
-    cv2.rectangle(img_copy, (0, 0), (img_copy.shape[1], img_copy.shape[0]), color, thickness)
+    
+    # 绘制矩形边框
+    # cv2.rectangle(img, pt1, pt2, color, thickness)
+    # pt1: 左上角坐标 (0, 0)
+    # pt2: 右下角坐标 (width, height)
+    # 这样会在整个图像周围绘制边框
+    cv2.rectangle(
+        img_copy, 
+        (0, 0),                           # 左上角坐标
+        (img_copy.shape[1], img_copy.shape[0]),  # 右下角坐标（宽度，高度）
+        color,                            # 边框颜色（RGB格式）
+        thickness                         # 边框厚度
+    )
     return img_copy
 
 def create_ranked_visualization(query_path, ranked_results, output_path, k=10):
     """
-    创建简化的Top-K Ranked List可视化结果
-    只显示Query和Top-K Gallery，用绿框表示正确，红框表示错误
+    创建简化的 Top-K Ranked List 可视化结果
+    
+    功能说明：
+    - 生成 ReID 检索结果的可视化图像
+    - 显示 Query 图像和 Top-K 最相似的 Gallery 图像
+    - 用绿色框标注正确匹配，红色框标注错误匹配
+    - 便于直观评估模型的检索性能
+    
+    可视化布局：
+    - 1 行，K+1 列
+    - 第 1 列：Query 图像（无边框）
+    - 第 2 到 K+1 列：Top-K Gallery 图像（带颜色边框）
+    
+    颜色编码：
+    - 绿色边框：正确匹配（Gallery 与 Query 是相同人员）
+    - 红色边框：错误匹配（Gallery 与 Query 是不同人员）
+    
+    Args:
+        query_path (str): Query 图像路径
+        ranked_results (list): Top-K 检索结果列表，每个元素包含：
+            - 'rank' (int): 排名
+            - 'gallery_path' (str): Gallery 图像路径
+            - 'gallery_pid' (int): Gallery 人员ID
+            - 'similarity_score' (float): 相似度分数
+            - 'is_correct' (bool): 是否为正确匹配
+        output_path (str): 输出图像路径（PNG 格式）
+        k (int): Top-K 的 K 值，默认 10。应与 ranked_results 的长度一致
+    
+    输出：
+        - 保存可视化图像到 output_path
+        - 图像分辨率：300 DPI，适合论文使用
+    
+    示例:
+        >>> query_path = 'data/test/RGB/000123_cam1_0_01.jpg'
+        >>> ranked_results = get_topk_ranked_results(...)
+        >>> create_ranked_visualization(query_path, ranked_results, 'output.png', k=10)
+        >>> # 生成包含 Query 和 Top-10 Gallery 的可视化图像
     """
     # 设置图像布局：1行，Query + Top-K Gallery
     fig, axes = plt.subplots(1, k+1, figsize=(25, 4))
@@ -419,13 +608,17 @@ def main():
             print("✅ Baseline模型加载完成")
     
     # 处理数据集
+    # 初始化变量，避免未定义错误
+    gallery_paths_dict = {}
+    query_paths_dict = {}
+    gallery_feats_dict = {}
+    gallery_paths = None
+    query_paths = None
+    gallery_feats = None
+    
     if args.multimodal:
         print("🔍 处理多模态数据集（RGB、NIR、TIR）...")
         # 多模态处理
-        gallery_paths_dict = {}
-        query_paths_dict = {}
-        gallery_feats_dict = {}
-        
         for modality in ['RGB', 'NI', 'TI']:
             print(f"  📁 处理 {modality} 模态...")
             gallery_paths, query_paths = process_gallery_query(args.dataset_root, modality)
@@ -623,21 +816,62 @@ def main():
             query_id = os.path.basename(query_path).split('_')[0]
             print(f"\n🔄 处理Query {i+1}/{len(selected_queries)}: {query_id}")
             
-            ranked_results = visualize_single_query(
-                model, query_path, gallery_paths, gallery_feats, 
-                transform, device, args.modality, args.output_dir, args.top_k
-            )
-            
-            # 统计结果
-            correct_count = sum(1 for r in ranked_results if r['is_correct'])
-            print(f"   ✅ Top-{args.top_k}中正确匹配: {correct_count}/{args.top_k}")
-            
-            all_results.append({
-                'query_id': query_id,
-                'query_path': query_path,
-                'correct_count': correct_count,
-                'ranked_results': ranked_results
-            })
+            if args.multimodal:
+                # 多模态单个模型模式
+                # 构建多模态Query路径
+                query_paths_multimodal = {}
+                for modality in ['RGB', 'NI', 'TI']:
+                    # 从RGB路径构建其他模态的路径
+                    rgb_path = query_path
+                    if modality == 'RGB':
+                        query_paths_multimodal[modality] = rgb_path
+                    elif modality == 'NI':
+                        ni_path = rgb_path.replace('/RGB/', '/NI/')
+                        query_paths_multimodal[modality] = ni_path
+                    elif modality == 'TI':
+                        ti_path = rgb_path.replace('/RGB/', '/TI/')
+                        query_paths_multimodal[modality] = ti_path
+                
+                # 生成多模态可视化
+                print(f"   🔄 生成多模态Rank-{args.top_k}图...")
+                results_dict = visualize_multimodal_query(
+                    model, query_paths_multimodal, gallery_paths_dict, gallery_feats_dict,
+                    transform, device, args.output_dir, args.top_k
+                )
+                
+                # 统计结果（使用RGB模态的结果）
+                correct_count = sum(1 for r in results_dict['RGB'] if r['is_correct'])
+                print(f"   ✅ Top-{args.top_k}中正确匹配: {correct_count}/{args.top_k}")
+                
+                all_results.append({
+                    'query_id': query_id,
+                    'query_path': query_path,
+                    'correct_count': correct_count,
+                    'results': results_dict
+                })
+            else:
+                # 单模态单个模型模式
+                # 检查必要的变量是否已定义
+                if gallery_paths is None or gallery_feats is None:
+                    raise ValueError(
+                        f"❌ 错误：单模态模式下，gallery_paths 或 gallery_feats 未定义。"
+                        f"这通常意味着代码逻辑错误。请检查是否在多模态模式下错误地进入了单模态分支。"
+                    )
+                ranked_results = visualize_single_query(
+                    model, query_path, gallery_paths, gallery_feats, 
+                    transform, device, args.modality, args.output_dir, args.top_k
+                )
+                
+                # 统计结果
+                correct_count = sum(1 for r in ranked_results if r['is_correct'])
+                print(f"   ✅ Top-{args.top_k}中正确匹配: {correct_count}/{args.top_k}")
+                
+                all_results.append({
+                    'query_id': query_id,
+                    'query_path': query_path,
+                    'correct_count': correct_count,
+                    'ranked_results': ranked_results
+                })
     
     # 生成汇总报告
     print(f"\n📊 生成汇总报告...")

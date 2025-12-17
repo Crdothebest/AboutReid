@@ -2,7 +2,7 @@
 
 
 MODEL:
-  PRETRAIN_PATH_T: 'AboutReid/pths/ViT-B-16.pt' # 预训练权重（相对路径）
+  PRETRAIN_PATH_T: '/home/zhanghaoyang/Desktop/yzy/AboutReid/pths/ViT-B-16.pt' # 预训练权重（使用绝对路径避免警告）
   TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
   STRIDE_SIZE: [ 16, 16 ] # 步长
   SIE_CAMERA: True # 是否使用相机嵌入
@@ -69,7 +69,7 @@ DATALOADER:
 
 DATASETS:
   NAMES: ('RGBNT201') # 数据集名称
-  ROOT_DIR: '..' # 数据集根目录（相对于AboutReid目录）
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
 
 SOLVER:
   # 优化器设置

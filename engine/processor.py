@@ -153,7 +153,8 @@ def do_train(cfg,
              optimizer_center,
              scheduler,
              loss_fn,
-             num_query, local_rank):
+             num_query, local_rank,
+             resume=""):  # 🔥 新增：恢复训练检查点路径
     log_period = cfg.SOLVER.LOG_PERIOD                  # 日志打印间隔（iter）
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD    # 保存权重间隔（epoch）
     eval_period = cfg.SOLVER.EVAL_PERIOD                # 验证间隔（epoch）
@@ -199,9 +200,104 @@ def do_train(cfg,
     }
 
     # =========================
+    # 🔥 恢复训练逻辑
+    # =========================
+    start_epoch = 1
+    if resume:
+        if os.path.exists(resume):
+            logger.info(f"🔄 从检查点恢复训练: {resume}")
+            checkpoint = torch.load(resume, map_location=f'cuda:{local_rank}')
+            
+            # 判断检查点格式：新格式（字典，包含多个键）还是旧格式（仅模型权重）
+            is_new_format = isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint
+            is_old_format = isinstance(checkpoint, dict) and not is_new_format and any(
+                k.startswith(('backbone', 'classifier', 'bottleneck')) or 
+                not k.startswith(('epoch', 'optimizer', 'scheduler', 'scaler', 'best', 'validation'))
+                for k in checkpoint.keys()
+            )
+            
+            if not is_new_format and not is_old_format:
+                # 可能是直接的 state_dict（旧格式）
+                is_old_format = True
+            
+            # 获取模型权重
+            if is_new_format:
+                model_state_dict = checkpoint['model_state_dict']
+            else:
+                # 旧格式：整个 checkpoint 就是 state_dict
+                model_state_dict = checkpoint
+            
+            # 处理 'module.' 前缀（如果检查点是从 DDP 模型保存的）
+            if any(k.startswith('module.') for k in model_state_dict.keys()):
+                from collections import OrderedDict
+                new_state_dict = OrderedDict()
+                for k, v in model_state_dict.items():
+                    name = k[7:] if k.startswith('module.') else k
+                    new_state_dict[name] = v
+                model_state_dict = new_state_dict
+            
+            # 加载模型权重
+            try:
+                if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.DistributedDataParallel):
+                    model.module.load_state_dict(model_state_dict, strict=False)
+                else:
+                    model.load_state_dict(model_state_dict, strict=False)
+                logger.info("✅ 已加载模型权重")
+            except Exception as e:
+                logger.warning(f"⚠️  模型权重加载部分失败: {e}，尝试继续...")
+            
+            # 加载训练状态（仅新格式检查点）
+            if is_new_format:
+                # 加载优化器状态
+                if 'optimizer_state_dict' in checkpoint:
+                    try:
+                        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                        logger.info("✅ 已恢复优化器状态")
+                    except Exception as e:
+                        logger.warning(f"⚠️  优化器状态恢复失败: {e}，将使用新的优化器状态")
+                
+                if 'optimizer_center_state_dict' in checkpoint and optimizer_center is not None:
+                    try:
+                        optimizer_center.load_state_dict(checkpoint['optimizer_center_state_dict'])
+                        logger.info("✅ 已恢复中心优化器状态")
+                    except Exception as e:
+                        logger.warning(f"⚠️  中心优化器状态恢复失败: {e}")
+                
+                # 加载调度器状态
+                if 'scheduler_state_dict' in checkpoint:
+                    try:
+                        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                        logger.info("✅ 已恢复调度器状态")
+                    except Exception as e:
+                        logger.warning(f"⚠️  调度器状态恢复失败: {e}，将使用新的调度器状态")
+                
+                # 加载混合精度缩放器状态
+                if 'scaler_state_dict' in checkpoint:
+                    try:
+                        scaler.load_state_dict(checkpoint['scaler_state_dict'])
+                        logger.info("✅ 已恢复混合精度缩放器状态")
+                    except Exception as e:
+                        logger.warning(f"⚠️  缩放器状态恢复失败: {e}")
+                
+                # 恢复训练状态
+                start_epoch = checkpoint.get('epoch', 1) + 1  # 从下一个epoch开始
+                best_index = checkpoint.get('best_index', best_index)
+                validation_history = checkpoint.get('validation_history', validation_history)
+                
+                logger.info(f"✅ 从 Epoch {start_epoch - 1} 恢复训练（完整状态）")
+                logger.info(f"📊 当前最佳指标: mAP={best_index.get('mAP', 0):.1%}, Rank-1={best_index.get('Rank-1', 0):.1%}")
+            else:
+                # 旧格式：只加载了模型权重，从头开始训练
+                logger.warning("⚠️  检查点格式为旧格式（仅模型权重），将从 Epoch 1 开始训练")
+                logger.info("💡 提示：新的检查点会保存完整训练状态，支持真正的恢复训练")
+                start_epoch = 1
+        else:
+            logger.warning(f"⚠️  检查点文件不存在: {resume}，将从头开始训练")
+
+    # =========================
     # 主训练循环
     # =========================
-    for epoch in range(1, epochs + 1):
+    for epoch in range(start_epoch, epochs + 1):
         start_time = time.time()
         loss_meter.reset()
         acc_meter.reset()
@@ -435,13 +531,28 @@ def do_train(cfg,
 
         # -------- 保存 checkpoint --------
         if epoch % checkpoint_period == 0:
+            # 🔥 保存完整的训练状态（包括模型、优化器、调度器等）
+            checkpoint = {
+                'epoch': epoch,
+                'model_state_dict': model.module.state_dict() if isinstance(model, (nn.DataParallel, nn.parallel.DistributedDataParallel)) else model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'scaler_state_dict': scaler.state_dict(),
+                'best_index': best_index,
+                'validation_history': validation_history,
+            }
+            if optimizer_center is not None:
+                checkpoint['optimizer_center_state_dict'] = optimizer_center.state_dict()
+            
+            checkpoint_path = os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + '_{}.pth'.format(epoch))
+            
             if cfg.MODEL.DIST_TRAIN:
                 if dist.get_rank() == 0:                # 仅主进程保存
-                    torch.save(model.state_dict(),
-                               os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + '_{}.pth'.format(epoch)))
+                    torch.save(checkpoint, checkpoint_path)
+                    logger.info(f"💾 保存完整检查点: {checkpoint_path} (Epoch {epoch})")
             else:
-                torch.save(model.state_dict(),
-                           os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + '_{}.pth'.format(epoch)))
+                torch.save(checkpoint, checkpoint_path)
+                logger.info(f"💾 保存完整检查点: {checkpoint_path} (Epoch {epoch})")
 
         # -------- 周期性验证 --------
         if epoch % eval_period == 0:

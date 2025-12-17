@@ -150,27 +150,57 @@ def compute_topk_correct(query_feats, gallery_feats, query_paths, gallery_paths,
     """
     计算Top-K检索的正确匹配数量
     
+    功能说明：
+    - 计算每个 Query 图像与所有 Gallery 图像的相似度
+    - 找出 Top-K 最相似的 Gallery 图像
+    - 统计这 K 个结果中有多少个是正确的匹配（相同人员ID）
+    - 用于评估模型在特定 Query 上的检索性能
+    
+    算法流程：
+    1. 计算相似度矩阵：sim_mat = query_feats @ gallery_feats.T
+       - 形状：(n_query, n_gallery)
+       - 每个元素 sim_mat[i, j] 表示 Query i 与 Gallery j 的相似度
+    2. 对每个 Query，找出 Top-K 最相似的 Gallery 图像
+    3. 检查这 K 个结果中，有多少个与 Query 是相同的人员ID
+    
     Args:
-        query_feats (np.ndarray): Query特征矩阵
-        gallery_feats (np.ndarray): Gallery特征矩阵  
-        query_paths (list): Query图像路径列表
-        gallery_paths (list): Gallery图像路径列表
-        k (int): Top-K检索的K值，默认为9
+        query_feats (np.ndarray): Query特征矩阵，形状为 (n_query, feature_dim)
+        gallery_feats (np.ndarray): Gallery特征矩阵，形状为 (n_gallery, feature_dim)
+        query_paths (list): Query图像路径列表，长度为 n_query
+        gallery_paths (list): Gallery图像路径列表，长度为 n_gallery
+        k (int): Top-K检索的K值，默认为9。表示返回前K个最相似的结果
         
     Returns:
         dict: {query_path: correct_count} - 每个Query的Top-K正确匹配数
+              - key: Query图像路径
+              - value: Top-K中正确匹配的数量（0 到 k 之间的整数）
+              
+    示例:
+        >>> query_feats = np.random.randn(10, 512)  # 10个Query，512维特征
+        >>> gallery_feats = np.random.randn(100, 512)  # 100个Gallery，512维特征
+        >>> correct_counts = compute_topk_correct(query_feats, gallery_feats, query_paths, gallery_paths, k=10)
+        >>> # 结果: {'query1.jpg': 8, 'query2.jpg': 10, ...}  # 每个Query的Top-10正确数
     """
-    # 计算Query和Gallery之间的相似度矩阵
-    sim_mat = np.matmul(query_feats, gallery_feats.T)
-    correct_counts = {}
+    # ========== 步骤 1: 计算相似度矩阵 ==========
+    # 使用矩阵乘法计算所有 Query-Gallery 对之间的相似度
+    # 假设特征已经 L2 归一化，则点积等于余弦相似度
+    # sim_mat[i, j] = query_feats[i] · gallery_feats[j]^T
+    sim_mat = np.matmul(query_feats, gallery_feats.T)  # 形状: (n_query, n_gallery)
     
+    correct_counts = {}  # 存储每个Query的正确匹配数
+    
+    # ========== 步骤 2: 对每个Query计算Top-K正确匹配数 ==========
     for i, q_path in enumerate(query_paths):
-        q_pid = get_pid_from_path(q_path)  # 获取Query的人员ID
+        q_pid = get_pid_from_path(q_path)  # 从路径提取Query的人员ID（用于判断匹配正确性）
         
-        # 获取Top-K最相似的Gallery图像索引（按相似度降序）
+        # 获取Top-K最相似的Gallery图像索引
+        # np.argsort(sim_mat[i]) 返回相似度从小到大的索引
+        # [::-1] 反转，得到从大到小的索引（最相似的在前面）
+        # [:k] 取前k个，得到Top-K索引
         indices = np.argsort(sim_mat[i])[::-1][:k]
         
-        # 统计Top-K中正确匹配的数量（相同人员ID）
+        # 统计Top-K中正确匹配的数量
+        # 正确匹配的定义：Gallery图像的人员ID与Query的人员ID相同
         correct = sum(get_pid_from_path(gallery_paths[j]) == q_pid for j in indices)
         correct_counts[q_path] = correct
     
@@ -197,12 +227,48 @@ def main():
     """
     主函数：执行ReID模型性能对比分析
     
+    功能概述：
+    本工具用于对比分析两个ReID模型（旧模型 vs 新模型）在不同模态下的检索性能，
+    特别关注旧模型表现优于新模型的案例，用于模型改进分析。
+    
     分析流程：
-    1. 加载两个训练好的ReID模型（旧模型 vs 新模型）
-    2. 在RGB模态下筛选旧模型表现良好的Query图像（Top-9正确数≥9）
-    3. 对筛选出的图像，在RGB/NI/TI三种模态下对比新旧模型性能
-    4. 识别旧模型在所有模态下都优于新模型的图像样本
-    5. 输出详细的性能对比统计信息
+    1. 【模型加载】加载两个训练好的ReID模型（旧模型 vs 新模型）
+       - 从配置文件读取模型架构参数
+       - 从权重文件加载训练好的模型参数
+       
+    2. 【初步筛选】在RGB模态下筛选旧模型表现良好的Query图像
+       - 使用旧模型提取RGB模态特征
+       - 计算每个Query的Top-K检索结果
+       - 筛选出Top-K正确数≥K的Query（旧模型表现优秀）
+       - 这些Query构成候选集合P
+       
+    3. 【多模态对比】对筛选出的图像，在RGB/NI/TI三种模态下对比新旧模型性能
+       - 对集合P中的每个Query图像：
+         a. 在RGB/NI/TI三种模态下分别提取特征（使用旧模型和新模型）
+         b. 计算Top-K检索结果
+         c. 统计正确匹配数
+         d. 对比新旧模型的性能
+       
+    4. 【结果筛选】识别旧模型在所有模态下都优于新模型的图像样本
+       - 筛选条件：旧模型在RGB/NI/TI三种模态下的正确匹配数都 > 新模型
+       - 这些样本构成最终结果集合S
+       
+    5. 【结果输出】输出详细的性能对比统计信息
+       - 打印每个样本的详细对比结果
+       - 显示各模态下的性能差异
+       
+    应用场景：
+    - 模型改进分析：找出新模型表现不如旧模型的案例，分析原因
+    - 困难样本识别：识别对模型具有挑战性的样本
+    - 模态性能分析：分析不同模态下的模型表现差异
+    
+    输出示例：
+        [1] 图像 ID: 000123
+            图像路径: data/RGBNT201/test/RGB/000123_cam1_0_01.jpg
+            匹配统计（Top-9正确匹配数）:
+               ▸ RGB | 旧模型:  9/9   新模型:  7/9   优势: +2
+               ▸ NI  | 旧模型:  8/9   新模型:  6/9   优势: +2
+               ▸ TI  | 旧模型:  9/9   新模型:  8/9   优势: +1
     """
     # ========== 解析命令行参数 ==========
     args = parse_args()

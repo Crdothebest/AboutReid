@@ -78,23 +78,60 @@ fi
 
 mkdir -p "$(dirname "${FEAT_PATH}")" "$(dirname "${LABEL_PATH}")" "${OUTPUT_DIR}"
 
+# 使用规范化后的路径（如果可用）
+if [[ -n "${CONFIG_PATH_NORM:-}" ]]; then
+  CONFIG_PATH="${CONFIG_PATH_NORM}"
+fi
+if [[ -n "${WEIGHT_PATH_NORM:-}" ]]; then
+  WEIGHT_PATH="${WEIGHT_PATH_NORM}"
+fi
+
+# 确保配置文件路径是绝对路径
+if [[ ! "${CONFIG_PATH}" =~ ^/ ]]; then
+  CONFIG_PATH="$(cd "$(dirname "${CONFIG_PATH}")" && pwd)/$(basename "${CONFIG_PATH}")"
+fi
+
+# 确保权重文件路径是绝对路径
+if [[ ! "${WEIGHT_PATH}" =~ ^/ ]]; then
+  WEIGHT_PATH="$(cd "$(dirname "${WEIGHT_PATH}")" && pwd)/$(basename "${WEIGHT_PATH}")"
+fi
+
 echo "🔹 使用配置: ${CONFIG_PATH}"
 echo "🔹 使用权重: ${WEIGHT_PATH}"
 echo "🔹 导出特征到: ${FEAT_PATH}"
 echo "🔹 导出标签到: ${LABEL_PATH}"
 
+# 导出环境变量，供 Python 脚本使用
+export CONFIG_PATH
+export WEIGHT_PATH
+export FEAT_PATH
+export LABEL_PATH
+
 python - <<'PY'
 import os
+import sys
 import numpy as np
 import torch
 from config import cfg
 from data import make_dataloader
 from modeling import make_model
 
-config_file = os.environ["CONFIG_PATH"]
-weight_path = os.environ["WEIGHT_PATH"]
-feat_path = os.environ["FEAT_PATH"]
-label_path = os.environ["LABEL_PATH"]
+# 从环境变量读取参数，如果不存在则报错
+try:
+    config_file = os.environ["CONFIG_PATH"]
+    weight_path = os.environ["WEIGHT_PATH"]
+    feat_path = os.environ["FEAT_PATH"]
+    label_path = os.environ["LABEL_PATH"]
+except KeyError as e:
+    print(f"❌ 错误：缺少必需的环境变量: {e}")
+    print("   请确保脚本正确导出了所有必需的环境变量")
+    sys.exit(1)
+
+print(f"🔹 Python 脚本接收到的参数:")
+print(f"   配置文件: {config_file}")
+print(f"   权重文件: {weight_path}")
+print(f"   特征输出: {feat_path}")
+print(f"   标签输出: {label_path}")
 
 cfg.merge_from_file(config_file)
 cfg.freeze()
@@ -115,7 +152,11 @@ with torch.no_grad():
         target_view = target_view.to(device)
         feat = model(img, cam_label=camids, view_label=target_view)
         feats.append(feat.cpu().numpy())
-        labels.append(pid.numpy())
+        
+        # 处理 pid：如果是 tuple，转换为 tensor；如果已经是 tensor，直接使用
+        if isinstance(pid, tuple):
+            pid = torch.tensor(pid, dtype=torch.int64)
+        labels.append(pid.cpu().numpy())
 
 feats = np.vstack(feats)
 labels = np.concatenate(labels)

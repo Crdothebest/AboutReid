@@ -355,14 +355,89 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                 return x, global_feat  # 测试返回 BN 前特征
 
     def load_param(self, trained_path):  # 从权重文件加载参数（兼容DP/DDP前缀）
-        param_dict = torch.load(trained_path)
+        """
+        加载预训练权重，兼容 DataParallel/DistributedDataParallel 前缀
+        """
+        param_dict = torch.load(trained_path, map_location='cpu')
+        
+        # 适配不同的权重字典格式
+        if 'model' in param_dict:
+            param_dict = param_dict['model']
+        if 'state_dict' in param_dict:
+            param_dict = param_dict['state_dict']
+        if 'state_dict_ema' in param_dict:
+            param_dict = param_dict['state_dict_ema']
+        
+        loaded_params = 0
+        skipped_params = 0
+        
         for i in param_dict:
-            self.state_dict()[i.replace('module.', '')].copy_(param_dict[i])
+            # 移除 'module.' 前缀（兼容 DP/DDP）
+            key = i.replace('module.', '')
+            
+            # 检查参数是否存在于当前模型中
+            if key not in self.state_dict():
+                skipped_params += 1
+                continue
+            
+            # 检查尺寸是否匹配
+            param_shape = param_dict[i].shape
+            model_shape = self.state_dict()[key].shape
+            
+            if param_shape != model_shape:
+                skipped_params += 1
+                continue
+            
+            # 尺寸匹配，加载参数
+            try:
+                self.state_dict()[key].copy_(param_dict[i])
+                loaded_params += 1
+            except Exception as e:
+                print(f"❌ 加载参数失败: {key}, 错误: {e}")
+                skipped_params += 1
+        
+        print(f"✅ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
 
     def load_param_finetune(self, model_path):  # 精调：严格按键拷贝
-        param_dict = torch.load(model_path)
+        """
+        精调模式：严格按键拷贝，不处理前缀
+        """
+        param_dict = torch.load(model_path, map_location='cpu')
+        
+        # 适配不同的权重字典格式
+        if 'model' in param_dict:
+            param_dict = param_dict['model']
+        if 'state_dict' in param_dict:
+            param_dict = param_dict['state_dict']
+        if 'state_dict_ema' in param_dict:
+            param_dict = param_dict['state_dict_ema']
+        
+        loaded_params = 0
+        skipped_params = 0
+        
         for i in param_dict:
-            self.state_dict()[i].copy_(param_dict[i])
+            # 检查参数是否存在于当前模型中
+            if i not in self.state_dict():
+                skipped_params += 1
+                continue
+            
+            # 检查尺寸是否匹配
+            param_shape = param_dict[i].shape
+            model_shape = self.state_dict()[i].shape
+            
+            if param_shape != model_shape:
+                skipped_params += 1
+                continue
+            
+            # 尺寸匹配，加载参数
+            try:
+                self.state_dict()[i].copy_(param_dict[i])
+                loaded_params += 1
+            except Exception as e:
+                print(f"❌ 加载参数失败: {i}, 错误: {e}")
+                skipped_params += 1
+        
+        print(f"✅ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
 
 
 class MambaPro(nn.Module):  # 三模态组装与融合 head
@@ -405,9 +480,65 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
         self.bottleneck_fuse.apply(weights_init_kaiming)
 
     def load_param(self, trained_path):  # 精确加载（不去掉 module 前缀）
-        param_dict = torch.load(trained_path)
+        """
+        加载预训练权重并进行必要适配
+        
+        功能：
+        - 从指定路径加载预训练模型权重
+        - 处理不同权重字典格式的兼容性（model/state_dict/state_dict_ema）
+        - 适配参数尺寸不匹配的情况
+        - 跳过不存在的参数
+        
+        参数：
+        - trained_path: 预训练权重文件路径
+        """
+        param_dict = torch.load(trained_path, map_location='cpu')
+        
+        # 适配不同的权重字典格式
+        if 'model' in param_dict:
+            param_dict = param_dict['model']
+        if 'state_dict' in param_dict:
+            param_dict = param_dict['state_dict']
+        if 'state_dict_ema' in param_dict:
+            param_dict = param_dict['state_dict_ema']
+        
+        loaded_params = 0
+        skipped_params = 0
+        size_mismatch_params = []
+        
         for i in param_dict:
-            self.state_dict()[i].copy_(param_dict[i])
+            # 检查参数是否存在于当前模型中
+            if i not in self.state_dict():
+                skipped_params += 1
+                continue
+            
+            # 检查尺寸是否匹配
+            param_shape = param_dict[i].shape
+            model_shape = self.state_dict()[i].shape
+            
+            if param_shape != model_shape:
+                size_mismatch_params.append((i, param_shape, model_shape))
+                skipped_params += 1
+                continue
+            
+            # 尺寸匹配，加载参数
+            try:
+                self.state_dict()[i].copy_(param_dict[i])
+                loaded_params += 1
+            except Exception as e:
+                print(f"❌ 加载参数失败: {i}, 错误: {e}")
+                skipped_params += 1
+        
+        # 打印加载统计信息
+        print(f"✅ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+        
+        # 如果有尺寸不匹配的参数，打印详细信息
+        if size_mismatch_params:
+            print(f"\n⚠️  发现 {len(size_mismatch_params)} 个尺寸不匹配的参数:")
+            for param_name, param_shape, model_shape in size_mismatch_params[:10]:  # 只显示前10个
+                print(f"   - {param_name}: 权重文件 {param_shape} vs 模型期望 {model_shape}")
+            if len(size_mismatch_params) > 10:
+                print(f"   ... 还有 {len(size_mismatch_params) - 10} 个参数未显示")
 
     def forward(self, x, label=None, cam_label=None, view_label=None):  # 训练/测试两条路径
         if self.training:

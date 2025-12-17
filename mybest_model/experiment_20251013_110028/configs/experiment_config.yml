@@ -1,5 +1,5 @@
 MODEL:
-  PRETRAIN_PATH_T: 'AboutReid/pths/ViT-B-16.pt' # 预训练权重
+  PRETRAIN_PATH_T: '../ViT-B-16.pt' # 预训练权重
   TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
   STRIDE_SIZE: [ 16, 16 ] # 步长
   SIE_CAMERA: True # 是否使用相机嵌入
@@ -90,7 +90,7 @@ DATALOADER:
 
 DATASETS:
   NAMES: ('RGBNT201') # 数据集名称
-  ROOT_DIR: '/home/zhanghaoyang/Desktop/yzy/AboutReid/data/datasets/RGBNT201' # 数据集根目录
+  ROOT_DIR: 'data/datasets' # 数据集根目录
 
 SOLVER:
   # 优化器设置

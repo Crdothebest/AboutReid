@@ -156,16 +156,89 @@ class build_transformer(nn.Module): # 构建Transformer
 
 
     def load_param(self, trained_path): # 加载参数
-        param_dict = torch.load(trained_path)
+        """
+        加载预训练权重，兼容 DataParallel/DistributedDataParallel 前缀
+        """
+        param_dict = torch.load(trained_path, map_location='cpu')
+        
+        # 适配不同的权重字典格式
+        if 'model' in param_dict:
+            param_dict = param_dict['model']
+        if 'state_dict' in param_dict:
+            param_dict = param_dict['state_dict']
+        if 'state_dict_ema' in param_dict:
+            param_dict = param_dict['state_dict_ema']
+        
+        loaded_params = 0
+        skipped_params = 0
+        
         for i in param_dict:
-            self.state_dict()[i.replace('module.', '')].copy_(param_dict[i])
-        print('Loading pretrained model from {}'.format(trained_path))
+            # 移除 'module.' 前缀（兼容 DP/DDP）
+            key = i.replace('module.', '')
+            
+            # 检查参数是否存在于当前模型中
+            if key not in self.state_dict():
+                skipped_params += 1
+                continue
+            
+            # 检查尺寸是否匹配
+            param_shape = param_dict[i].shape
+            model_shape = self.state_dict()[key].shape
+            
+            if param_shape != model_shape:
+                skipped_params += 1
+                continue
+            
+            # 尺寸匹配，加载参数
+            try:
+                self.state_dict()[key].copy_(param_dict[i])
+                loaded_params += 1
+            except Exception as e:
+                print(f"❌ 加载参数失败: {key}, 错误: {e}")
+                skipped_params += 1
+        
+        print(f'✅ 从 {trained_path} 加载预训练模型: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数')
 
     def load_param_finetune(self, model_path): # 加载参数
-        param_dict = torch.load(model_path)
+        """
+        精调模式：严格按键拷贝，不处理前缀
+        """
+        param_dict = torch.load(model_path, map_location='cpu')
+        
+        # 适配不同的权重字典格式
+        if 'model' in param_dict:
+            param_dict = param_dict['model']
+        if 'state_dict' in param_dict:
+            param_dict = param_dict['state_dict']
+        if 'state_dict_ema' in param_dict:
+            param_dict = param_dict['state_dict_ema']
+        
+        loaded_params = 0
+        skipped_params = 0
+        
         for i in param_dict:
-            self.state_dict()[i].copy_(param_dict[i])
-        print('Loading pretrained model for finetuning from {}'.format(model_path))
+            # 检查参数是否存在于当前模型中
+            if i not in self.state_dict():
+                skipped_params += 1
+                continue
+            
+            # 检查尺寸是否匹配
+            param_shape = param_dict[i].shape
+            model_shape = self.state_dict()[i].shape
+            
+            if param_shape != model_shape:
+                skipped_params += 1
+                continue
+            
+            # 尺寸匹配，加载参数
+            try:
+                self.state_dict()[i].copy_(param_dict[i])
+                loaded_params += 1
+            except Exception as e:
+                print(f"❌ 加载参数失败: {i}, 错误: {e}")
+                skipped_params += 1
+        
+        print(f'✅ 从 {model_path} 加载预训练模型用于精调: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数')
 
 
 def make_model(cfg, num_class, camera_num, view_num): # 构建模型

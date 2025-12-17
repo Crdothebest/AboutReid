@@ -21,7 +21,8 @@ class RGBNT201(BaseImageDataset):
             possible_roots = [
                 '/autodl-fs/data',
                 '/root/autodl-fs',
-                osp.join(osp.expanduser('~'), 'data'),
+                osp.join(osp.expanduser('~'), 'data', 'datasets'),  # 修复：应该是 data/datasets
+                osp.join(osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__)))), 'data', 'datasets'),  # 项目相对路径
             ]
             for possible_root in possible_roots:
                 possible_dir = osp.join(possible_root, self.dataset_dir.split('/')[-1])
