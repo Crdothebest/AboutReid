@@ -30,25 +30,47 @@ class RGBNT100(BaseImageDataset):
         super(RGBNT100, self).__init__()
         self.dataset_dir = osp.join(root, self.dataset_dir)
         self.train_dir = osp.join(self.dataset_dir, 'bounding_box_train')
+        self.val_dir = osp.join(self.dataset_dir, 'bounding_box_val')  # 验证集目录
         self.query_dir = osp.join(self.dataset_dir, 'query')
         self.gallery_dir = osp.join(self.dataset_dir, 'bounding_box_test')
 
         self._check_before_run()
 
         train = self._process_dir(self.train_dir, relabel=True)
+        # 验证集：如果存在则加载，否则为空列表
+        val = self._process_dir(self.val_dir, relabel=False) if osp.exists(self.val_dir) else []
         query = self._process_dir(self.query_dir, relabel=False)
         gallery = self._process_dir(self.gallery_dir, relabel=False)
 
         if verbose:
             print("=> RGB_IR loaded")
-            self.print_dataset_statistics(train, query, gallery)
+            if len(val) > 0:
+                # 打印包含验证集的统计信息
+                num_train_pids, num_train_imgs, num_train_cams, _ = self.get_imagedata_info(train)
+                num_val_pids, num_val_imgs, num_val_cams, _ = self.get_imagedata_info(val)
+                num_query_pids, num_query_imgs, num_query_cams, _ = self.get_imagedata_info(query)
+                num_gallery_pids, num_gallery_imgs, num_gallery_cams, _ = self.get_imagedata_info(gallery)
+                print("Dataset statistics:")
+                print("  ----------------------------------------")
+                print("  subset   | # ids | # images | # cameras")
+                print("  ----------------------------------------")
+                print("  train    | {:5d} | {:8d} | {:9d}".format(num_train_pids, num_train_imgs, num_train_cams))
+                print("  val      | {:5d} | {:8d} | {:9d}".format(num_val_pids, num_val_imgs, num_val_cams))
+                print("  query    | {:5d} | {:8d} | {:9d}".format(num_query_pids, num_query_imgs, num_query_cams))
+                print("  gallery  | {:5d} | {:8d} | {:9d}".format(num_gallery_pids, num_gallery_imgs, num_gallery_cams))
+                print("  ----------------------------------------")
+            else:
+                self.print_dataset_statistics(train, query, gallery)
 
         self.train = train
+        self.val = val  # 验证集
         self.query = query
         self.gallery = gallery
 
         self.num_train_pids, self.num_train_imgs, self.num_train_cams, self.num_train_vids = self.get_imagedata_info(
             self.train)
+        self.num_val_pids, self.num_val_imgs, self.num_val_cams, self.num_val_vids = self.get_imagedata_info(
+            self.val) if len(val) > 0 else (0, 0, 0, 0)
         self.num_query_pids, self.num_query_imgs, self.num_query_cams, self.num_query_vids = self.get_imagedata_info(
             self.query)
         self.num_gallery_pids, self.num_gallery_imgs, self.num_gallery_cams, self.num_gallery_vids = self.get_imagedata_info(
@@ -65,6 +87,9 @@ class RGBNT100(BaseImageDataset):
             raise RuntimeError("'{}' is not available".format(self.query_dir))
         if not osp.exists(self.gallery_dir):
             raise RuntimeError("'{}' is not available".format(self.gallery_dir))
+        # 验证集目录是可选的，不存在也不报错
+        if not osp.exists(self.val_dir):
+            print("⚠️  验证集目录不存在: {} (将跳过验证集)".format(self.val_dir))
 
 
 

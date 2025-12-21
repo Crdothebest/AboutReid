@@ -262,8 +262,18 @@ def make_dataloader(cfg):
     #     collate_fn=train_collate_fn
     # )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    val_set = ImageDataset(dataset.query + dataset.gallery, val_transforms)
-
+    # 验证集：优先使用 dataset.val（如果存在），否则使用测试集（query + gallery）
+    # 这样可以在训练时使用验证集监控，测试时使用测试集评估
+    if hasattr(dataset, 'val') and len(dataset.val) > 0:
+        # 使用真正的验证集（从训练集中划分出来的）
+        val_set = ImageDataset(dataset.val, val_transforms)
+        print("✅ 使用验证集进行训练监控（从训练集中划分）")
+        print(f"   验证集: {len(dataset.val)} 张图像")
+    else:
+        # 如果没有验证集，使用测试集（query + gallery）作为验证集
+        val_set = ImageDataset(dataset.query + dataset.gallery, val_transforms)
+        print("⚠️  未找到验证集，使用测试集（query + gallery）作为验证集")
+    
     val_loader = DataLoader(
         val_set, batch_size=cfg.TEST.IMS_PER_BATCH, shuffle=False, num_workers=num_workers,
         collate_fn=val_collate_fn

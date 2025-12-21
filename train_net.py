@@ -158,6 +158,9 @@ if __name__ == '__main__':
                        help="设置门控网络头数 (默认: 8)")
     parser.add_argument("--attention_dropout", type=float, default=0.1, 
                        help="设置门控网络Dropout比例 (默认: 0.1)")
+    # 🔥 新增：恢复训练参数
+    parser.add_argument("--resume", type=str, default="", 
+                       help="恢复训练的检查点路径 (默认: 空，从头开始训练)")
     args = parser.parse_args() # 解析参数
 
     if args.config_file != "":
@@ -173,7 +176,9 @@ if __name__ == '__main__':
                 ('MODEL', 'USE_ATTENTION_FUSION'),
                 ('MODEL', 'USE_GATE_FUSION'),
                 ('MODEL', 'MOE_USE_FIXED_WEIGHTS'),
-                ('MODEL', 'MOE_USE_TOP_K_ROUTING')
+                ('MODEL', 'MOE_USE_TOP_K_ROUTING'),
+                ('MODEL', 'USE_CLIP_MULTI_SCALE'),  # 🔥 新增：多尺度滑动窗口布尔值
+                ('MODEL', 'USE_MULTI_SCALE_MOE'),   # 🔥 新增：多尺度MoE布尔值
             ]
             for section_name, param_name in bool_params:
                 if hasattr(cfg, section_name):
@@ -318,6 +323,8 @@ if __name__ == '__main__':
     loss_func, center_criterion = make_loss(cfg, num_classes=num_classes)
     optimizer, optimizer_center = make_optimizer(cfg, model, center_criterion)
     scheduler = create_scheduler(cfg, optimizer)
+    # 🔥 获取恢复训练的检查点路径（优先使用命令行参数，其次使用配置文件）
+    resume_path = args.resume if args.resume else getattr(cfg.SOLVER, 'RESUME', "")
     best_index = do_train(
         cfg, # 配置
         model, # 模型
@@ -328,7 +335,8 @@ if __name__ == '__main__':
         optimizer_center, # 中心优化器
         scheduler, # 调度器
         loss_func, # 损失函数
-        num_query, args.local_rank # 查询数量和本地排名
+        num_query, args.local_rank, # 查询数量和本地排名
+        resume=resume_path # 🔥 新增：恢复训练的检查点路径
     )
 
     # 仅在主进程/单卡环境重命名大文件夹

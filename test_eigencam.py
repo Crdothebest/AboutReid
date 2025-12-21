@@ -37,7 +37,7 @@ sys.path.insert(0, script_dir)
 
 from config import cfg
 from modeling import make_model
-from grad_cam import EigenCAM, GradCAM
+from visualize_Cam.grad_cam import EigenCAM, GradCAM
 
 
 def build_transforms():

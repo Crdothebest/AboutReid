@@ -9,7 +9,7 @@ conda activate MambaPro
 cd /home/zhanghaoyang/Desktop/yzy/AboutReid
 
 # 运行脚本
-python generate_heatmap_visualization.py \
+python visualize_Cam/generate_heatmap_visualization.py \
     --weight_path /home/zhanghaoyang/Desktop/yzy/AboutReid/pths/ViT-B-16.pt \
     --config_file /home/zhanghaoyang/Desktop/yzy/MambaPro/configs/RGBNT201/MambaPro.yml \
     --query_id 000274 \

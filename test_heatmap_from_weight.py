@@ -40,14 +40,14 @@ sys.path.insert(0, script_dir)
 
 from config import cfg
 from modeling import make_model
-from visualize_gradcam import (
+from visualize_Cam.visualize_gradcam import (
     build_transforms,
     load_image,
     detect_camera_num_from_weights,
     get_target_layer_name,
     visualize_multimodal
 )
-from grad_cam import GradCAM
+from visualize_Cam.grad_cam import GradCAM
 from heatmap_evaluator import (
     evaluate_heatmap_quality,
     evaluate_cross_modal_alignment,

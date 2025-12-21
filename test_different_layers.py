@@ -5,8 +5,8 @@ sys.path.insert(0, '.')
 import torch
 from config import cfg
 from modeling import make_model
-from visualize_gradcam import build_transforms, load_image, detect_camera_num_from_weights
-from grad_cam import GradCAM
+from visualize_Cam.visualize_gradcam import build_transforms, load_image, detect_camera_num_from_weights
+from visualize_Cam.grad_cam import GradCAM
 
 # 配置
 cfg.merge_from_file('configs/RGBNT201/yzy_best_Mambapro_moe.yml')

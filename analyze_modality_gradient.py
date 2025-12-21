@@ -5,8 +5,8 @@ sys.path.insert(0, '.')
 import torch
 from config import cfg
 from modeling import make_model
-from visualize_gradcam import build_transforms, load_image
-from grad_cam import GradCAM
+from visualize_Cam.visualize_gradcam import build_transforms, load_image
+from visualize_Cam.grad_cam import GradCAM
 
 # 加载模型
 cfg.merge_from_file('configs/RGBNT201/yzy_best_Mambapro_moe.yml')
@@ -17,7 +17,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 transform = build_transforms()
 
 # 创建模型
-from visualize_gradcam import detect_camera_num_from_weights
+from visualize_Cam.visualize_gradcam import detect_camera_num_from_weights
 camera_num = detect_camera_num_from_weights(weight_path)
 num_class = getattr(cfg.DATASETS, 'NUM_CLASSES', 171)
 model = make_model(cfg, num_class=num_class, camera_num=camera_num).to(device)
@@ -106,6 +106,9 @@ for modality, image_path in [('RGB', rgb_path), ('NI', ni_path), ('TI', ti_path)
 print("\n" + "=" * 60)
 print("分析完成")
 print("=" * 60)
+
+
+
 
 
 

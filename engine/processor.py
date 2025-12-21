@@ -153,7 +153,7 @@ def do_train(cfg,
              optimizer_center,
              scheduler,
              loss_fn,
-             num_query, local_rank):
+             num_query, local_rank, resume=None):
     log_period = cfg.SOLVER.LOG_PERIOD                  # 日志打印间隔（iter）
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD    # 保存权重间隔（epoch）
     eval_period = cfg.SOLVER.EVAL_PERIOD                # 验证间隔（epoch）
@@ -202,6 +202,12 @@ def do_train(cfg,
     # 🔥 恢复训练逻辑
     # =========================
     start_epoch = 1
+    # 🔥 修复：确保 resume 变量已定义（从参数或配置中获取）
+    if resume is None:
+        resume = getattr(cfg.SOLVER, 'RESUME', None) if hasattr(cfg, 'SOLVER') else None
+    # 如果 resume 是空字符串，转换为 None
+    if resume == "":
+        resume = None
     if resume:
         if os.path.exists(resume):
             logger.info(f"🔄 从检查点恢复训练: {resume}")
@@ -341,10 +347,25 @@ def do_train(cfg,
                     if expert_weights is not None:
                         # 从损失函数中获取MoE损失函数
                         if hasattr(loss_fn, 'moe_loss_fn') and loss_fn.moe_loss_fn is not None:
+                            # 🔧 关键修复：检查是否使用固定权重模式
+                            # 如果使用固定权重模式，权重没有梯度是正常的，不应该打印警告
+                            use_fixed_weights = False
+                            # 优先从模型实例中读取（最准确）
+                            if hasattr(model.BACKBONE, 'clip_multi_scale_moe'):
+                                if hasattr(model.BACKBONE.clip_multi_scale_moe, 'use_fixed_weights'):
+                                    use_fixed_weights = model.BACKBONE.clip_multi_scale_moe.use_fixed_weights
+                            # 如果模型实例中没有，则从配置中读取
+                            if not use_fixed_weights and hasattr(cfg.MODEL, 'MOE_USE_FIXED_WEIGHTS'):
+                                use_fixed_weights_raw = cfg.MODEL.MOE_USE_FIXED_WEIGHTS
+                                if isinstance(use_fixed_weights_raw, str):
+                                    use_fixed_weights = use_fixed_weights_raw.lower() in ('true', '1', 'yes')
+                                else:
+                                    use_fixed_weights = bool(use_fixed_weights_raw)
+                            
                             # 🔧 关键修复：如果权重被detach，说明梯度连接已断开
-                            # 这种情况下，我们需要直接从门控网络重新获取权重
-                            if not expert_weights.requires_grad:
-                                # ⚠️ 警告：权重没有梯度，可能无法更新门控网络
+                            # 但在固定权重模式下，这是正常的，不应该打印警告
+                            if not expert_weights.requires_grad and not use_fixed_weights:
+                                # ⚠️ 警告：权重没有梯度，可能无法更新门控网络（仅在非固定权重模式下）
                                 if n_iter % 100 == 0:
                                     print(f"⚠️  警告: 专家权重没有梯度！门控网络可能无法更新。")
                                     print(f"   请检查 modeling/make_model.py 中权重保存时是否被detach")
