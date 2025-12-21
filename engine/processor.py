@@ -153,8 +153,7 @@ def do_train(cfg,
              optimizer_center,
              scheduler,
              loss_fn,
-             num_query, local_rank,
-             resume=""):  # 🔥 新增：恢复训练检查点路径
+             num_query, local_rank):
     log_period = cfg.SOLVER.LOG_PERIOD                  # 日志打印间隔（iter）
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD    # 保存权重间隔（epoch）
     eval_period = cfg.SOLVER.EVAL_PERIOD                # 验证间隔（epoch）

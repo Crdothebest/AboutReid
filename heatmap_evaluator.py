@@ -147,7 +147,7 @@ def evaluate_cross_modal_alignment(
     heatmap_rgb: np.ndarray,
     heatmap_nir: np.ndarray,
     heatmap_tir: np.ndarray,
-    threshold: float = 0.7
+    threshold: float = None  # 自动计算阈值
 ) -> Dict[str, float]:
     """
     评估跨模态热力图对齐度
@@ -190,6 +190,15 @@ def evaluate_cross_modal_alignment(
     # 确保所有热力图尺寸一致
     assert heatmap_rgb.shape == heatmap_nir.shape == heatmap_tir.shape, \
         f"热力图尺寸不一致: RGB={heatmap_rgb.shape}, NIR={heatmap_nir.shape}, TIR={heatmap_tir.shape}"
+    
+    # 1. 自动计算阈值（如果未指定）
+    # 使用每个热力图的最大值的70%作为阈值，确保至少有一些高响应区域
+    if threshold is None:
+        max_rgb = heatmap_rgb.max()
+        max_nir = heatmap_nir.max()
+        max_tir = heatmap_tir.max()
+        # 使用三个模态最大值的70%作为阈值，但至少为0.1
+        threshold = max(0.1, min(max_rgb, max_nir, max_tir) * 0.7)
     
     # 1. 将热力图二值化为高响应区域
     high_response_rgb = heatmap_rgb > threshold

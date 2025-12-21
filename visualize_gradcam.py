@@ -143,6 +143,7 @@ def detect_camera_num_from_weights(weight_path: str) -> int:
     - 加载权重文件
     - 查找包含 'cv_embed' 的键（相机/视角嵌入层）
     - 从嵌入层的形状推断相机数量
+    - 支持 TorchScript 模型（.pt 文件）和普通权重文件（.pth 文件）
     
     Args:
         weight_path (str): 模型权重文件路径
@@ -150,13 +151,41 @@ def detect_camera_num_from_weights(weight_path: str) -> int:
     Returns:
         int: 检测到的相机数量，默认为 4
     """
-    checkpoint = torch.load(weight_path, map_location='cpu')
-    for key in checkpoint:
-        if 'BACKBONE.cv_embed' in key or 'cv_embed' in key:
-            # 从 cv_embed 层的形状推断相机数量
-            # 形状通常是 [camera_num, embed_dim]
-            return checkpoint[key].shape[0]
-    return 4  # 默认相机数量
+    try:
+        checkpoint = torch.load(weight_path, map_location='cpu')
+        
+        # 检查是否是 TorchScript 模型
+        if isinstance(checkpoint, torch.jit.ScriptModule) or isinstance(checkpoint, torch.jit.ScriptFunction):
+            # TorchScript 模型无法直接访问权重，返回默认值
+            print(f"⚠️  检测到 TorchScript 模型，无法自动检测相机数量，使用默认值 4")
+            return 4
+        
+        # 处理普通权重文件（可能是字典或 state_dict）
+        if isinstance(checkpoint, dict):
+            # 检查是否是包含 'model' 或 'state_dict' 的检查点
+            if 'model' in checkpoint:
+                state_dict = checkpoint['model']
+            elif 'state_dict' in checkpoint:
+                state_dict = checkpoint['state_dict']
+            else:
+                state_dict = checkpoint
+            
+            # 查找相机嵌入层
+            for key in state_dict.keys():
+                if 'BACKBONE.cv_embed' in key or 'cv_embed' in key:
+                    # 从 cv_embed 层的形状推断相机数量
+                    # 形状通常是 [camera_num, embed_dim]
+                    cv_embed_shape = state_dict[key].shape
+                    if len(cv_embed_shape) >= 1:
+                        print(f"✅ 从权重文件检测到相机数量: {cv_embed_shape[0]}")
+                        return cv_embed_shape[0]
+        
+        # 如果找不到，返回默认值
+        print(f"⚠️  无法从权重文件检测相机数量，使用默认值 4")
+        return 4
+    except Exception as e:
+        print(f"⚠️  加载权重文件时出错: {e}，使用默认相机数量 4")
+        return 4  # 默认相机数量
 
 
 def get_target_layer_name(model: nn.Module, model_type: str = 'auto') -> str:
@@ -188,7 +217,15 @@ def get_target_layer_name(model: nn.Module, model_type: str = 'auto') -> str:
                 model_type = 'clip_vit'
             elif hasattr(backbone, 'base'):
                 # 标准 ViT 或 ResNet
-                if hasattr(backbone.base, 'blocks'):
+                if hasattr(backbone.base, 'transformer'):
+                    # 有 transformer 属性，检查是否有 resblocks
+                    if hasattr(backbone.base.transformer, 'resblocks'):
+                        model_type = 'vit_transformer'
+                    elif hasattr(backbone.base.transformer, 'blocks'):
+                        model_type = 'vit'
+                    else:
+                        model_type = 'vit'
+                elif hasattr(backbone.base, 'blocks'):
                     model_type = 'vit'
                 else:
                     model_type = 'resnet'
@@ -198,6 +235,10 @@ def get_target_layer_name(model: nn.Module, model_type: str = 'auto') -> str:
         # CLIP ViT-B-16: 最后一层 Transformer 块
         # 通常有 12 层，索引为 0-11，最后一层是 11
         return 'BACKBONE.image_encoder.transformer.resblocks.11'
+    elif model_type == 'vit_transformer':
+        # ViT with transformer.resblocks: 最后一层 Transformer 块
+        # 通常有 12 层，索引为 0-11，最后一层是 11
+        return 'BACKBONE.base.transformer.resblocks.11'
     elif model_type == 'vit':
         # 标准 ViT: 最后一层 Transformer 块
         return 'BACKBONE.base.blocks.11'  # 假设 12 层 ViT
@@ -205,8 +246,8 @@ def get_target_layer_name(model: nn.Module, model_type: str = 'auto') -> str:
         # ResNet: 最后一层卷积层
         return 'BACKBONE.base.layer4'
     else:
-        # 默认：尝试 CLIP ViT
-        return 'BACKBONE.image_encoder.transformer.resblocks.11'
+        # 默认：尝试 ViT transformer
+        return 'BACKBONE.base.transformer.resblocks.11'
 
 
 def visualize_single_image(
@@ -354,8 +395,8 @@ def visualize_multimodal(
     if not images:
         raise ValueError(f"未找到任何模态的图像，Query ID: {query_id}")
     
-    # 创建可视化图像（3行×3列：原始、热力图、叠加）
-    fig, axes = plt.subplots(3, 3, figsize=(15, 15))
+    # 创建可视化图像（3行×2列：原始、叠加）- 符合参考图片格式
+    fig, axes = plt.subplots(3, 2, figsize=(12, 18))
     
     # 创建 Grad-CAM 对象
     try:
@@ -394,26 +435,19 @@ def visualize_multimodal(
             print(f"⚠️  {mod_name} 模态生成失败: {e}")
             continue
         
-        # 显示原始图像
+        # 显示原始图像（左列）
         axes[row, 0].imshow(original_image)
-        axes[row, 0].set_title(f'{mod_name} - Original', fontsize=11, fontweight='bold')
+        axes[row, 0].set_title(f'{mod_name}', fontsize=12, fontweight='bold', pad=10)
         axes[row, 0].axis('off')
         
-        # 显示热力图
-        im = axes[row, 1].imshow(heatmap, cmap='jet')
-        axes[row, 1].set_title(f'{mod_name} - Heatmap', fontsize=11, fontweight='bold')
+        # 显示叠加图像（右列）- 热力图叠加在原始图像上
+        axes[row, 1].imshow(overlay)
+        axes[row, 1].set_title(f'{mod_name}', fontsize=12, fontweight='bold', pad=10)
         axes[row, 1].axis('off')
-        plt.colorbar(im, ax=axes[row, 1], fraction=0.046, pad=0.04)
-        
-        # 显示叠加图像
-        axes[row, 2].imshow(overlay)
-        axes[row, 2].set_title(f'{mod_name} - Overlay', fontsize=11, fontweight='bold')
-        axes[row, 2].axis('off')
     
-    plt.suptitle(f'Multi-modal Grad-CAM Visualization - Person ID: {query_id}', 
-                 fontsize=16, fontweight='bold')
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    # 移除总标题，让图像更简洁（符合参考图片风格）
+    plt.tight_layout(pad=2.0)
+    plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     
     print(f"✅ 已保存多模态可视化结果: {output_path}")

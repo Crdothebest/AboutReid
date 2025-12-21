@@ -181,6 +181,7 @@ def generate_heatmap_for_person(
     # 为三种模态生成热力图
     heatmaps = {}
     overlays = {}
+    original_image = None  # 保存原始图像尺寸
     
     for modality, image_path in [('RGB', rgb_path), ('NI', ni_path), ('TI', ti_path)]:
         try:
@@ -221,7 +222,22 @@ def generate_heatmap_for_person(
             return None
     
     # 评估热力图质量
-    H, W = heatmaps['RGB'].shape
+    # 🔥 重要：热力图可能是patch级别的尺寸（如16x8），需要resize到原始图像尺寸进行评估
+    if original_image is None:
+        original_H, original_W = 256, 128  # 默认尺寸
+    else:
+        original_H, original_W = original_image.shape[:2]
+    
+    # 如果热力图尺寸与原始图像不一致，resize热力图
+    heatmap_H, heatmap_W = heatmaps['RGB'].shape
+    if heatmap_H != original_H or heatmap_W != original_W:
+        # Resize热力图到原始图像尺寸
+        import cv2
+        for modality in ['RGB', 'NI', 'TI']:
+            heatmaps[modality] = cv2.resize(heatmaps[modality], (original_W, original_H), interpolation=cv2.INTER_LINEAR)
+    
+    # 使用原始图像尺寸创建掩码
+    H, W = original_H, original_W
     human_mask = create_simple_human_mask((H, W))
     background_mask = ~human_mask
     
