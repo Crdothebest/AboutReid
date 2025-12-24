@@ -21,6 +21,7 @@ from utils.metrics import R1_mAP_eval, R1_mAP   # 评估指标计算器（mAP & 
 from torch.cuda import amp                      # 混合精度工具：autocast + GradScaler
 import torch.distributed as dist                # 分布式训练
 from layers.supcontrast import SupConLoss       # 监督对比损失（本文件未直接使用）
+from tqdm import tqdm                           # 进度条
 
 
 def _format_numeric_value(value, precision=2):
@@ -323,7 +324,18 @@ def do_train(cfg,
         # -------- 单个 epoch 内的迭代 --------
         enable_iter_log = getattr(cfg.SOLVER, 'ENABLE_ITER_LOG', False)
         enable_moe_debug_log = getattr(cfg.SOLVER, 'ENABLE_MOE_DEBUG_LOG', False)
-        for n_iter, (img, vid, target_cam, target_view, _) in enumerate(train_loader):
+        
+        # 创建进度条
+        pbar = tqdm(train_loader, desc=f"📦 [BATCH_GET] Epoch {epoch}/{epochs}", unit="batch",
+                   bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]')
+        
+        for n_iter, batch_data in enumerate(pbar):
+            # 处理文本特征：检查batch中是否包含文本特征
+            if len(batch_data) == 6:  # 包含文本特征
+                img, vid, target_cam, target_view, _, text_features = batch_data
+            else:  # 标准格式
+                img, vid, target_cam, target_view, _ = batch_data
+                text_features = None
             optimizer.zero_grad()
             optimizer_center.zero_grad()
 
@@ -335,10 +347,17 @@ def do_train(cfg,
             target_cam = target_cam.to(device)          # 摄像头ID
             target_view = target_view.to(device)        # 视角/场景ID（数据集定义）
 
+            # 处理文本特征（如果存在）
+            if text_features is not None:
+                text_features = {k: v.to(device) for k, v in text_features.items()}
+
             # 前向：混合精度
             with amp.autocast(enabled=True):
                 # 模型前向；部分模型会根据 label/cam/view 执行不同分支（如 BNNeck/part head）
-                output = model(img, label=target, cam_label=target_cam, view_label=target_view)
+                if text_features is not None:
+                    output = model(img, label=target, cam_label=target_cam, view_label=target_view, text_features=text_features)
+                else:
+                    output = model(img, label=target, cam_label=target_cam, view_label=target_view)
 
                 # output 通常是 [logits_0, feat_0, logits_1, feat_1, ...]
                 loss = 0
@@ -551,6 +570,7 @@ def do_train(cfg,
                                     loss_meter.avg, acc_meter.avg, scheduler._get_lr(epoch)[0]))
 
         # -------- epoch 训练结束：统计耗时/速度 --------
+        pbar.close()  # 关闭进度条
         end_time = time.time()
         time_per_batch = (end_time - start_time) / (n_iter + 1)
         if cfg.MODEL.DIST_TRAIN:
@@ -726,7 +746,18 @@ def do_train(cfg,
                 torch.cuda.empty_cache()
             else:
                 model.eval()
-                for n_iter, (img, vid, camid, camids, target_view, _) in enumerate(val_loader):
+                for n_iter, batch_data in enumerate(val_loader):
+                    # 处理文本特征：验证数据可能包含文本特征
+                    # val_collate_fn_with_text 返回7个元素: imgs, pids, camids, camids_batch, viewids, img_paths, text_features
+                    # val_collate_fn 返回6个元素: imgs, pids, camids, camids_batch, viewids, img_paths
+                    if len(batch_data) == 7:  # 增强版collate函数（包含文本特征）
+                        img, vid, camid, camids, target_view, img_paths, text_features = batch_data
+                    elif len(batch_data) == 6:  # 标准版collate函数
+                        img, vid, camid, camids, target_view, img_paths = batch_data
+                        text_features = None  # 占位符
+                    else:  # 其他情况（兼容性）
+                        img, vid, camid, camids, target_view = batch_data[:5]
+                        text_features = None  # 占位符
                     with torch.no_grad():
                         img = {'RGB': img['RGB'].to(device),
                                'NI':  img['NI'].to(device),

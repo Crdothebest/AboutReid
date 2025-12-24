@@ -473,6 +473,41 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
         self.ID_LOSS_TYPE = cfg.MODEL.ID_LOSS_TYPE  # 分类头类型
         self.mamba = cfg.MODEL.MAMBA  # 是否启用 Mamba 融合
         
+        # ============ 文本融合配置 ============
+        self.use_text_fusion = getattr(cfg.MODEL, 'USE_TEXT_FUSION', False)
+        self.text_fusion_method = getattr(cfg.MODEL, 'TEXT_FUSION_METHOD', 'attention')
+        self.text_fusion_weight = getattr(cfg.MODEL, 'TEXT_FUSION_WEIGHT', 0.3)
+
+        # 读取文本融合维度配置
+        self.text_fusion_embed_dim = getattr(cfg.MODEL, 'TEXT_FUSION_EMBED_DIM', self.feat_dim)
+        self.text_fusion_input_dim = getattr(cfg.MODEL, 'TEXT_FUSION_INPUT_DIM', self.feat_dim * 3)
+        self.text_fusion_text_dim = getattr(cfg.MODEL, 'TEXT_FUSION_TEXT_DIM', self.feat_dim)
+
+        # ============ 模态内引导配置 ============
+        self.use_modal_guidance = getattr(cfg.MODEL, 'USE_MODAL_GUIDANCE', True)  # 默认启用模态内引导
+        self.guidance_residual = getattr(cfg.MODEL, 'GUIDANCE_RESIDUAL', True)   # 使用残差结构避免特征丢失
+        self.guidance_scale = getattr(cfg.MODEL, 'GUIDANCE_SCALE', 0.1)          # 引导增强幅度
+
+        # 如果启用文本融合，创建融合模块
+        if self.use_text_fusion:
+            from .fusion_part.cross_modal_attention import create_text_fusion_module
+            self.text_fusion = create_text_fusion_module(
+                method=self.text_fusion_method,
+                embed_dim=self.text_fusion_embed_dim,     # 从配置读取
+                input_dim=self.text_fusion_input_dim,     # 从配置读取
+                text_dim=self.text_fusion_text_dim,       # 从配置读取
+            )
+            print(f"✅ MambaPro已启用文本融合: {self.text_fusion_method}模式 (embed_dim: {self.text_fusion_embed_dim})")
+        else:
+            self.text_fusion = None
+
+        # 如果启用模态内引导，创建门控网络
+        if self.use_modal_guidance:
+            self.modal_guidance = self._create_modal_guidance()
+            print(f"✅ MambaPro已启用模态内引导: 残差结构防止特征丢失 (scale={self.guidance_scale})")
+        else:
+            self.modal_guidance = None
+
         # 使用原始AAM融合模块
         self.AAM = AAM(self.feat_dim, n_layers=2, cfg=cfg)
         self.miss_type = cfg.TEST.MISS  # 测试缺失模态策略
@@ -482,11 +517,18 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
         self.bottleneck.bias.requires_grad_(False)
         self.bottleneck.apply(weights_init_kaiming)
 
-        self.classifier_fuse = nn.Linear(3 * self.feat_dim, self.num_classes, bias=False)  # 融合特征分类头
+        # ============ 维度守恒设计：始终保持1536维输出 ============
+        # 无论是否使用文本融合，输出维度始终为3 * feat_dim (1536)
+        # 这样可以完美兼容预训练的BatchNorm和分类器权重
+        output_dim = 3 * self.feat_dim  # 固定1536维
+
+        self.classifier_fuse = nn.Linear(output_dim, self.num_classes, bias=False)  # 融合特征分类头
         self.classifier_fuse.apply(weights_init_classifier)
-        self.bottleneck_fuse = nn.BatchNorm1d(3 * self.feat_dim)  # 融合 BNNeck
+        self.bottleneck_fuse = nn.BatchNorm1d(output_dim)  # 融合 BNNeck (1536维)
         self.bottleneck_fuse.bias.requires_grad_(False)
         self.bottleneck_fuse.apply(weights_init_kaiming)
+
+        print(f"✅ MambaPro输出维度: {output_dim} (维度守恒拼接，兼容预训练权重)")
 
     def load_param(self, trained_path):  # 精确加载（不去掉 module 前缀）
         """
@@ -549,7 +591,68 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             if len(size_mismatch_params) > 10:
                 print(f"   ... 还有 {len(size_mismatch_params) - 10} 个参数未显示")
 
-    def forward(self, x, label=None, cam_label=None, view_label=None):  # 训练/测试两条路径（固定三模态，与MambaPro一致）
+    def _create_modal_guidance(self):
+        """创建安全的模态内引导网络"""
+        class SafeModalGuidance(nn.Module):
+            """安全的模态内引导：残差结构避免特征丢失"""
+
+            def __init__(self, feat_dim=512, text_dim=512, use_residual=True, scale_init=0.1):
+                super().__init__()
+                self.feat_dim = feat_dim
+                self.use_residual = use_residual
+
+                # 分布对齐层
+                self.visual_norm = nn.LayerNorm(feat_dim)
+                self.text_norm = nn.LayerNorm(text_dim)
+                self.text_adapter = nn.Linear(text_dim, feat_dim)
+
+                # 安全的门控网络
+                self.gate_network = nn.Sequential(
+                    nn.Linear(feat_dim * 2, feat_dim),
+                    nn.LayerNorm(feat_dim),
+                    nn.GELU(),
+                    nn.Linear(feat_dim, feat_dim),
+                    nn.Sigmoid()  # 输出[0,1]门控信号
+                )
+
+                # 增强幅度控制器 (可配置初始值)
+                self.enhancement_scale = nn.Parameter(torch.tensor(scale_init))
+
+            def forward(self, visual_feat, text_feat=None):
+                """安全的模态内引导"""
+                if text_feat is None:
+                    return visual_feat
+
+                # 分布对齐
+                visual_normed = self.visual_norm(visual_feat)
+                text_normed = self.text_norm(text_feat)
+                text_aligned = self.text_adapter(text_normed)
+
+                # 生成门控信号
+                combined = torch.cat([visual_normed, text_aligned], dim=-1)
+                guidance = self.gate_network(combined)
+
+                if self.use_residual:
+                    # 安全的残差增强：原始 + 增强
+                    enhancement = visual_feat * guidance * self.enhancement_scale
+                    enhanced_visual = visual_feat + enhancement
+                else:
+                    # 传统方式（有风险）
+                    enhanced_visual = visual_feat * guidance
+
+                # 数值稳定性保护
+                enhanced_visual = torch.clamp(enhanced_visual, -10, 10)
+
+                return enhanced_visual
+
+        return SafeModalGuidance(
+            feat_dim=self.feat_dim,
+            text_dim=self.feat_dim,  # 假设文本维度与视觉一致
+            use_residual=self.guidance_residual,
+            scale_init=self.guidance_scale
+        )
+
+    def forward(self, x, label=None, cam_label=None, view_label=None, text_features=None):  # 训练/测试两条路径（固定三模态，与MambaPro一致）
         if self.training:
             RGB = x['RGB']  # 可见光
             NI = x['NI']  # 近红外
@@ -572,6 +675,79 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
 
             if self.mamba:
                 fuse = self.AAM(RGB_cash, NI_cash, TI_cash)  # 三模态融合
+
+                # ============ 文本融合 ============
+                if self.use_text_fusion and self.text_fusion is not None and text_features is not None:
+                    # 准备文本特征：分模态处理，避免语义稀释
+                    text_rgb = text_features['RGB']  # [B, 512]
+                    text_nir = text_features['NIR']  # [B, 512]
+                    text_tir = text_features['TIR']  # [B, 512]
+
+                    # 应用文本融合 - 分模态引导策略
+                    if self.text_fusion_method == "residual":
+                        # ============ 残差融合：文本投影到视觉维度 ============
+                        # 将三个模态的文本特征分别投影到1536维，然后进行门控增强
+                        original_fuse = fuse.clone()  # [B, 1536] 保存原始AAM融合结果
+
+                        # 为每个模态创建独立的文本适配器（如果不存在）
+                        if not hasattr(self, 'text_adapters'):
+                            self.text_adapters = nn.ModuleDict({
+                                'RGB': nn.Sequential(
+                                    nn.Linear(512, 1536 // 2),
+                                    nn.GELU(),
+                                    nn.Linear(1536 // 2, 1536),
+                                    nn.LayerNorm(1536)
+                                ),
+                                'NIR': nn.Sequential(
+                                    nn.Linear(512, 1536 // 2),
+                                    nn.GELU(),
+                                    nn.Linear(1536 // 2, 1536),
+                                    nn.LayerNorm(1536)
+                                ),
+                                'TIR': nn.Sequential(
+                                    nn.Linear(512, 1536 // 2),
+                                    nn.GELU(),
+                                    nn.Linear(1536 // 2, 1536),
+                                    nn.LayerNorm(1536)
+                                )
+                            })
+
+                        # 分别处理每个模态的文本引导
+                        rgb_modulator = self.text_adapters['RGB'](text_rgb)  # [B, 512] -> [B, 1536]
+                        nir_modulator = self.text_adapters['NIR'](text_nir)  # [B, 512] -> [B, 1536]
+                        tir_modulator = self.text_adapters['TIR'](text_tir)  # [B, 512] -> [B, 1536]
+
+                        # 组合三个模态的文本调制器（加权平均）
+                        text_modulator = (rgb_modulator + nir_modulator + tir_modulator) / 3.0
+
+                        # 门控相乘：使用sigmoid确保数值稳定性
+                        gated_fuse = original_fuse * torch.sigmoid(text_modulator)
+
+                        # 残差相加：保留原始视觉信息 + 文本引导增强
+                        fuse = original_fuse + self.text_fusion_weight * gated_fuse
+
+                    elif self.text_fusion_method == "attention":
+                        # ============ 注意力融合：维度对齐优化 ============
+                        # 保持原有的注意力融合，但确保输出维度为1536
+                        fuse = self.text_fusion(fuse, text_rgb, text_nir, text_tir)
+
+                        # 确保输出维度为1536（通过上采样投影）
+                        if fuse.size(-1) != 1536:
+                            if not hasattr(self, 'attention_upsampler'):
+                                self.attention_upsampler = nn.Linear(fuse.size(-1), 1536)
+                            fuse = self.attention_upsampler(fuse)
+
+                    else:
+                        # ============ 拼接融合：维度对齐优化 ============
+                        # 其他融合方法直接应用，但确保输出维度
+                        fuse = self.text_fusion(fuse, text_rgb, text_nir, text_tir)
+
+                        # 确保输出维度为1536
+                        if fuse.size(-1) != 1536:
+                            if not hasattr(self, 'concat_upsampler'):
+                                self.concat_upsampler = nn.Linear(fuse.size(-1), 1536)
+                            fuse = self.concat_upsampler(fuse)
+
                 fuse_global = self.bottleneck_fuse(fuse)  # BNNeck 融合
                 fuse_score = self.classifier_fuse(fuse_global)  # 融合分类
 
@@ -597,8 +773,39 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             TI_cash, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
 
             if self.mamba:
-                # 固定三模态融合（与MambaPro一致）
-                fuse = self.AAM(RGB_cash, NI_cash, TI_cash)  # 输出融合特征
+                # ============ 阶段1：模态内引导 (In-Modal Guidance) ============
+                # 对每个模态单独进行文本引导增强
+                if self.use_modal_guidance and text_features is not None:
+                    # 应用模态内引导
+                    RGB_enhanced = self.modal_guidance(RGB_cash, text_features.get('RGB'))
+                    NI_enhanced = self.modal_guidance(NI_cash, text_features.get('NI'))
+                    TI_enhanced = self.modal_guidance(TI_cash, text_features.get('TI'))
+                else:
+                    # 无文本引导时直接使用原始特征
+                    RGB_enhanced, NI_enhanced, TI_enhanced = RGB_cash, NI_cash, TI_cash
+
+                # ============ 阶段2：维度守恒拼接 (Dimension-Invariant Concatenation) ============
+                # 将三个增强后的模态特征拼接，保持1536维输出
+                fuse = torch.cat([RGB_enhanced, NI_enhanced, TI_enhanced], dim=-1)  # [B, 1536]
+
+                # ============ 兼容性：保留原有文本融合逻辑 (可选) ============
+                if self.use_text_fusion and self.text_fusion is not None and text_features is not None:
+                    # 准备文本特征：聚合三模态文本
+                    text_rgb = text_features['RGB']  # [B, 512]
+                    text_nir = text_features['NIR']  # [B, 512]
+                    text_tir = text_features['TIR']  # [B, 512]
+
+                    # 聚合文本特征
+                    text_combined = (text_rgb + text_nir + text_tir) / 3.0  # [B, 512]
+
+                    # 应用全局文本融合 (可选增强)
+                    if self.text_fusion_method == "residual":
+                        original_fuse = fuse.clone()
+                        fuse = self.text_fusion(fuse, text_combined)
+                        fuse = original_fuse + self.text_fusion_weight * fuse
+                    else:
+                        fuse = self.text_fusion(fuse, text_combined)
+
                 return fuse
             else:
                 # 固定三模态拼接（与MambaPro一致）
@@ -617,5 +824,15 @@ __factory_T_type = {  # 骨干工厂映射
 
 
 def make_model(cfg, num_class, camera_num, view_num=0):  # 模型工厂
-    model = MambaPro(num_class, cfg, camera_num, view_num, __factory_T_type)  # 实例化 MambaPro
+    # ============ 开关控制：文本融合选择 ============
+    use_text_fusion = getattr(cfg.MODEL, 'USE_TEXT_FUSION', False)
+
+    # 始终使用MambaPro作为基础模型
+    print("🎯 使用MambaPro模型（AboutReid核心架构）")
+    if use_text_fusion:
+        print("✅ 已启用文本融合功能")
+    else:
+        print("❌ 文本融合功能已禁用")
+    model = MambaPro(num_class, cfg, camera_num, view_num, __factory_T_type)
+
     return model  # 返回模型

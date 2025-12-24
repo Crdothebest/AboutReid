@@ -326,6 +326,12 @@ if __name__ == '__main__':
         torch.distributed.init_process_group(backend='nccl', init_method='env://') # 初始化分布式训练
 
     os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID
+    # 临时禁用多进程数据加载，防止多进程问题
+    cfg.defrost()
+    cfg.DATALOADER.NUM_WORKERS = 0
+    cfg.freeze()
+    print("🔧 [WORKERS_FIX] 临时禁用多进程数据加载 (NUM_WORKERS=0)")
+
     train_loader, train_loader_normal, val_loader, num_query, num_classes, camera_num, view_num = make_dataloader(cfg)
     model = make_model(cfg, num_class=num_classes, camera_num=camera_num, view_num=view_num)
     loss_func, center_criterion = make_loss(cfg, num_classes=num_classes)
@@ -347,6 +353,10 @@ if __name__ == '__main__':
     else:
         # 默认行为：使用命令行或配置文件指定的路径
         resume_path = args.resume if args.resume else getattr(cfg.SOLVER, 'RESUME', "")
+    print("🎯 [BEFORE_DO_TRAIN] 准备调用 do_train 函数")
+    print(f"📊 参数检查: cfg={type(cfg).__name__}, model={type(model).__name__}, train_loader={type(train_loader).__name__}")
+    print(f"📊 更多参数: val_loader={type(val_loader).__name__}, optimizer={type(optimizer).__name__}, scheduler={type(scheduler).__name__}")
+
     best_index = do_train(
         cfg, # 配置
         model, # 模型

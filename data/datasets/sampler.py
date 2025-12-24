@@ -26,7 +26,16 @@ class RandomIdentitySampler(Sampler):
 
         # 遍历数据集，把每个 pid 对应的图像索引收集起来
         # 例如 {pid1: [img1_idx, img2_idx, ...], pid2: [...], ...}
-        for index, (_, pid, _, _) in enumerate(self.data_source):
+        # 处理RGBNT201_IDEA_Text数据集的7元组格式 (img, pid, camid, trackid, text_rgb, text_ni, text_ti)
+        for index, data_tuple in enumerate(self.data_source):
+            if len(data_tuple) == 4:
+                # 标准格式: (img, pid, cam, view)
+                _, pid, _, _ = data_tuple
+            elif len(data_tuple) == 7:
+                # RGBNT201_IDEA_Text格式: (img, pid, camid, trackid, text_rgb, text_ni, text_ti)
+                _, pid, _, _, _, _, _ = data_tuple
+            else:
+                raise ValueError(f"Unsupported data tuple length: {len(data_tuple)}")
             self.index_dic[pid].append(index)
         self.pids = list(self.index_dic.keys())  # 所有 pid 列表
 

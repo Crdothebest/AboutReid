@@ -15,6 +15,16 @@ _C.MODEL.NAME = 'MambaPro'
 _C.MODEL.LAYER = -1
 # Path to pretrained model of backbone
 _C.MODEL.PRETRAIN_PATH_T = '/path/to/your/vitb_16_224_21k.pth'
+# Transformer type
+_C.MODEL.TRANSFORMER_TYPE = 'ViT-B-16'
+# Stride size for backbone
+_C.MODEL.STRIDE_SIZE = [16, 16]
+# Camera embedding
+_C.MODEL.SIE_CAMERA = True
+# View embedding
+_C.MODEL.SIE_VIEW = True
+# Direct mode
+_C.MODEL.DIRECT = 1
 # Use ImageNet pretrained model to initialize backbone or use self trained model to initialize the whole model
 # Options: 'imagenet' or 'self'
 # If train with BNNeck, options: 'bnneck' or 'no'
@@ -40,6 +50,10 @@ _C.MODEL.USE_MULTI_SCALE = False # whether use multi-scale sliding window (默�
 _C.MODEL.MULTI_SCALE_SCALES = [4, 8, 16] # sliding window scales (4x4, 8x8, 16x16窗口)
 _C.MODEL.USE_CLIP_MULTI_SCALE = False # whether use CLIP multi-scale sliding window (默认关闭，保持向后兼容)
 _C.MODEL.CLIP_MULTI_SCALE_SCALES = [4, 8, 16] # sliding window scales for CLIP (4x4, 8x8, 16x16窗口)
+
+# ========== 门控融合配置 ==========
+_C.MODEL.USE_GATE_FUSION = False
+_C.MODEL.GATE_DROPOUT = 0.1
 
 # ========== 新增配置：多尺度MoE特征融合设置 ==========
 # 用户修改：添加多尺度MoE特征融合配置，支持命令行开关控制
@@ -85,6 +99,29 @@ _C.MODEL.MOE_FIXED_WEIGHTS = [0.33, 0.33, 0.34]  # 固定权重值（仅在USE_F
 _C.MODEL.MOE_BALANCE_LOSS_WEIGHT = 0.01  # MoE expert balance loss weight
 _C.MODEL.MOE_SPARSITY_LOSS_WEIGHT = 0.001 # MoE sparsity loss weight
 _C.MODEL.MOE_DIVERSITY_LOSS_WEIGHT = 0.01 # MoE diversity loss weight
+
+# ========== 新增配置：文本融合开关控制 ==========
+# 用户修改：添加文本特征融合配置，支持开关控制
+# 功能：控制是否启用QwenVL文本特征与视觉特征的跨模态融合
+# 基于：IDEA项目的文本增强技术
+# 撤销方法：删除以下配置代码
+
+# 🔑 主开关：是否启用文本融合
+_C.MODEL.USE_TEXT_FUSION = False  # 文本融合主开关 (True=启用，False=保持原AboutReid结构)
+
+# 文本融合方法选择
+_C.MODEL.TEXT_FUSION_METHOD = "attention"  # 融合方法: "attention"/"concat"/"residual"
+_C.MODEL.TEXT_FUSION_WEIGHT = 0.3          # 文本融合权重 (0.1-1.0)
+
+# 文本融合维度配置 (跨模态注意力修复后新增)
+_C.MODEL.TEXT_FUSION_EMBED_DIM = 512       # 注意力空间维度
+_C.MODEL.TEXT_FUSION_INPUT_DIM = 1536      # 视觉输入维度 (Mamba输出)
+_C.MODEL.TEXT_FUSION_TEXT_DIM = 512        # 文本输入维度
+
+# 文本特征配置
+_C.MODEL.TEXT_FEATURE_DIM = 512            # 文本特征维度
+_C.MODEL.CROSS_MODAL_ATTENTION_HEADS = 8   # 跨模态注意力头数
+_C.MODEL.TEXT_GUIDE_PROMPT = False         # 是否用文本引导视觉提示
 
 # ========== 新增配置：门控融合机制设置 ==========
 # 用户修改：添加门控融合机制配置，支持命令行开关控制
@@ -187,6 +224,20 @@ _C.DATASETS = CN()
 _C.DATASETS.NAMES = ('RGBNT201')
 # Root directory where datasets should be used (and downloaded if not found)
 _C.DATASETS.ROOT_DIR = ('./data')
+
+# ========== 新增配置：文本特征数据控制 ==========
+# 用户修改：添加文本特征数据加载配置，支持开关控制
+# 功能：控制是否加载QwenVL预编码文本特征
+# 基于：IDEA项目的文本增强技术
+# 撤销方法：删除以下配置代码
+
+# 🔑 文本特征加载开关
+_C.DATASETS.USE_TEXT_FEATURES = False     # 是否加载文本特征（False=保持原功能）
+
+# 📁 文本数据目录
+# 注意：此路径会被make_dataloader.py根据数据集名称动态覆盖
+# 如果需要手动指定路径，请在配置文件中设置QWEN_VL_ANNO_DIR
+_C.DATASETS.QWEN_VL_ANNO_DIR = None  # 默认None，启用自动路径构建
 
 # -----------------------------------------------------------------------------
 # DataLoader
@@ -356,6 +407,11 @@ _C.TEST.NECK_FEAT = 'before'
 _C.TEST.FEAT_NORM = 'yes'
 # Pattern of test augmentation
 _C.TEST.MISS = 'None'
+
+# -----------------------------------------------------------------------------
+# Output
+# -----------------------------------------------------------------------------
+_C.OUTPUT_DIR = "./outputs"  # Output directory for experiments
 # ----------------------------------------------------------a------------------ #
 # Misc options
 # ---------------------------------------------------------------------------- #

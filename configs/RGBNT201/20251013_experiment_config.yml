@@ -29,6 +29,20 @@ MODEL:
   # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
   USE_GATE_FUSION: False
 
+  # ========== 🎯 文本融合模型配置 ==========
+  # 实验目的：配置文本融合功能
+  # 功能：控制是否启用文本特征与视觉特征的跨模态融合
+  # 🔥 核心配置：默认关闭，保持原AboutReid功能完整性
+  USE_TEXT_FUSION: False           # 文本融合主开关（默认关闭）
+  TEXT_FUSION_METHOD: "attention"  # 融合方法 (attention/concat/residual)
+  TEXT_FUSION_WEIGHT: 0.3          # 残差融合权重 (仅residual方法使用)
+  TEXT_FEATURE_DIM: 512            # 文本特征维度
+
+  # 🔧 文本融合维度配置 (跨模态注意力修复后新增)
+  TEXT_FUSION_EMBED_DIM: 512       # 注意力空间维度
+  TEXT_FUSION_INPUT_DIM: 1536      # 视觉输入维度 (Mamba输出)
+  TEXT_FUSION_TEXT_DIM: 512        # 文本输入维度
+
   # GATE_NUM_HEADS: 8  # ⚠️ 旧版本遗留字段，已在当前代码中移除，保留注释避免KeyError
 
   # GATE_NUM_HEADS: 8
@@ -76,6 +90,23 @@ MODEL:
   # 经验：0.5梯度流动不足，1.0梯度流动最佳
   MOE_RESIDUAL_WEIGHT: 1.0      # 🏆 残差连接权重（经验最优：1.0）
 
+  # ========== 🎯 新增：文本融合开关控制 ==========
+  # 实验目的：集成QwenVL文本特征，实现视觉-文本跨模态融合
+  # 功能：基于IDEA项目的文本增强技术
+  # 🔥 核心配置：开关控制文本融合功能，支持多种融合策略
+
+  # 🔑 主开关：是否启用文本融合
+  USE_TEXT_FUSION: False         # 文本融合主开关 (True=启用，False=保持原AboutReid结构)
+
+  # 文本融合方法选择
+  TEXT_FUSION_METHOD: "attention" # 融合方法: "attention"(注意力)/"concat"(拼接)/"residual"(残差)
+  TEXT_FUSION_WEIGHT: 0.3         # 文本融合权重 (0.1-1.0，控制文本影响程度)
+
+  # 文本特征配置
+  TEXT_FEATURE_DIM: 512           # 文本特征维度
+  CROSS_MODAL_ATTENTION_HEADS: 8  # 跨模态注意力头数
+  TEXT_GUIDE_PROMPT: False        # 是否用文本引导视觉提示
+
 INPUT:
   SIZE_TRAIN: [ 256, 128 ] # 训练尺寸
   SIZE_TEST: [ 256, 128 ] # 测试尺寸
@@ -91,6 +122,13 @@ DATALOADER:
 DATASETS:
   NAMES: ('RGBNT201') # 数据集名称
   ROOT_DIR: 'data/datasets' # 数据集根目录
+
+  # ========== 🎯 文本融合数据配置 ==========
+  # 实验目的：配置文本特征数据加载
+  # 功能：控制是否加载QwenVL预编码文本特征
+  # 🔥 核心配置：开关控制文本数据加载，默认关闭不影响原功能
+  USE_TEXT_FEATURES: False         # 是否加载文本特征数据（默认关闭，保持原AboutReid）
+  QWEN_VL_ANNO_DIR: "data/datasets/QwenVL_Anno"  # 指向真实QwenVL数据（开启时使用）
 
 SOLVER:
   # 优化器设置
@@ -141,7 +179,7 @@ SOLVER:
 TEST:
   IMS_PER_BATCH: 64 # 每个批次图像数 (测试时可以更大)
   RE_RANKING: 'no' # 是否重新排序
-  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth' # 权重路径
+  WEIGHT: "" # 权重路径 (训练时留空，使用PRETRAIN_PATH_T初始化)
   NECK_FEAT: 'after' # 颈部特征 (使用after获得更好性能)
   FEAT_NORM: 'yes' # 特征归一化
   MISS: "nothing" # 缺失

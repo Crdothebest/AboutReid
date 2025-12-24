@@ -1,0 +1,67 @@
+# 模态内引导配置示例
+# 解决维度冲突 + 实现文本引导增强
+
+MODEL:
+  # 基础配置
+  PRETRAIN_PATH_T: '/home/zhanghaoyang/Desktop/yzy/AboutReid/pths/ViT-B-16.pt'
+  TRANSFORMER_TYPE: 'ViT-B-16'
+  STRIDE_SIZE: [16, 16]
+  SIE_CAMERA: True
+  SIE_COE: 1.0
+  ID_LOSS_WEIGHT: 0.25
+  TRIPLET_LOSS_WEIGHT: 1.0
+
+  # 关键配置：启用模态内引导
+  USE_MODAL_GUIDANCE: True          # 启用模态内引导 (解决维度冲突的核心)
+  GUIDANCE_RESIDUAL: True           # 使用残差结构 (防止特征丢失)
+  GUIDANCE_SCALE: 0.1               # 引导增强幅度 (可调节)
+
+  # 可选：额外启用全局文本融合
+  USE_TEXT_FUSION: False            # 保持False以专注模态内引导
+  TEXT_FUSION_METHOD: 'attention'
+  TEXT_FUSION_WEIGHT: 0.3
+
+INPUT:
+  SIZE_TRAIN: [256, 128]
+  SIZE_TEST: [256, 128]
+  PROB: 0.5
+  RE_PROB: 0.5
+  PADDING: 10
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 8
+  NUM_WORKERS: 8
+
+DATASETS:
+  NAMES: ('RGBNT201')
+  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/'
+
+SOLVER:
+  OPTIMIZER_NAME: 'Adam'
+  BASE_LR: 0.0005
+  WEIGHT_DECAY: 0.0005
+  WEIGHT_DECAY_BIAS: 0.0005
+  MOMENTUM: 0.9
+  MAX_EPOCHS: 60
+  IMS_PER_BATCH: 32
+  WARMUP_ITERS: 20
+  WARMUP_METHOD: 'linear'
+  WARMUP_FACTOR: 0.01
+  MARGIN: 0.3
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  SEED: 42
+  CHECKPOINT_PERIOD: 10
+  LOG_PERIOD: 10
+  EVAL_PERIOD: 5
+
+TEST:
+  IMS_PER_BATCH: 64
+  RE_RANKING: 'no'
+  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth'
+  NECK_FEAT: 'after'
+  FEAT_NORM: 'yes'
+  MISS: "nothing"
+
+OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/modal_guidance_test'
