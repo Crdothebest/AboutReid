@@ -1,3 +1,6 @@
+# Category: train_utils (训练与实验控制)
+# Description: 负责模型训练启动、自动化实验管理及消融实验运行
+
 from utils.logger import setup_logger
 from utils.config_printer import print_final_config
 from data import make_dataloader
@@ -136,8 +139,6 @@ if __name__ == '__main__':
         "--config_file", default="", help="path to config file", type=str
     )# 默认配置文件路径（留空，必须通过命令行指定）
     parser.add_argument("--fea_cft", default=0, help="Feature choose to be tested", type=int) # 添加特征选择参数
-    parser.add_argument("opts", help="Modify config options using the command-line", default=None,
-                        nargs=argparse.REMAINDER) # 添加命令行参数
     parser.add_argument("--local_rank", default=0, type=int) # 添加本地排名参数
     # 🔥 新增：多尺度滑动窗口控制参数
     parser.add_argument("--use_multi_scale", action="store_true", help="Enable multi-scale sliding window (default: False)")
@@ -156,11 +157,18 @@ if __name__ == '__main__':
                        help="强制禁用门控融合机制 (默认: False)")
     parser.add_argument("--attention_heads", type=int, default=8, 
                        help="设置门控网络头数 (默认: 8)")
-    parser.add_argument("--attention_dropout", type=float, default=0.1, 
+    parser.add_argument("--attention_dropout", type=float, default=0.1,
                        help="设置门控网络Dropout比例 (默认: 0.1)")
-    # 🔥 新增：恢复训练参数
-    parser.add_argument("--resume", type=str, default="", 
+    # 🔥 新增：恢复训练控制参数
+    parser.add_argument("--resume", type=str, default="",
                        help="恢复训练的检查点路径 (默认: 空，从头开始训练)")
+    parser.add_argument("--no-resume", action="store_true",
+                       help="强制禁用恢复训练功能，即使指定了resume路径也不恢复")
+    parser.add_argument("--enable-resume", action="store_true",
+                       help="强制启用恢复训练功能，忽略环境变量和配置文件的禁用设置")
+    # 🔥 修复：将 opts 移到所有 -- 参数之后，避免 REMAINDER 捕获后续参数
+    parser.add_argument("opts", help="Modify config options using the command-line", default=None,
+                        nargs=argparse.REMAINDER) # 添加命令行参数（必须在所有 -- 参数之后）
     args = parser.parse_args() # 解析参数
 
     if args.config_file != "":
@@ -324,7 +332,21 @@ if __name__ == '__main__':
     optimizer, optimizer_center = make_optimizer(cfg, model, center_criterion)
     scheduler = create_scheduler(cfg, optimizer)
     # 🔥 获取恢复训练的检查点路径（优先使用命令行参数，其次使用配置文件）
-    resume_path = args.resume if args.resume else getattr(cfg.SOLVER, 'RESUME', "")
+    # 控制优先级：--enable-resume > --no-resume > 环境变量 > 命令行参数 > 配置文件
+    import os
+
+    # 检查环境变量 DISABLE_RESUME
+    disable_resume_env = os.getenv('DISABLE_RESUME', '').lower() in ('1', 'true', 'yes')
+
+    if args.enable_resume:
+        # 强制启用：使用命令行或配置文件指定的路径
+        resume_path = args.resume if args.resume else getattr(cfg.SOLVER, 'RESUME', "")
+    elif args.no_resume or disable_resume_env:
+        # 强制禁用：清空resume路径
+        resume_path = ""
+    else:
+        # 默认行为：使用命令行或配置文件指定的路径
+        resume_path = args.resume if args.resume else getattr(cfg.SOLVER, 'RESUME', "")
     best_index = do_train(
         cfg, # 配置
         model, # 模型
@@ -338,7 +360,6 @@ if __name__ == '__main__':
         num_query, args.local_rank, # 查询数量和本地排名
         resume=resume_path # 🔥 新增：恢复训练的检查点路径
     )
-
     # 仅在主进程/单卡环境重命名大文件夹
     is_main_process = (not cfg.MODEL.DIST_TRAIN) or args.local_rank == 0
     if is_main_process and output_dir and os.path.isdir(output_dir):
@@ -350,3 +371,4 @@ if __name__ == '__main__':
                 print(f"📁 输出目录重命名为: {renamed_dir}")
         except OSError as rename_err:
             print(f"❌ 输出目录重命名失败: {rename_err}")
+

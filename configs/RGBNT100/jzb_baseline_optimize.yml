@@ -25,7 +25,7 @@ INPUT:
 DATALOADER:
   SAMPLER: 'softmax_triplet'
   NUM_INSTANCE: 16
-  NUM_WORKERS: 8 # or 14
+  NUM_WORKERS: 8 # or 14 & 8
 
 DATASETS:
   NAMES: ('RGBNT100')
@@ -42,11 +42,11 @@ SOLVER:
 TEST:
   IMS_PER_BATCH: 64
   RE_RANKING: 'no'
-  WEIGHT: '/home/zubuntu/workspace/MambaPro/MambaPro/pths/MambaProbest.pth'
+  WEIGHT: ''
   NECK_FEAT: 'before'
   FEAT_NORM: 'yes'
   MISS: "nothing"
 
-OUTPUT_DIR: '/home/zubuntu/workspace/MambaPro'
+OUTPUT_DIR: '/home/zhanghaoyang/Desktop/yzy/AboutReid/outputs/baseline/RGBNT100'
 
 

@@ -218,6 +218,12 @@ def make_dataloader(cfg):
     root_dir = cfg.DATASETS.ROOT_DIR
     if isinstance(root_dir, tuple):
         root_dir = root_dir[0]
+        
+    
+    # Convert relative path to absolute path to avoid path issues
+    import os
+    if not os.path.isabs(root_dir):
+        root_dir = os.path.abspath(root_dir)
     
     dataset = __factory[dataset_name](root=root_dir)
 
@@ -262,17 +268,20 @@ def make_dataloader(cfg):
     #     collate_fn=train_collate_fn
     # )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 验证集：优先使用 dataset.val（如果存在），否则使用测试集（query + gallery）
-    # 这样可以在训练时使用验证集监控，测试时使用测试集评估
+    # 验证集：对于ReID任务，验证集需要query和gallery，所以使用测试集（query + gallery）
+    # 注意：从训练集中划分的验证集不能用于ReID评估（因为需要query-gallery配对）
+    # 训练集中划分的验证集可以用于其他监控（如loss），但mAP评估必须使用测试集
+    # 因此，val_loader始终使用测试集（query + gallery）进行mAP评估
+    val_set = ImageDataset(dataset.query + dataset.gallery, val_transforms)
+    
+    # 如果存在验证集，打印信息但不使用（因为ReID评估需要query-gallery配对）
     if hasattr(dataset, 'val') and len(dataset.val) > 0:
-        # 使用真正的验证集（从训练集中划分出来的）
-        val_set = ImageDataset(dataset.val, val_transforms)
-        print("✅ 使用验证集进行训练监控（从训练集中划分）")
-        print(f"   验证集: {len(dataset.val)} 张图像")
-    else:
-        # 如果没有验证集，使用测试集（query + gallery）作为验证集
-        val_set = ImageDataset(dataset.query + dataset.gallery, val_transforms)
-        print("⚠️  未找到验证集，使用测试集（query + gallery）作为验证集")
+        print("ℹ️  验证集存在（{} 张图像），但ReID评估使用测试集（query + gallery）".format(len(dataset.val)))
+        print("   验证集可用于其他监控，但mAP评估必须使用测试集")
+    
+    print("✅ 使用测试集（query + gallery）进行训练监控和mAP评估")
+    print(f"   查询集: {len(dataset.query)} 张图像")
+    print(f"   图库集: {len(dataset.gallery)} 张图像")
     
     val_loader = DataLoader(
         val_set, batch_size=cfg.TEST.IMS_PER_BATCH, shuffle=False, num_workers=num_workers,

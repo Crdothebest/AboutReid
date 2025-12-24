@@ -1,5 +1,5 @@
 MODEL:
-  PRETRAIN_PATH_T: 'AboutReid/pths/ViT-B-16.pt'
+  PRETRAIN_PATH_T: '/home/zhanghaoyang/Desktop/yzy/MambaPro/pths/ViT-B-16.pt'
   TRANSFORMER_TYPE: 'ViT-B-16'
   STRIDE_SIZE: [ 16, 16 ]
   SIE_CAMERA: True
@@ -27,18 +27,20 @@ DATALOADER:
 
 DATASETS:
   NAMES: ('RGBNT100')
-  ROOT_DIR: '..'
+  ROOT_DIR: '/home/zhanghaoyang/Desktop/yzy/MambaPro/data/datasets'
 
 SOLVER:
-  BASE_LR: 0.00035
+  # BASE_LR: 0.00035
+  BASE_LR: 0.000175
   WARMUP_ITERS: 5
   MAX_EPOCHS: 30
   OPTIMIZER_NAME: 'Adam'
   GAMMA: 0.1
-  IMS_PER_BATCH: 128
+  # IMS_PER_BATCH: 128
+  IMS_PER_BATCH: 64
 
 TEST:
-  IMS_PER_BATCH: 128
+  IMS_PER_BATCH: 64
   RE_RANKING: 'no'
   WEIGHT: ''
   NECK_FEAT: 'before'

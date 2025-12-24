@@ -1,0 +1,738 @@
+# Category: train_utils (训练与实验控制)
+# Description: 负责模型训练启动、自动化实验管理及消融实验运行
+
+#!/bin/bash
+
+# 启用别名扩展，便于自定义 echo 行为
+shopt -s expand_aliases
+
+# CONFIG_PRINTER_ONLY=1 表示仅保留 train_net.py/config_printer 的输出
+: "${CONFIG_PRINTER_ONLY:=1}"
+
+runexp_echo() {
+    if [ "$CONFIG_PRINTER_ONLY" -eq 1 ]; then
+        return
+    fi
+    command echo "$@"
+}
+
+alias echo=runexp_echo
+# =============================================================================
+# 智能实验记录脚本
+# 功能：自动记录任何训练命令的结果，支持动态参数
+# 作者：实验记录系统
+# 日期：2024
+# =============================================================================
+
+# =============================================================================
+# 第一部分：初始化设置
+# =============================================================================
+
+# 设置基础目录 - 所有实验结果的根目录
+BASE_DIR="results/everyExperiments"
+# 创建基础目录（如果不存在的话）
+mkdir -p "$BASE_DIR"
+
+# =============================================================================
+# 第二部分：生成实验ID和目录结构
+# =============================================================================
+
+# 生成实验ID - 使用时间戳确保唯一性
+# 格式：20241219_143022（年月日_时分秒）
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+EXPERIMENT_ID="experiment_${TIMESTAMP}"
+
+# 创建实验目录 - 每个实验都有独立的目录
+EXPERIMENT_DIR="$BASE_DIR/$EXPERIMENT_ID"
+# 创建实验目录下的三个子目录：
+# - logs: 存放训练日志
+# - models: 存放模型权重
+# - configs: 存放配置文件
+mkdir -p "$EXPERIMENT_DIR"/{logs,models,configs}
+
+# 显示实验开始信息
+echo "🚀 开始智能实验记录..."
+echo "📁 实验目录: $EXPERIMENT_DIR"
+echo "🆔 实验ID: $EXPERIMENT_ID"
+
+# =============================================================================
+# 第三部分：配置文件处理
+# =============================================================================
+
+# 读取原始配置文件路径
+# 检查是否有--config_file参数
+CONFIG_FILE="configs/RGBNT201/MambaPro_moe.yml"  # 默认配置
+
+# 🔧 新增：收集 --opts 参数（用于传递给 train_net.py）
+OPTS_ARGS=()
+
+# 处理--config_file参数和--opts参数
+while [ $# -gt 0 ]; do
+    if [[ "$1" == "--config_file" ]]; then
+        CONFIG_FILE="$2"
+        shift 2  # 移除--config_file和配置文件路径
+        echo "📋 使用指定配置文件: $CONFIG_FILE"
+    elif [[ "$1" == "--opts" ]]; then
+        shift 1  # 移除 --opts
+        # 收集 --opts 后面的所有参数，直到遇到下一个 -- 开头的参数或结束
+        while [ $# -gt 0 ] && [[ ! "$1" =~ ^-- ]]; do
+            OPTS_ARGS+=("$1")
+            shift 1
+        done
+        echo "📋 检测到 --opts 参数，将传递给 train_net.py: ${OPTS_ARGS[@]}"
+    else
+        # 其他参数保留，稍后处理
+        break
+    fi
+done
+
+# 检查配置文件是否存在
+if [ ! -f "$CONFIG_FILE" ]; then
+    command echo "❌ 配置文件不存在: $CONFIG_FILE"
+    exit 1  # 如果配置文件不存在，退出脚本
+fi
+
+# 复制原始配置文件到实验目录
+MODIFIED_CONFIG="$EXPERIMENT_DIR/configs/experiment_config.yml"
+cp "$CONFIG_FILE" "$MODIFIED_CONFIG"
+
+# 修改配置文件中的输出目录
+# 将原来的输出目录改为实验目录下的logs文件夹
+# 这样每个实验的训练日志都会保存在独立的位置
+sed -i.bak "s|OUTPUT_DIR:.*|OUTPUT_DIR: '$EXPERIMENT_DIR/logs'|g" "$MODIFIED_CONFIG"
+
+# =============================================================================
+# 第四部分：动态参数处理
+# =============================================================================
+
+# 初始化门控融合参数（默认值）
+# 默认禁用门控融合机制，使用传统MLP融合
+ATTENTION_ENABLED=false
+ATTENTION_HEADS=8
+ATTENTION_DROPOUT=0.1
+
+# 初始化注意力融合参数（默认值）
+# 默认禁用注意力融合机制，使用传统MLP融合
+ATTENTION_FUSION_ENABLED=false
+ATTENTION_FUSION_HEADS=8
+ATTENTION_FUSION_DROPOUT=0.1
+ATTENTION_FUSION_DIM=512
+
+# 检查是否有命令行参数（除了--config_file）
+if [ $# -gt 0 ]; then
+    echo "🔧 检测到命令行参数，将动态覆盖配置文件参数..."
+    echo "📋 原始配置文件: $CONFIG_FILE"
+    echo "📝 修改后配置文件: $MODIFIED_CONFIG"
+    echo "🔍 剩余参数数量: $#"
+    echo "🔍 剩余参数: $@"
+    
+    # 解析并应用参数覆盖
+    # 格式：MODEL.MOE_EXPERT_HIDDEN_DIM 640
+    echo "🔍 调试：开始处理参数，剩余参数数量: $#"
+    while [ $# -gt 0 ]; do
+        PARAM_NAME="$1"
+        PARAM_VALUE="$2"
+        echo "🔍 调试：处理参数 $PARAM_NAME = $PARAM_VALUE"
+        
+        # 🔥 安全检查：确保参数名和值都不为空
+        if [ -z "$PARAM_NAME" ] || [ -z "$PARAM_VALUE" ]; then
+            echo "  ⚠️ 跳过无效参数: 名称为空或值为空"
+            shift 1
+            continue
+        fi
+        
+        # 🔥 新增：处理门控融合相关参数
+        if [[ "$PARAM_NAME" == "ATTENTION_ENABLED" ]]; then
+            ATTENTION_ENABLED="$PARAM_VALUE"
+            echo "  🎯 设置门控融合机制: $ATTENTION_ENABLED"
+        elif [[ "$PARAM_NAME" == "ATTENTION_HEADS" ]]; then
+            ATTENTION_HEADS="$PARAM_VALUE"
+            echo "  🎯 设置门控网络头数: $ATTENTION_HEADS"
+        elif [[ "$PARAM_NAME" == "ATTENTION_DROPOUT" ]]; then
+            ATTENTION_DROPOUT="$PARAM_VALUE"
+            echo "  🎯 设置门控网络Dropout: $ATTENTION_DROPOUT"
+        elif [[ "$PARAM_NAME" == "MODEL.USE_GATE_FUSION" ]]; then
+            echo "  🔍 调试：处理MODEL.USE_GATE_FUSION参数"
+            if [[ "$PARAM_VALUE" == "True" || "$PARAM_VALUE" == "true" ]]; then
+                ATTENTION_ENABLED="true"
+                echo "  🎯 通过命令行启用门控融合机制"
+                echo "  🔍 调试：ATTENTION_ENABLED设置为: $ATTENTION_ENABLED"
+            elif [[ "$PARAM_VALUE" == "False" || "$PARAM_VALUE" == "false" ]]; then
+                ATTENTION_ENABLED="false"
+                echo "  🎯 通过命令行禁用门控融合机制"
+                echo "  🔍 调试：ATTENTION_ENABLED设置为: $ATTENTION_ENABLED"
+            fi
+            echo "  🔍 调试：MODEL.USE_GATE_FUSION处理完成"
+        # 注意：GATE_NUM_HEADS 参数已移除，门控融合使用MLP网络，不需要num_heads参数
+        elif [[ "$PARAM_NAME" == "MODEL.GATE_DROPOUT" ]]; then
+            ATTENTION_DROPOUT="$PARAM_VALUE"
+            echo "  🎯 通过MODEL.GATE_DROPOUT设置门控网络Dropout: $ATTENTION_DROPOUT"
+        # 🔥 新增：注意力融合参数处理
+        elif [[ "$PARAM_NAME" == "MODEL.USE_ATTENTION_FUSION" ]]; then
+            if [[ "$PARAM_VALUE" == "True" ]]; then
+                ATTENTION_FUSION_ENABLED="true"
+                echo "  🎯 通过MODEL.USE_ATTENTION_FUSION启用注意力融合: $ATTENTION_FUSION_ENABLED"
+            elif [[ "$PARAM_VALUE" == "False" ]]; then
+                ATTENTION_FUSION_ENABLED="false"
+                echo "  🎯 通过MODEL.USE_ATTENTION_FUSION禁用注意力融合: $ATTENTION_FUSION_ENABLED"
+            fi
+        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_NUM_HEADS" ]]; then
+            ATTENTION_FUSION_HEADS="$PARAM_VALUE"
+            echo "  🎯 通过MODEL.ATTENTION_NUM_HEADS设置注意力头数: $ATTENTION_FUSION_HEADS"
+        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_DROPOUT" ]]; then
+            ATTENTION_FUSION_DROPOUT="$PARAM_VALUE"
+            echo "  🎯 通过MODEL.ATTENTION_DROPOUT设置注意力Dropout: $ATTENTION_FUSION_DROPOUT"
+        elif [[ "$PARAM_NAME" == "MODEL.ATTENTION_DIM" ]]; then
+            ATTENTION_FUSION_DIM="$PARAM_VALUE"
+            echo "  🎯 通过MODEL.ATTENTION_DIM设置注意力维度: $ATTENTION_FUSION_DIM"
+        elif [[ "$PARAM_NAME" == "SOLVER.MAX_EPOCHS" ]]; then
+            echo "  🎯 设置训练轮数: $PARAM_VALUE"
+            # 直接修改配置文件中的MAX_EPOCHS
+            sed -i.bak "s|^  MAX_EPOCHS:.*|  MAX_EPOCHS: $PARAM_VALUE|" "$MODIFIED_CONFIG"
+            echo "  ✅ MAX_EPOCHS已设置为: $PARAM_VALUE"
+        elif [ -n "$PARAM_NAME" ] && [ -n "$PARAM_VALUE" ]; then
+            echo "  📝 覆盖参数: $PARAM_NAME = $PARAM_VALUE"
+            
+            # 使用sed动态修改配置文件中的参数
+            # 处理不同的参数格式
+            if [[ "$PARAM_NAME" == *"."* ]]; then
+                # 处理嵌套参数，如 MODEL.MOE_EXPERT_HIDDEN_DIM
+                SECTION=$(echo "$PARAM_NAME" | cut -d'.' -f1)
+                KEY=$(echo "$PARAM_NAME" | cut -d'.' -f2-)
+                echo "  🔍 调试：处理嵌套参数 $SECTION.$KEY = $PARAM_VALUE"
+                
+                # 查找并替换参数
+                echo "  🔍 调试：执行sed命令前"
+                sed -i.bak "/^$SECTION:/,/^[A-Z_]*:/ s|^  $KEY:.*|  $KEY: $PARAM_VALUE|" "$MODIFIED_CONFIG"
+                echo "  🔍 调试：执行sed命令后"
+                
+                # 🔥 特殊处理：如果参数在MODEL部分，确保正确替换
+                if [[ "$SECTION" == "MODEL" ]]; then
+                    # 先删除所有现有的该参数设置
+                    sed -i.bak "/^  $KEY:/d" "$MODIFIED_CONFIG"
+                    # 然后在MODEL部分末尾添加新设置
+                    sed -i.bak "/^MODEL:/a\\  $KEY: $PARAM_VALUE" "$MODIFIED_CONFIG"
+                fi
+            else
+                # 处理简单参数
+                sed -i.bak "s|^$PARAM_NAME:.*|$PARAM_NAME: $PARAM_VALUE|" "$MODIFIED_CONFIG"
+            fi
+        fi
+        
+        # 🔥 安全移动：确保参数数量减少
+        if [ $# -ge 2 ]; then
+            shift 2
+        else
+            shift 1
+        fi
+        echo "  🔍 调试：参数处理完成，剩余参数数量: $#"
+    done
+    echo "🔍 调试：所有参数处理完成"
+    
+    echo "✅ 参数覆盖完成"
+    echo "📊 使用配置: 原配置 + 命令行参数覆盖"
+    echo "🔍 调试：参数处理完成，继续执行..."
+    
+    # 🔥 调试：显示关键参数修改结果
+    echo "🔍 关键参数检查："
+    if grep -q "USE_GATE_FUSION:" "$MODIFIED_CONFIG"; then
+        echo "  - USE_GATE_FUSION设置："
+        grep "USE_GATE_FUSION:" "$MODIFIED_CONFIG" | head -5
+    fi
+    if grep -q "MOE_TEMPERATURE:" "$MODIFIED_CONFIG"; then
+        echo "  - MOE_TEMPERATURE: $(grep "MOE_TEMPERATURE:" "$MODIFIED_CONFIG" | head -1)"
+    fi
+    if grep -q "MAX_EPOCHS:" "$MODIFIED_CONFIG"; then
+        echo "  - MAX_EPOCHS: $(grep "MAX_EPOCHS:" "$MODIFIED_CONFIG" | head -1)"
+    fi
+    echo "🔍 调试：关键参数检查完成，继续执行..."
+else
+    echo "ℹ️  未检测到命令行参数，使用配置文件默认值"
+    echo "📊 使用配置: 原配置文件参数（无修改）"
+fi
+
+# =============================================================================
+# 第五部分：构建训练命令
+# =============================================================================
+
+# 🔥 门控融合配置：根据命令行参数动态设置
+echo "🔍 调试：进入门控融合配置阶段"
+echo "🔍 调试：ATTENTION_ENABLED当前值: $ATTENTION_ENABLED"
+echo "🔍 调试：ATTENTION_HEADS当前值: $ATTENTION_HEADS"
+echo "🔍 调试：ATTENTION_DROPOUT当前值: $ATTENTION_DROPOUT"
+
+# 🔥 注意力融合配置：根据命令行参数动态设置
+echo "🔍 调试：进入注意力融合配置阶段"
+echo "🔍 调试：ATTENTION_FUSION_ENABLED当前值: $ATTENTION_FUSION_ENABLED"
+echo "🔍 调试：ATTENTION_FUSION_HEADS当前值: $ATTENTION_FUSION_HEADS"
+echo "🔍 调试：ATTENTION_FUSION_DROPOUT当前值: $ATTENTION_FUSION_DROPOUT"
+echo "🔍 调试：ATTENTION_FUSION_DIM当前值: $ATTENTION_FUSION_DIM"
+
+if [ "$ATTENTION_ENABLED" = "true" ]; then
+    echo "🎯 配置门控融合机制：启用门控融合"
+    # 更新现有的门控融合配置
+    # 注意：GATE_NUM_HEADS 参数已移除，门控融合使用MLP网络，不需要num_heads参数
+    sed -i.bak "s|^  USE_GATE_FUSION:.*|  USE_GATE_FUSION: True|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  GATE_DROPOUT:.*|  GATE_DROPOUT: $ATTENTION_DROPOUT|" "$MODIFIED_CONFIG"
+    # 移除配置文件中的 GATE_NUM_HEADS（如果存在）
+    sed -i.bak "/^  GATE_NUM_HEADS:/d" "$MODIFIED_CONFIG"
+    echo "🎯 门控融合机制已启用: Dropout=${ATTENTION_DROPOUT}"
+elif [ "$ATTENTION_ENABLED" = "false" ]; then
+    echo "🎯 配置门控融合机制：禁用门控融合机制，使用传统MLP融合"
+    # 更新现有的门控融合配置
+    # 注意：GATE_NUM_HEADS 参数已移除，门控融合使用MLP网络，不需要num_heads参数
+    sed -i.bak "s|^  USE_GATE_FUSION:.*|  USE_GATE_FUSION: False|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  GATE_DROPOUT:.*|  GATE_DROPOUT: 0.1|" "$MODIFIED_CONFIG"
+    # 移除配置文件中的 GATE_NUM_HEADS（如果存在）
+    sed -i.bak "/^  GATE_NUM_HEADS:/d" "$MODIFIED_CONFIG"
+    echo "🎯 门控融合机制已禁用：使用传统MLP融合"
+else
+    echo "ℹ️  使用默认配置：传统MLP融合机制（无门控融合）"
+fi
+
+# 🔥 注意力融合配置：根据命令行参数动态设置
+if [ "$ATTENTION_FUSION_ENABLED" = "true" ]; then
+    echo "🎯 配置注意力融合机制：启用注意力融合"
+    # 更新注意力融合配置
+    sed -i.bak "s|^  USE_ATTENTION_FUSION:.*|  USE_ATTENTION_FUSION: True|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_NUM_HEADS:.*|  ATTENTION_NUM_HEADS: $ATTENTION_FUSION_HEADS|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_DROPOUT:.*|  ATTENTION_DROPOUT: $ATTENTION_FUSION_DROPOUT|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_DIM:.*|  ATTENTION_DIM: $ATTENTION_FUSION_DIM|" "$MODIFIED_CONFIG"
+    echo "🎯 注意力融合机制已启用: ${ATTENTION_FUSION_HEADS}个注意力头, Dropout=${ATTENTION_FUSION_DROPOUT}, 维度=${ATTENTION_FUSION_DIM}"
+elif [ "$ATTENTION_FUSION_ENABLED" = "false" ]; then
+    echo "🎯 配置注意力融合机制：禁用注意力融合机制，使用传统MLP融合"
+    # 更新注意力融合配置
+    sed -i.bak "s|^  USE_ATTENTION_FUSION:.*|  USE_ATTENTION_FUSION: False|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_NUM_HEADS:.*|  ATTENTION_NUM_HEADS: 8|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_DROPOUT:.*|  ATTENTION_DROPOUT: 0.1|" "$MODIFIED_CONFIG"
+    sed -i.bak "s|^  ATTENTION_DIM:.*|  ATTENTION_DIM: 512|" "$MODIFIED_CONFIG"
+    echo "🎯 注意力融合机制已禁用：使用传统MLP融合"
+else
+    echo "ℹ️  使用默认配置：传统MLP融合机制（无注意力融合）"
+fi
+
+# 验证YAML格式
+echo "🔍 验证配置文件YAML格式..."
+if python -c "import yaml; yaml.safe_load(open('$MODIFIED_CONFIG'))" 2>/dev/null; then
+    echo "✅ 配置文件YAML格式正确"
+else
+    command echo "❌ 配置文件YAML格式错误"
+    command echo "🔍 配置文件内容检查："
+    tail -10 "$MODIFIED_CONFIG"
+    exit 1
+fi
+
+# 构建训练命令 - 使用修改后的配置文件
+# 🔧 修复：添加 --opts 参数支持
+# train_net.py 使用 opts 位置参数（nargs=argparse.REMAINDER），所以需要将 --opts 后面的参数作为位置参数传递
+if [ ${#OPTS_ARGS[@]} -gt 0 ]; then
+    # 如果有 --opts 参数，将其作为位置参数传递给 train_net.py
+    CMD="python train_net.py --config_file $MODIFIED_CONFIG ${OPTS_ARGS[@]} 2>&1 | tee $EXPERIMENT_DIR/logs/train_log.txt"
+    echo "✅ 将 --opts 参数传递给 train_net.py: ${OPTS_ARGS[@]}"
+else
+    # 没有 --opts 参数，使用默认命令
+    CMD="python train_net.py --config_file $MODIFIED_CONFIG 2>&1 | tee $EXPERIMENT_DIR/logs/train_log.txt"
+fi
+
+# 显示将要执行的完整命令
+echo "🔧 执行命令: $CMD"
+
+# =============================================================================
+# 第六部分：记录实验信息
+# =============================================================================
+
+# 创建实验信息文件 - 记录实验的基本信息
+cat > "$EXPERIMENT_DIR/experiment_info.txt" << EOF
+实验ID: $EXPERIMENT_ID
+开始时间: $(date)
+命令: $CMD
+参数: $@
+状态: 运行中
+目录: $EXPERIMENT_DIR
+原始配置文件: $CONFIG_FILE
+EOF
+
+# =============================================================================
+# 第七部分：运行训练
+# =============================================================================
+
+# 显示训练开始信息
+if [ "$CONFIG_PRINTER_ONLY" -ne 1 ]; then
+    echo "🏃 开始训练..."
+    echo "🔍 调试：即将执行命令: $CMD"
+    echo "🔍 调试：当前工作目录: $(pwd)"
+    echo "🔍 调试：Python路径: $(which python)"
+    echo "🔍 调试：配置文件内容检查:"
+    head -20 "$MODIFIED_CONFIG"
+    echo "🔍 调试：配置文件末尾内容:"
+    tail -10 "$MODIFIED_CONFIG"
+fi
+
+# 执行训练命令
+# eval 命令用于执行存储在变量中的命令
+echo "🚀 开始执行训练命令..."
+echo "⏰ 无超时限制，让训练自然完成..."
+
+# 🔥 取消超时限制，让RGBNT100数据集正常训练
+bash -c "$CMD"
+TRAIN_EXIT_CODE=$?
+
+if [ $TRAIN_EXIT_CODE -ne 0 ]; then
+    command echo "❌ 训练命令执行失败，退出码: $TRAIN_EXIT_CODE"
+    exit $TRAIN_EXIT_CODE
+fi
+
+# =============================================================================
+# 第八部分：处理训练结果
+# =============================================================================
+
+# 检查训练结果
+# 如果正常执行，检查退出码
+# 🔥 安全检查：确保TRAIN_EXIT_CODE不为空
+if [ -z "$TRAIN_EXIT_CODE" ]; then
+    TRAIN_EXIT_CODE=0  # 如果为空，默认为成功
+fi
+
+if [ $TRAIN_EXIT_CODE -eq 0 ]; then
+    # 训练成功的情况
+    echo "✅ 训练完成"
+    
+    # 复制模型权重文件
+    # 检查训练生成的模型权重文件是否存在
+    if [ -f "$EXPERIMENT_DIR/logs/MambaProbest.pth" ]; then
+        # 将模型权重复制到models目录
+        cp "$EXPERIMENT_DIR/logs/MambaProbest.pth" "$EXPERIMENT_DIR/models/MambaProbest.pth"
+        echo "✅ 模型权重已保存"
+    fi
+    
+    # 更新实验信息文件 - 记录成功状态
+    cat > "$EXPERIMENT_DIR/experiment_info.txt" << EOF
+实验ID: $EXPERIMENT_ID
+开始时间: $(date)
+命令: $CMD
+参数: $@
+状态: 完成
+目录: $EXPERIMENT_DIR
+训练日志: $EXPERIMENT_DIR/logs/train_log.txt
+模型权重: $EXPERIMENT_DIR/models/MambaProbest.pth
+配置文件: $EXPERIMENT_DIR/configs/experiment_config.yml
+原始配置文件: $CONFIG_FILE
+EOF
+    
+    # 显示成功信息
+    echo "📝 实验信息已保存"
+    echo "🎯 实验完成: $EXPERIMENT_ID"
+    echo "📁 结果目录: $EXPERIMENT_DIR"
+    
+else
+    # 训练失败的情况
+    command echo "❌ 训练失败"
+    
+    # 更新错误信息文件 - 记录失败状态
+    cat > "$EXPERIMENT_DIR/experiment_info.txt" << EOF
+实验ID: $EXPERIMENT_ID
+开始时间: $(date)
+命令: $CMD
+参数: $@
+状态: 失败
+目录: $EXPERIMENT_DIR
+错误: 训练过程中出现错误
+原始配置文件: $CONFIG_FILE
+EOF
+    
+    # 显示错误信息
+    echo "📝 错误信息已保存"
+fi
+
+# =============================================================================
+# 第九部分：自动记录结果到Excel
+# =============================================================================
+
+# 创建Python脚本来解析训练日志并记录到Excel
+cat > "$EXPERIMENT_DIR/record_results.py" << 'EOF'
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+自动记录训练结果到Excel
+"""
+
+import pandas as pd
+import re
+import sys
+import os
+from datetime import datetime
+
+def parse_training_log(log_file):
+    """解析训练日志，提取最佳结果"""
+    results = {
+        # 只保留Best相关记录
+        'Best_mAP': 0.0,
+        'Best_Rank-1': 0.0,
+        'Best_Rank-5': 0.0,
+        'Best_Rank-10': 0.0,
+        '滑动窗口尺度': '',
+        '拼接方式': ''
+    }
+    
+    try:
+        # 🔥 修复编码问题：尝试多种编码方式
+        content = None
+        encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252', 'gbk']
+        
+        for encoding in encodings:
+            try:
+                with open(log_file, 'r', encoding=encoding) as f:
+                    content = f.read()
+                print(f"✅ 成功使用 {encoding} 编码读取日志文件")
+                break
+            except UnicodeDecodeError:
+                continue
+        
+        if content is None:
+            print(f"❌ 无法读取日志文件，尝试了所有编码方式")
+            return results
+            
+        # 🔥 调试：显示日志文件内容片段
+        print(f"🔍 调试：日志文件内容长度: {len(content)}")
+        print(f"🔍 调试：日志文件最后500字符:")
+        print(content[-500:])
+        
+        # 获取所有匹配，取最后一个（最终结果）
+        all_mAP_matches = re.findall(r'Best mAP: ([\d.]+)%', content)
+        print(f"🔍 调试：找到 {len(all_mAP_matches)} 个Best mAP匹配: {all_mAP_matches}")
+        if all_mAP_matches:
+            results['Best_mAP'] = float(all_mAP_matches[-1])  # 取最后一个匹配
+            print(f"🔍 调试：设置Best_mAP为: {results['Best_mAP']}")
+            
+        all_rank1_matches = re.findall(r'Best Rank-1: ([\d.]+)%', content)
+        print(f"🔍 调试：找到 {len(all_rank1_matches)} 个Best Rank-1匹配: {all_rank1_matches}")
+        if all_rank1_matches:
+            results['Best_Rank-1'] = float(all_rank1_matches[-1])  # 取最后一个匹配
+            print(f"🔍 调试：设置Best_Rank-1为: {results['Best_Rank-1']}")
+            
+        all_rank5_matches = re.findall(r'Best Rank-5: ([\d.]+)%', content)
+        print(f"🔍 调试：找到 {len(all_rank5_matches)} 个Best Rank-5匹配: {all_rank5_matches}")
+        if all_rank5_matches:
+            results['Best_Rank-5'] = float(all_rank5_matches[-1])  # 取最后一个匹配
+            print(f"🔍 调试：设置Best_Rank-5为: {results['Best_Rank-5']}")
+            
+        all_rank10_matches = re.findall(r'Best Rank-10: ([\d.]+)%', content)
+        print(f"🔍 调试：找到 {len(all_rank10_matches)} 个Best Rank-10匹配: {all_rank10_matches}")
+        if all_rank10_matches:
+            results['Best_Rank-10'] = float(all_rank10_matches[-1])  # 取最后一个匹配
+            print(f"🔍 调试：设置Best_Rank-10为: {results['Best_Rank-10']}")
+            
+        # 提取滑动窗口尺度信息
+        window_scale_match = re.search(r'滑动窗口尺度: \[([\d, ]+)\]', content)
+        if window_scale_match:
+            results['滑动窗口尺度'] = window_scale_match.group(1).strip()
+        else:
+            # 从命令行参数中提取
+            if 'CLIP_MULTI_SCALE_SCALES' in content:
+                scale_match = re.search(r'CLIP_MULTI_SCALE_SCALES \[([\d, ]+)\]', content)
+                if scale_match:
+                    results['滑动窗口尺度'] = scale_match.group(1).strip()
+            
+        # 🔥 修复：提取拼接方式信息（根据新的输出格式）
+        # 检查日志中的拼接方式输出
+        if '拼接融合：使用门控加权-预处理' in content:
+            results['拼接方式'] = '门控加权-预处理'
+        elif '拼接融合：使用注意力-预处理' in content:
+            results['拼接方式'] = '注意力-预处理'
+        elif '拼接融合：使用无预处理' in content:
+            results['拼接方式'] = '无预处理'
+        else:
+            # 如果没有找到明确的拼接方式，尝试从其他输出推断
+            if '门控加权-预处理机制：已启用' in content:
+                results['拼接方式'] = '门控加权-预处理'
+            elif '注意力-预处理机制：已启用' in content:
+                results['拼接方式'] = '注意力-预处理'
+            else:
+                results['拼接方式'] = '无预处理'  # 默认
+            
+        # 移除专家权重信息提取
+        
+        # 移除专家权重处理逻辑
+            
+    except Exception as e:
+        print(f"解析日志文件时出错: {e}")
+        
+    return results
+
+def extract_dataset_info(command_line):
+    """从命令行中提取数据集信息"""
+    dataset = "Unknown"
+    
+    # print(f"🔍 调试：开始提取数据集信息")
+    # print(f"🔍 调试：命令行: {command_line}")
+    
+    # 从命令行中提取数据集信息（优先从配置文件路径）
+    if "configs/RGBNT100/" in command_line:
+        dataset = "RGBNT100"
+        # print(f"🔍 调试：从命令行路径中提取到 RGBNT100")
+    elif "configs/RGBNT201/" in command_line:
+        dataset = "RGBNT201"
+        # print(f"🔍 调试：从命令行路径中提取到 RGBNT201")
+    elif "configs/MSVR310/" in command_line:
+        dataset = "MSVR310"
+        # print(f"🔍 调试：从命令行路径中提取到 MSVR310")
+    elif "RGBNT100" in command_line:
+        dataset = "RGBNT100"
+        # print(f"🔍 调试：从命令行中提取到 RGBNT100")
+    elif "RGBNT201" in command_line:
+        dataset = "RGBNT201"
+        # print(f"🔍 调试：从命令行中提取到 RGBNT201")
+    elif "MSVR310" in command_line:
+        dataset = "MSVR310"
+        # print(f"🔍 调试：从命令行中提取到 MSVR310")
+    elif "Market1501" in command_line:
+        dataset = "Market1501"
+        # print(f"🔍 调试：从命令行中提取到 Market1501")
+    elif "DukeMTMC" in command_line:
+        dataset = "DukeMTMC"
+        # print(f"🔍 调试：从命令行中提取到 DukeMTMC")
+    elif "MSMT17" in command_line:
+        dataset = "MSMT17"
+        # print(f"🔍 调试：从命令行中提取到 MSMT17")
+    
+    # 如果从命令行中无法提取，尝试从配置文件路径中提取
+    if dataset == "Unknown":
+        # print(f"🔍 调试：从命令行中无法提取，尝试从配置文件路径中提取")
+        # 查找配置文件路径
+        import re
+        config_match = re.search(r'--config_file\s+([^\s]+)', command_line)
+        if config_match:
+            config_path = config_match.group(1)
+            # print(f"🔍 调试：找到配置文件路径: {config_path}")
+            # 检查是否是实验目录下的配置文件
+            if "experiment_" in config_path and "configs/experiment_config.yml" in config_path:
+                # print(f"🔍 调试：这是实验目录下的配置文件")
+                # 这是实验目录下的配置文件，需要从原始配置文件路径中提取
+                # 从实验信息文件中读取原始配置文件路径
+                experiment_dir = config_path.replace("/configs/experiment_config.yml", "")
+                info_file = f"{experiment_dir}/experiment_info.txt"
+                # print(f"🔍 调试：实验信息文件路径: {info_file}")
+                try:
+                    with open(info_file, 'r', encoding='utf-8') as f:
+                        info_content = f.read()
+                    # print(f"🔍 调试：实验信息文件内容: {info_content}")
+                    # 从实验信息中提取原始配置文件路径
+                    original_config_match = re.search(r'原始配置文件: ([^\s]+)', info_content)
+                    if original_config_match:
+                        original_config_path = original_config_match.group(1)
+                        # print(f"🔍 调试：提取到原始配置文件路径: {original_config_path}")
+                        if "RGBNT100" in original_config_path:
+                            dataset = "RGBNT100"
+                            # print(f"🔍 调试：从原始配置文件路径中提取到 RGBNT100")
+                        elif "RGBNT201" in original_config_path:
+                            dataset = "RGBNT201"
+                            # print(f"🔍 调试：从原始配置文件路径中提取到 RGBNT201")
+                        elif "MSVR310" in original_config_path:
+                            dataset = "MSVR310"
+                            # print(f"🔍 调试：从原始配置文件路径中提取到 MSVR310")
+                    # else:
+                        # print(f"🔍 调试：无法从实验信息文件中提取原始配置文件路径")
+                except Exception as e:
+                    # print(f"🔍 调试：读取实验信息文件时出错: {e}")
+                    pass
+            else:
+                # print(f"🔍 调试：这不是实验目录下的配置文件，直接检查路径")
+                # 直接检查配置文件路径
+                if "RGBNT100" in config_path:
+                    dataset = "RGBNT100"
+                    # print(f"🔍 调试：从配置文件路径中提取到 RGBNT100")
+                elif "RGBNT201" in config_path:
+                    dataset = "RGBNT201"
+                    # print(f"🔍 调试：从配置文件路径中提取到 RGBNT201")
+                elif "MSVR310" in config_path:
+                    dataset = "MSVR310"
+                    # print(f"🔍 调试：从配置文件路径中提取到 MSVR310")
+        # else:
+            # print(f"🔍 调试：无法从命令行中提取配置文件路径")
+    
+    # print(f"🔍 调试：最终提取到的数据集: {dataset}")
+    return dataset
+
+def update_excel_results(experiment_dir, command_line, results):
+    """更新Excel结果文件"""
+    excel_file = "experiment_results.xlsx"
+    
+    # 提取数据集信息
+    dataset = extract_dataset_info(command_line)
+    
+    # 准备新记录
+    new_record = {
+        '实验时间': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        '数据集': dataset,
+        '实验目录': experiment_dir,
+        '命令行': command_line,
+        '滑动窗口尺度': results['滑动窗口尺度'],
+        '拼接方式': results['拼接方式'],
+        # 只保留Best相关记录
+        'Best_mAP': results['Best_mAP'],
+        'Best_Rank-1': results['Best_Rank-1'],
+        'Best_Rank-5': results['Best_Rank-5'],
+        'Best_Rank-10': results['Best_Rank-10']
+    }
+    
+    try:
+        # 如果Excel文件存在，读取现有数据
+        if os.path.exists(excel_file):
+            df = pd.read_excel(excel_file)
+        else:
+            # 创建新的DataFrame
+            df = pd.DataFrame(columns=[
+                '实验时间', '数据集', '实验目录', '命令行', '滑动窗口尺度', '拼接方式',
+                'Best_mAP', 'Best_Rank-1', 'Best_Rank-5', 'Best_Rank-10'
+            ])
+        
+        # 添加新记录
+        df = pd.concat([df, pd.DataFrame([new_record])], ignore_index=True)
+        
+        # 保存到Excel
+        df.to_excel(excel_file, index=False)
+        print(f"✅ 结果已记录到 {excel_file}")
+        
+    except Exception as e:
+        print(f"保存Excel文件时出错: {e}")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("用法: python record_results.py <实验目录> <命令行>")
+        sys.exit(1)
+        
+    experiment_dir = sys.argv[1]
+    command_line = sys.argv[2]
+    log_file = os.path.join(experiment_dir, "logs", "train_log.txt")
+    
+    if not os.path.exists(log_file):
+        print(f"日志文件不存在: {log_file}")
+        sys.exit(1)
+        
+    # 解析结果
+    results = parse_training_log(log_file)
+    
+    # 更新Excel
+    update_excel_results(experiment_dir, command_line, results)
+    
+    # 打印结果摘要
+    print(f"📊 实验结果摘要:")
+    print(f"   滑动窗口尺度: {results['滑动窗口尺度']}")
+    print(f"   拼接方式: {results['拼接方式']}")
+    # 只输出Best相关结果
+    print(f"   Best mAP: {results['Best_mAP']:.1f}%")
+    print(f"   Best Rank-1: {results['Best_Rank-1']:.1f}%")
+    print(f"   Best Rank-5: {results['Best_Rank-5']:.1f}%")
+    print(f"   Best Rank-10: {results['Best_Rank-10']:.1f}%")
+EOF
+
+# 执行结果记录
+echo "📊 自动记录结果到Excel..."
+python3 "$EXPERIMENT_DIR/record_results.py" "$EXPERIMENT_DIR" "$CMD"
+
+# =============================================================================
+# 第十部分：结束
+# =============================================================================
+
+# 显示实验记录完成信息
+echo "🏆 实验记录完成！"
