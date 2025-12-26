@@ -117,7 +117,9 @@ class build_transformer(nn.Module): # 构建Transformer
             if self.model_name == 'RN50':  # ResNet50 分支
                 return image_features_proj[0]  # 返回投影特征（展平）
             elif self.model_name == 'ViT-B-16':  # ViT 分支
-                return image_features_proj[:,0]  # 返回 CLS 投影特征
+                # 确保返回2维特征
+                result = image_features_proj[:,0] if image_features_proj.dim() == 2 else image_features_proj.squeeze()[:self.in_planes_proj]
+                return result  # 返回 CLS 投影特征
         
         if self.model_name == 'RN50':  # ResNet50 完整路径
             image_features_last, image_features, image_features_proj = self.image_encoder(x)  # 前向
@@ -135,9 +137,10 @@ class build_transformer(nn.Module): # 构建Transformer
             else:
                 cv_embed = None  # 不使用嵌入
             image_features_last, image_features, image_features_proj = self.image_encoder(x, cv_embed)  # 前向带嵌入
-            img_feature_last = image_features_last[:,0]  # 最后层 CLS
-            img_feature = image_features[:,0]  # 主特征 CLS
-            img_feature_proj = image_features_proj[:,0]  # 投影 CLS
+            # 确保特征是2维的，修复维度问题
+            img_feature_last = image_features_last[:,0] if image_features_last.dim() == 2 else image_features_last.squeeze()[:self.in_planes]  # 最后层 CLS
+            img_feature = image_features[:,0] if image_features.dim() == 2 else image_features.squeeze()[:self.in_planes]  # 主特征 CLS
+            img_feature_proj = image_features_proj[:,0] if image_features_proj.dim() == 2 else image_features_proj.squeeze()[:self.in_planes_proj]  # 投影 CLS
 
         feat = self.bottleneck(img_feature)  # BNNeck 后特征
         feat_proj = self.bottleneck_proj(img_feature_proj)  # 投影 BNNeck 后特征
@@ -150,8 +153,18 @@ class build_transformer(nn.Module): # 构建Transformer
         else:  # 测试分支
             if self.neck_feat == 'after':  # 使用 BN 后特征
                 # print("Test with feature after BN")
+                # 确保特征是2维的，修复维度问题
+                if feat.dim() > 2:
+                    feat = feat.squeeze() if feat.shape[-2] == 1 else feat.view(feat.shape[0], -1)
+                if feat_proj.dim() > 2:
+                    feat_proj = feat_proj.squeeze() if feat_proj.shape[-2] == 1 else feat_proj.view(feat_proj.shape[0], -1)
                 return torch.cat([feat, feat_proj], dim=1)  # 拼接主+投影
             else:
+                # 确保特征是2维的，修复维度问题
+                if img_feature.dim() > 2:
+                    img_feature = img_feature.squeeze() if img_feature.shape[-2] == 1 else img_feature.view(img_feature.shape[0], -1)
+                if img_feature_proj.dim() > 2:
+                    img_feature_proj = img_feature_proj.squeeze() if img_feature_proj.shape[-2] == 1 else img_feature_proj.view(img_feature_proj.shape[0], -1)
                 return torch.cat([img_feature, img_feature_proj], dim=1)  # 使用 BN 前特征
 
 
@@ -335,8 +348,14 @@ def load_clip_to_cpu(cfg, backbone_name, h_resolution, w_resolution, vision_stri
 
     # 使用 clip.build_model() 构建 CLIP 模型
     # 如果 state_dict 存在，加载权重；否则用 JIT 模型的权重
-    model = clip.build_model(cfg, state_dict or model.state_dict(), 
+    model = clip.build_model(cfg, state_dict or model.state_dict(),
                              h_resolution, w_resolution, vision_stride_size)
+
+    # 打印权重加载成功的消息
+    print("=" * 80)
+    print("🎉 ✅ CLIP预训练权重加载成功")
+    print(f"📁 预训练权重路径: {model_path}")
+    print("=" * 80)
 
     return model
 

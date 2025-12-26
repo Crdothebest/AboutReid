@@ -109,3 +109,4 @@ def create_idea_text_encoder(clip_model):
         IDEATextEncoder: IDEA风格的文本编码器
     """
     return IDEATextEncoder(clip_model)
+

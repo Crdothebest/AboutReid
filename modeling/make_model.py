@@ -404,8 +404,16 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
             except Exception as e:
                 print(f"❌ 加载参数失败: {key}, 错误: {e}")
                 skipped_params += 1
-        
-        print(f"✅ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+
+        if loaded_params > 0:
+            print("=" * 80)
+            print(f"🎉 ✅ 预训练权重加载成功: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+            print(f"📁 预训练权重路径: {trained_path}")
+            print("=" * 80)
+        else:
+            print("=" * 80)
+            print(f"⚠️ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+            print("=" * 80)
 
     def load_param_finetune(self, model_path):  # 精调：严格按键拷贝
         """
@@ -581,8 +589,16 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                 skipped_params += 1
         
         # 打印加载统计信息
-        print(f"✅ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
-        
+        if loaded_params > 0:
+            print("=" * 80)
+            print(f"🎉 ✅ 预训练权重加载成功: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+            print(f"📁 预训练权重路径: {trained_path}")
+            print("=" * 80)
+        else:
+            print("=" * 80)
+            print(f"⚠️ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+            print("=" * 80)
+
         # 如果有尺寸不匹配的参数，打印详细信息
         if size_mismatch_params:
             print(f"\n⚠️  发现 {len(size_mismatch_params)} 个尺寸不匹配的参数:")

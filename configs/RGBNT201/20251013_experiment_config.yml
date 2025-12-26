@@ -1,5 +1,5 @@
 MODEL:
-  PRETRAIN_PATH_T: '../ViT-B-16.pt' # 预训练权重
+  PRETRAIN_PATH_T: '/home/zhanghaoyang/Desktop/yzy/AboutReid/pths/ViT-B-16.pt' # 预训练权重（绝对路径）
   TRANSFORMER_TYPE: 'ViT-B-16' # 骨干类型
   STRIDE_SIZE: [ 16, 16 ] # 步长
   SIE_CAMERA: True # 是否使用相机嵌入
@@ -28,6 +28,14 @@ MODEL:
   
   # ========== 门控融合配置：默认禁用，使用传统MLP融合 ==========
   USE_GATE_FUSION: False
+
+  # ========== 🎯 模态内引导配置 ==========
+  # 实验目的：实现分模态文本引导，避免维度冲突
+  # 功能：对每个模态单独进行文本增强
+  # 🔥 核心配置：默认启用，提供模态内引导功能
+  USE_MODAL_GUIDANCE: True         # 模态内引导主开关（默认启用）
+  GUIDANCE_RESIDUAL: True          # 使用残差结构防止特征丢失
+  GUIDANCE_SCALE: 0.1              # 引导增强幅度
 
   # ========== 🎯 文本融合模型配置 ==========
   # 实验目的：配置文本融合功能
@@ -106,6 +114,14 @@ MODEL:
   TEXT_FEATURE_DIM: 512           # 文本特征维度
   CROSS_MODAL_ATTENTION_HEADS: 8  # 跨模态注意力头数
   TEXT_GUIDE_PROMPT: False        # 是否用文本引导视觉提示
+
+  # ========== 🎯 模态内引导配置 ==========
+  # 实验目的：启用模态内文本引导，增强视觉特征
+  # 功能：对每个模态单独应用文本引导增强
+  # 🔥 核心配置：开关控制模态内引导功能
+  USE_MODAL_GUIDANCE: False       # 模态内引导主开关（默认关闭）
+  GUIDANCE_RESIDUAL: True         # 使用残差结构（防止特征丢失）
+  GUIDANCE_SCALE: 0.1             # 引导增强幅度（可调节）
 
 INPUT:
   SIZE_TRAIN: [ 256, 128 ] # 训练尺寸

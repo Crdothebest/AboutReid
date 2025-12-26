@@ -495,18 +495,22 @@ class T2T_ViT(nn.Module):
             param_dict = param_dict['state_dict']
         if 'state_dict_ema' in param_dict:
             param_dict = param_dict['state_dict_ema']
-            
+
+        loaded_params = 0
+        skipped_params = 0
+
         for k, v in param_dict.items():
             # 跳过分类头和蒸馏分支权重
             if 'head' in k or 'dist' in k:
+                skipped_params += 1
                 continue
-                
+
             # 处理老版本权重的形状适配
             if 'patch_embed.proj.weight' in k and len(v.shape) < 4:
                 # 适配老版本ResNeSt的卷积权重格式
                 O, I, H, W = self.patch_embed.proj.weight.shape
                 v = v.reshape(O, -1, H, W)
-                
+
             # 处理位置编码尺寸不匹配
             elif k == 'pos_embed' and v.shape != self.pos_embed.shape:
                 # 处理蒸馏模型的双cls token
@@ -515,14 +519,26 @@ class T2T_ViT(nn.Module):
                     v = torch.cat([v[:, 0:1], v[:, 2:]], dim=1)
                 # 根据目标尺寸调整位置编码
                 v = resize_pos_embed(v, self.pos_embed, 16, 8)
-                
+
             # 复制匹配的权重参数
             try:
                 self.state_dict()[k].copy_(v)
+                loaded_params += 1
             except:
                 print('===========================ERROR=========================')
                 print('shape do not match in k :{}: param_dict{} vs self.state_dict(){}'.format(
                     k, v.shape, self.state_dict()[k].shape))
+                skipped_params += 1
+
+        if loaded_params > 0:
+            print("=" * 80)
+            print(f"🎉 ✅ 预训练权重加载成功: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+            print(f"📁 预训练权重路径: {model_path}")
+            print("=" * 80)
+        else:
+            print("=" * 80)
+            print(f"⚠️ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+            print("=" * 80)
 
 
 def resize_pos_embed(posemb, posemb_new, hight, width):

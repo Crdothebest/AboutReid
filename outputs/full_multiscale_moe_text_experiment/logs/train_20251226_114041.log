@@ -1,0 +1,261 @@
+2025-12-26 11:40:41,031 MambaPro INFO: 🔥 窗口配置：4x4+8x8+16x16 ([4, 8, 16]), MoE专家数量：3
+2025-12-26 11:40:41,031 MambaPro INFO: ================================================================================
+2025-12-26 11:40:41,031 MambaPro INFO: 🧾 实验参数快照（命令行 + 最终配置）
+2025-12-26 11:40:41,031 MambaPro INFO: ================================================================================
+2025-12-26 11:40:41,031 MambaPro INFO: 【复现实验命令】
+2025-12-26 11:40:41,031 MambaPro INFO: /home/zhanghaoyang/.conda/envs/MambaPro/bin/python train_net.py --config_file configs/RGBNT201/20251013_experiment_config.yml DATALOADER.SAMPLER softmax DATASETS.USE_TEXT_FEATURES True DATASETS.NAMES RGBNT201_IDEA MODEL.USE_TEXT_FUSION True MODEL.USE_MODAL_GUIDANCE True SOLVER.IMS_PER_BATCH 32 OUTPUT_DIR outputs/full_multiscale_moe_text_experiment
+2025-12-26 11:40:41,031 MambaPro INFO: 【命令行参数（args）】
+2025-12-26 11:40:41,031 MambaPro INFO: {
+2025-12-26 11:40:41,031 MambaPro INFO:   "config_file": "configs/RGBNT201/20251013_experiment_config.yml",
+2025-12-26 11:40:41,031 MambaPro INFO:   "fea_cft": 0,
+2025-12-26 11:40:41,031 MambaPro INFO:   "local_rank": 0,
+2025-12-26 11:40:41,031 MambaPro INFO:   "use_multi_scale": false,
+2025-12-26 11:40:41,031 MambaPro INFO:   "no_multi_scale": false,
+2025-12-26 11:40:41,031 MambaPro INFO:   "use_moe": false,
+2025-12-26 11:40:41,031 MambaPro INFO:   "disable_moe": false,
+2025-12-26 11:40:41,031 MambaPro INFO:   "no_moe": false,
+2025-12-26 11:40:41,031 MambaPro INFO:   "use_attention": false,
+2025-12-26 11:40:41,031 MambaPro INFO:   "disable_attention": false,
+2025-12-26 11:40:41,031 MambaPro INFO:   "attention_heads": 8,
+2025-12-26 11:40:41,031 MambaPro INFO:   "attention_dropout": 0.1,
+2025-12-26 11:40:41,031 MambaPro INFO:   "resume": "",
+2025-12-26 11:40:41,031 MambaPro INFO:   "no_resume": false,
+2025-12-26 11:40:41,031 MambaPro INFO:   "enable_resume": false,
+2025-12-26 11:40:41,031 MambaPro INFO:   "opts": [
+2025-12-26 11:40:41,031 MambaPro INFO:     "DATALOADER.SAMPLER",
+2025-12-26 11:40:41,031 MambaPro INFO:     "softmax",
+2025-12-26 11:40:41,031 MambaPro INFO:     "DATASETS.USE_TEXT_FEATURES",
+2025-12-26 11:40:41,031 MambaPro INFO:     "True",
+2025-12-26 11:40:41,031 MambaPro INFO:     "DATASETS.NAMES",
+2025-12-26 11:40:41,031 MambaPro INFO:     "RGBNT201_IDEA",
+2025-12-26 11:40:41,031 MambaPro INFO:     "MODEL.USE_TEXT_FUSION",
+2025-12-26 11:40:41,031 MambaPro INFO:     "True",
+2025-12-26 11:40:41,031 MambaPro INFO:     "MODEL.USE_MODAL_GUIDANCE",
+2025-12-26 11:40:41,031 MambaPro INFO:     "True",
+2025-12-26 11:40:41,031 MambaPro INFO:     "SOLVER.IMS_PER_BATCH",
+2025-12-26 11:40:41,031 MambaPro INFO:     "32",
+2025-12-26 11:40:41,031 MambaPro INFO:     "OUTPUT_DIR",
+2025-12-26 11:40:41,031 MambaPro INFO:     "outputs/full_multiscale_moe_text_experiment"
+2025-12-26 11:40:41,031 MambaPro INFO:   ]
+2025-12-26 11:40:41,031 MambaPro INFO: }
+2025-12-26 11:40:41,031 MambaPro INFO: 【工作目录】/home/zhanghaoyang/Desktop/yzy/AboutReid
+2025-12-26 11:40:41,031 MambaPro INFO: 【最终配置（YAML）】
+2025-12-26 11:40:41,034 MambaPro INFO: DATALOADER:
+2025-12-26 11:40:41,034 MambaPro INFO:   NUM_INSTANCE: 8
+2025-12-26 11:40:41,034 MambaPro INFO:   NUM_WORKERS: 8
+2025-12-26 11:40:41,034 MambaPro INFO:   SAMPLER: softmax
+2025-12-26 11:40:41,034 MambaPro INFO: DATASETS:
+2025-12-26 11:40:41,034 MambaPro INFO:   NAMES: RGBNT201_IDEA
+2025-12-26 11:40:41,034 MambaPro INFO:   QWEN_VL_ANNO_DIR: data/datasets/QwenVL_Anno
+2025-12-26 11:40:41,034 MambaPro INFO:   ROOT_DIR: data/datasets
+2025-12-26 11:40:41,034 MambaPro INFO:   USE_TEXT_FEATURES: true
+2025-12-26 11:40:41,034 MambaPro INFO: INPUT:
+2025-12-26 11:40:41,034 MambaPro INFO:   PADDING: 10
+2025-12-26 11:40:41,034 MambaPro INFO:   PIXEL_MEAN:
+2025-12-26 11:40:41,034 MambaPro INFO:   - 0.5
+2025-12-26 11:40:41,034 MambaPro INFO:   - 0.5
+2025-12-26 11:40:41,034 MambaPro INFO:   - 0.5
+2025-12-26 11:40:41,034 MambaPro INFO:   PIXEL_STD:
+2025-12-26 11:40:41,034 MambaPro INFO:   - 0.5
+2025-12-26 11:40:41,034 MambaPro INFO:   - 0.5
+2025-12-26 11:40:41,034 MambaPro INFO:   - 0.5
+2025-12-26 11:40:41,034 MambaPro INFO:   PROB: 0.5
+2025-12-26 11:40:41,034 MambaPro INFO:   RE_PROB: 0.5
+2025-12-26 11:40:41,034 MambaPro INFO:   SIZE_TEST:
+2025-12-26 11:40:41,034 MambaPro INFO:   - 256
+2025-12-26 11:40:41,034 MambaPro INFO:   - 128
+2025-12-26 11:40:41,034 MambaPro INFO:   SIZE_TRAIN:
+2025-12-26 11:40:41,034 MambaPro INFO:   - 256
+2025-12-26 11:40:41,034 MambaPro INFO:   - 128
+2025-12-26 11:40:41,034 MambaPro INFO: MODEL:
+2025-12-26 11:40:41,035 MambaPro INFO:   ADAPTER: true
+2025-12-26 11:40:41,035 MambaPro INFO:   ATTENTION_DIM: 512
+2025-12-26 11:40:41,035 MambaPro INFO:   ATTENTION_DROPOUT: 0.1
+2025-12-26 11:40:41,035 MambaPro INFO:   ATTENTION_NUM_HEADS: 8
+2025-12-26 11:40:41,035 MambaPro INFO:   ATT_DROP_RATE: 0.0
+2025-12-26 11:40:41,035 MambaPro INFO:   CLIP_MULTI_SCALE_SCALES:
+2025-12-26 11:40:41,035 MambaPro INFO:   - 4
+2025-12-26 11:40:41,035 MambaPro INFO:   - 8
+2025-12-26 11:40:41,035 MambaPro INFO:   - 16
+2025-12-26 11:40:41,035 MambaPro INFO:   CROSS_MODAL_ATTENTION_HEADS: 8
+2025-12-26 11:40:41,035 MambaPro INFO:   DEVICE: cuda
+2025-12-26 11:40:41,035 MambaPro INFO:   DEVICE_ID: '0'
+2025-12-26 11:40:41,035 MambaPro INFO:   DIRECT: 1
+2025-12-26 11:40:41,035 MambaPro INFO:   DIST_TRAIN: false
+2025-12-26 11:40:41,035 MambaPro INFO:   DROP_OUT: 0.0
+2025-12-26 11:40:41,035 MambaPro INFO:   DROP_PATH: 0.1
+2025-12-26 11:40:41,035 MambaPro INFO:   FLOPS_TEST: false
+2025-12-26 11:40:41,035 MambaPro INFO:   FROZEN: true
+2025-12-26 11:40:41,035 MambaPro INFO:   GATE_DROPOUT: 0.1
+2025-12-26 11:40:41,035 MambaPro INFO:   GUIDANCE_RESIDUAL: true
+2025-12-26 11:40:41,035 MambaPro INFO:   GUIDANCE_SCALE: 0.1
+2025-12-26 11:40:41,035 MambaPro INFO:   ID_LOSS_TYPE: softmax
+2025-12-26 11:40:41,035 MambaPro INFO:   ID_LOSS_WEIGHT: 0.25
+2025-12-26 11:40:41,035 MambaPro INFO:   IF_LABELSMOOTH: 'on'
+2025-12-26 11:40:41,035 MambaPro INFO:   IF_WITH_CENTER: 'no'
+2025-12-26 11:40:41,035 MambaPro INFO:   LAYER: -1
+2025-12-26 11:40:41,035 MambaPro INFO:   MAMBA: true
+2025-12-26 11:40:41,035 MambaPro INFO:   MAMBA_BI: false
+2025-12-26 11:40:41,035 MambaPro INFO:   METRIC_LOSS_TYPE: triplet
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_BALANCE_LOSS_WEIGHT: 0.01
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_DIVERSITY_LOSS_WEIGHT: 0.01
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_EXPERT_DROPOUT: 0.1
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_EXPERT_HIDDEN_DIM: 1024
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_EXPERT_LAYERS: 2
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_EXPERT_THRESHOLD: 0.1
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_FIXED_WEIGHTS:
+2025-12-26 11:40:41,035 MambaPro INFO:   - 0.33
+2025-12-26 11:40:41,035 MambaPro INFO:   - 0.33
+2025-12-26 11:40:41,035 MambaPro INFO:   - 0.34
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_GATE_DROPOUT: 0.1
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_GATE_LAYERS: 2
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_INIT_WEIGHTS: null
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_NUM_EXPERTS: 3
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_RESIDUAL_WEIGHT: 1.0
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_SCALES:
+2025-12-26 11:40:41,035 MambaPro INFO:   - 4
+2025-12-26 11:40:41,035 MambaPro INFO:   - 8
+2025-12-26 11:40:41,035 MambaPro INFO:   - 16
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_SPARSITY_LOSS_WEIGHT: 0.001
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_TEMPERATURE: 0.7
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_TOP_K: 2
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_TOP_K_MODE: soft
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_USE_FIXED_WEIGHTS: false
+2025-12-26 11:40:41,035 MambaPro INFO:   MOE_USE_TOP_K_ROUTING: false
+2025-12-26 11:40:41,035 MambaPro INFO:   MULTI_SCALE_SCALES:
+2025-12-26 11:40:41,035 MambaPro INFO:   - 4
+2025-12-26 11:40:41,035 MambaPro INFO:   - 8
+2025-12-26 11:40:41,035 MambaPro INFO:   - 16
+2025-12-26 11:40:41,035 MambaPro INFO:   NAME: MambaPro
+2025-12-26 11:40:41,035 MambaPro INFO:   NECK: bnneck
+2025-12-26 11:40:41,035 MambaPro INFO:   NO_MARGIN: true
+2025-12-26 11:40:41,035 MambaPro INFO:   PREFIX_NUM: 1
+2025-12-26 11:40:41,035 MambaPro INFO:   PRETRAIN_PATH_T: ../ViT-B-16.pt
+2025-12-26 11:40:41,035 MambaPro INFO:   PROMPT: true
+2025-12-26 11:40:41,035 MambaPro INFO:   SIE_CAMERA: true
+2025-12-26 11:40:41,035 MambaPro INFO:   SIE_COE: 1.0
+2025-12-26 11:40:41,035 MambaPro INFO:   SIE_VIEW: false
+2025-12-26 11:40:41,035 MambaPro INFO:   STRIDE_SIZE:
+2025-12-26 11:40:41,035 MambaPro INFO:   - 16
+2025-12-26 11:40:41,035 MambaPro INFO:   - 16
+2025-12-26 11:40:41,035 MambaPro INFO:   TEXT_FEATURE_DIM: 512
+2025-12-26 11:40:41,035 MambaPro INFO:   TEXT_FUSION_EMBED_DIM: 512
+2025-12-26 11:40:41,035 MambaPro INFO:   TEXT_FUSION_INPUT_DIM: 1536
+2025-12-26 11:40:41,035 MambaPro INFO:   TEXT_FUSION_METHOD: attention
+2025-12-26 11:40:41,035 MambaPro INFO:   TEXT_FUSION_TEXT_DIM: 512
+2025-12-26 11:40:41,035 MambaPro INFO:   TEXT_FUSION_WEIGHT: 0.3
+2025-12-26 11:40:41,035 MambaPro INFO:   TEXT_GUIDE_PROMPT: false
+2025-12-26 11:40:41,035 MambaPro INFO:   TRANSFORMER_TYPE: ViT-B-16
+2025-12-26 11:40:41,035 MambaPro INFO:   TRIPLET_LOSS_WEIGHT: 1.0
+2025-12-26 11:40:41,035 MambaPro INFO:   USE_ATTENTION_FUSION: false
+2025-12-26 11:40:41,035 MambaPro INFO:   USE_CLIP_MULTI_SCALE: true
+2025-12-26 11:40:41,035 MambaPro INFO:   USE_GATE_FUSION: false
+2025-12-26 11:40:41,035 MambaPro INFO:   USE_MODAL_GUIDANCE: true
+2025-12-26 11:40:41,035 MambaPro INFO:   USE_MULTI_SCALE: false
+2025-12-26 11:40:41,035 MambaPro INFO:   USE_MULTI_SCALE_MOE: true
+2025-12-26 11:40:41,035 MambaPro INFO:   USE_TEXT_FUSION: true
+2025-12-26 11:40:41,035 MambaPro INFO: OUTPUT_DIR: outputs/full_multiscale_moe_text_experiment
+2025-12-26 11:40:41,035 MambaPro INFO: SOLVER:
+2025-12-26 11:40:41,035 MambaPro INFO:   BASE_LR: 0.0005
+2025-12-26 11:40:41,035 MambaPro INFO:   BIAS_LR_FACTOR: 2
+2025-12-26 11:40:41,035 MambaPro INFO:   CENTER_LOSS_WEIGHT: 0.0005
+2025-12-26 11:40:41,035 MambaPro INFO:   CENTER_LR: 0.5
+2025-12-26 11:40:41,035 MambaPro INFO:   CHECKPOINT_PERIOD: 10
+2025-12-26 11:40:41,035 MambaPro INFO:   CLUSTER_MARGIN: 0.3
+2025-12-26 11:40:41,035 MambaPro INFO:   COSINE_MARGIN: 0.5
+2025-12-26 11:40:41,035 MambaPro INFO:   COSINE_SCALE: 30
+2025-12-26 11:40:41,035 MambaPro INFO:   EVAL_PERIOD: 5
+2025-12-26 11:40:41,035 MambaPro INFO:   GAMMA: 0.1
+2025-12-26 11:40:41,036 MambaPro INFO:   IMS_PER_BATCH: 32
+2025-12-26 11:40:41,036 MambaPro INFO:   LARGE_FC_LR: false
+2025-12-26 11:40:41,036 MambaPro INFO:   LOG_PERIOD: 10
+2025-12-26 11:40:41,036 MambaPro INFO:   MARGIN: 0.3
+2025-12-26 11:40:41,036 MambaPro INFO:   MAX_EPOCHS: 60
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_BALANCE_LOSS_WEIGHT: 0.001
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_BALANCE_LOSS_WEIGHT_END: 0.1
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_BALANCE_LOSS_WEIGHT_START: 0.001
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_BALANCE_THRESHOLD: 0.3
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_DIVERSITY_LOSS_WEIGHT: 0.001
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_DIVERSITY_LOSS_WEIGHT_END: 0.1
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_DIVERSITY_LOSS_WEIGHT_START: 0.001
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_GATE_LR_FACTOR: 0.01
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_LOSS_WEIGHT_SCHEDULE_TYPE: cosine
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_LOSS_WEIGHT_WARMUP_EPOCHS: 5
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_SPARSITY_LOSS_WEIGHT: 0.0001
+2025-12-26 11:40:41,036 MambaPro INFO:   MOE_USE_DYNAMIC_LOSS_WEIGHT: false
+2025-12-26 11:40:41,036 MambaPro INFO:   MOMENTUM: 0.9
+2025-12-26 11:40:41,036 MambaPro INFO:   OPTIMIZER_NAME: Adam
+2025-12-26 11:40:41,036 MambaPro INFO:   RANGE_ALPHA: 0
+2025-12-26 11:40:41,036 MambaPro INFO:   RANGE_BETA: 1
+2025-12-26 11:40:41,036 MambaPro INFO:   RANGE_K: 2
+2025-12-26 11:40:41,036 MambaPro INFO:   RANGE_LOSS_WEIGHT: 1
+2025-12-26 11:40:41,036 MambaPro INFO:   RANGE_MARGIN: 0.3
+2025-12-26 11:40:41,036 MambaPro INFO:   SEED: 42
+2025-12-26 11:40:41,036 MambaPro INFO:   STEPS:
+2025-12-26 11:40:41,036 MambaPro INFO:   - 30
+2025-12-26 11:40:41,036 MambaPro INFO:   - 50
+2025-12-26 11:40:41,036 MambaPro INFO:   WARMUP_FACTOR: 0.01
+2025-12-26 11:40:41,036 MambaPro INFO:   WARMUP_ITERS: 20
+2025-12-26 11:40:41,036 MambaPro INFO:   WARMUP_METHOD: linear
+2025-12-26 11:40:41,036 MambaPro INFO:   WEIGHT_DECAY: 0.0005
+2025-12-26 11:40:41,036 MambaPro INFO:   WEIGHT_DECAY_BIAS: 0.0005
+2025-12-26 11:40:41,036 MambaPro INFO: TEST:
+2025-12-26 11:40:41,036 MambaPro INFO:   FEAT: 0
+2025-12-26 11:40:41,036 MambaPro INFO:   FEAT_NORM: 'yes'
+2025-12-26 11:40:41,036 MambaPro INFO:   IMS_PER_BATCH: 64
+2025-12-26 11:40:41,036 MambaPro INFO:   MISS: nothing
+2025-12-26 11:40:41,036 MambaPro INFO:   NECK_FEAT: after
+2025-12-26 11:40:41,036 MambaPro INFO:   RE_RANKING: 'no'
+2025-12-26 11:40:41,036 MambaPro INFO:   WEIGHT: ''
+2025-12-26 11:40:41,036 MambaPro INFO: ================================================================================
+2025-12-26 11:40:50,871 MambaPro.train INFO: start training
+2025-12-26 11:44:11,027 MambaPro.train INFO: Epoch 1 done. Time per batch: 1.610[s] Speed: 19.9[samples/s]
+2025-12-26 11:47:28,113 MambaPro.train INFO: Epoch 2 done. Time per batch: 1.589[s] Speed: 20.1[samples/s]
+2025-12-26 11:50:36,724 MambaPro.train INFO: Epoch 3 done. Time per batch: 1.521[s] Speed: 21.0[samples/s]
+2025-12-26 11:53:58,118 MambaPro.train INFO: Epoch 4 done. Time per batch: 1.624[s] Speed: 19.7[samples/s]
+2025-12-26 11:57:19,120 MambaPro.train INFO: Epoch 5 done. Time per batch: 1.621[s] Speed: 19.7[samples/s]
+2025-12-26 11:57:53,092 MambaPro.train INFO: Validation Results - Epoch: 5
+2025-12-26 11:57:53,092 MambaPro.train INFO: Current mAP: 30.3%
+2025-12-26 11:57:53,092 MambaPro.train INFO: CMC curve, Rank-1  :26.1%
+2025-12-26 11:57:53,092 MambaPro.train INFO: CMC curve, Rank-5  :40.4%
+2025-12-26 11:57:53,092 MambaPro.train INFO: CMC curve, Rank-10 :51.1%
+2025-12-26 11:57:53,127 MambaPro.train INFO: 🎯 New Best! Saving model...
+2025-12-26 11:57:53,750 MambaPro.train INFO: [Epoch 5] 指标集合列表（历史）
+2025-12-26 11:57:53,751 MambaPro.train INFO: history_mAP:{30.3}
+2025-12-26 11:57:53,751 MambaPro.train INFO: best_mAP:{30.3}
+2025-12-26 11:57:53,751 MambaPro.train INFO: history_Rank-1:{26.1}
+2025-12-26 11:57:53,751 MambaPro.train INFO: best_Rank-1:{26.1}
+2025-12-26 11:57:53,751 MambaPro.train INFO: history_Rank-5:{40.4}
+2025-12-26 11:57:53,751 MambaPro.train INFO: best_Rank-5:{40.4}
+2025-12-26 11:57:53,751 MambaPro.train INFO: history_Rank-10:{51.1}
+2025-12-26 11:57:53,751 MambaPro.train INFO: best_Rank-10:{51.1}
+2025-12-26 11:57:53,751 MambaPro.train INFO: history_Experts:{[0.40 , 0.30 , 0.30]}
+2025-12-26 11:57:53,751 MambaPro.train INFO: best_Experts:{[0.40 , 0.30 , 0.30]}
+2025-12-26 11:57:53,751 MambaPro.train INFO: 🔥 MoE损失(Val): 平衡=0.0000, 稀疏性=0.9898, 多样性=2.5863, 总=0.0027 (权重: 平衡=0.001, 稀疏性=0.000, 多样性=0.001)
+2025-12-26 11:57:53,751 MambaPro.train INFO:    📊 专家权重分布(Val, 3个专家): [0.40 , 0.30 , 0.30]
+2025-12-26 12:01:17,051 MambaPro.train INFO: Epoch 6 done. Time per batch: 1.638[s] Speed: 19.5[samples/s]
+2025-12-26 12:04:50,832 MambaPro.train INFO: Epoch 7 done. Time per batch: 1.724[s] Speed: 18.6[samples/s]
+2025-12-26 12:07:49,146 MambaPro.train INFO: Epoch 8 done. Time per batch: 1.438[s] Speed: 22.3[samples/s]
+2025-12-26 12:11:33,918 MambaPro.train INFO: Epoch 9 done. Time per batch: 1.813[s] Speed: 17.7[samples/s]
+2025-12-26 12:15:13,950 MambaPro.train INFO: Epoch 10 done. Time per batch: 1.774[s] Speed: 18.0[samples/s]
+2025-12-26 12:15:14,684 MambaPro.train INFO: 💾 保存完整检查点: outputs/full_multiscale_moe_text_experiment/MambaPro_10.pth (Epoch 10)
+2025-12-26 12:15:58,745 MambaPro.train INFO: Validation Results - Epoch: 10
+2025-12-26 12:15:58,745 MambaPro.train INFO: Current mAP: 34.6%
+2025-12-26 12:15:58,745 MambaPro.train INFO: CMC curve, Rank-1  :30.1%
+2025-12-26 12:15:58,745 MambaPro.train INFO: CMC curve, Rank-5  :47.5%
+2025-12-26 12:15:58,745 MambaPro.train INFO: CMC curve, Rank-10 :58.4%
+2025-12-26 12:15:58,791 MambaPro.train INFO: 🎯 New Best! Saving model...
+2025-12-26 12:15:59,468 MambaPro.train INFO: [Epoch 10] 指标集合列表（历史）
+2025-12-26 12:15:59,468 MambaPro.train INFO: history_mAP:{30.3 , 34.6}
+2025-12-26 12:15:59,468 MambaPro.train INFO: best_mAP:{34.6}
+2025-12-26 12:15:59,468 MambaPro.train INFO: history_Rank-1:{26.1 , 30.1}
+2025-12-26 12:15:59,468 MambaPro.train INFO: best_Rank-1:{30.1}
+2025-12-26 12:15:59,468 MambaPro.train INFO: history_Rank-5:{40.4 , 47.5}
+2025-12-26 12:15:59,468 MambaPro.train INFO: best_Rank-5:{47.5}
+2025-12-26 12:15:59,468 MambaPro.train INFO: history_Rank-10:{51.1 , 58.4}
+2025-12-26 12:15:59,468 MambaPro.train INFO: best_Rank-10:{58.4}
+2025-12-26 12:15:59,468 MambaPro.train INFO: history_Experts:{[0.40 , 0.30 , 0.30] , [0.87 , 0.06 , 0.07]}
+2025-12-26 12:15:59,468 MambaPro.train INFO: best_Experts:{[0.87 , 0.06 , 0.07]}
+2025-12-26 12:15:59,468 MambaPro.train INFO: 🔥 MoE损失(Val): 平衡=0.7470, 稀疏性=0.3486, 多样性=0.4041, 总=0.0012 (权重: 平衡=0.001, 稀疏性=0.000, 多样性=0.001)
+2025-12-26 12:15:59,468 MambaPro.train INFO:    📊 专家权重分布(Val, 3个专家): [0.87 , 0.06 , 0.07]
+2025-12-26 12:19:13,540 MambaPro.train INFO: Epoch 11 done. Time per batch: 1.564[s] Speed: 20.5[samples/s]

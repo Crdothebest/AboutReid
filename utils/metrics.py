@@ -8,6 +8,12 @@ import seaborn as sns  # 使用Seaborn库绘制KDE图
 
 
 def euclidean_distance(qf, gf):
+    # 确保输入是2维的
+    if qf.dim() == 3:
+        qf = qf.squeeze(1) if qf.shape[1] == 1 else qf.view(qf.shape[0], -1)
+    if gf.dim() == 3:
+        gf = gf.squeeze(1) if gf.shape[1] == 1 else gf.view(gf.shape[0], -1)
+
     m = qf.shape[0]  # 获取查询特征的样本数量 m
     n = gf.shape[0]  # 获取数据库特征的样本数量 n
 

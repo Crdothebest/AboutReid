@@ -734,8 +734,13 @@ class Trans(nn.Module):
             param_dict = param_dict['model']
         if 'state_dict' in param_dict:
             param_dict = param_dict['state_dict']
+
+        loaded_params = 0
+        skipped_params = 0
+
         for k, v in param_dict.items():
             if 'head' in k or 'dist' in k:
+                skipped_params += 1
                 continue
             if 'patch_embed.proj.weight' in k and len(v.shape) < 4:
                 # For old resnest that I trained prior to conv based patchification
@@ -749,11 +754,23 @@ class Trans(nn.Module):
                 v = resize_pos_embed(v, self.pos_embed, self.patch_embed.num_y, self.patch_embed.num_x)
             try:
                 self.state_dict()[k].copy_(v)
+                loaded_params += 1
             except:
                 print('===========================ERROR=========================')
                 print('shape do not match in k :{}: param_dict{} vs self.state_dict(){}'.format(k, v.shape,
                                                                                                 self.state_dict()[
                                                                                                     k].shape))
+                skipped_params += 1
+
+        if loaded_params > 0:
+            print("=" * 80)
+            print(f"🎉 ✅ 预训练权重加载成功: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+            print(f"📁 预训练权重路径: {model_path}")
+            print("=" * 80)
+        else:
+            print("=" * 80)
+            print(f"⚠️ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
+            print("=" * 80)
 
 
 def resize_pos_embed(posemb, posemb_new, hight, width):

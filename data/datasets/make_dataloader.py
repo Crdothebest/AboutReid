@@ -1,8 +1,8 @@
 import os
 import torchvision.transforms as T
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
-from .bases import ImageDataset, EnhancedImageDataset
+from .bases import ImageDataset, EnhancedImageDataset, read_image
 from .sampler import RandomIdentitySampler
 from .dukemtmcreid import DukeMTMCreID
 from .market1501 import Market1501
@@ -189,6 +189,50 @@ def val_collate_fn(batch):
     imgs = {'RGB': RGB, "NI": NI, "TI": TI}
     return imgs, pids, camids, camids_batch, viewids, img_paths
 
+
+def val_collate_fn_idea_style(batch):
+    """
+    IDEA风格验证数据的collate函数 - 处理IDEATextImageDataset的8元素数据
+
+    IDEATextImageDataset返回格式:
+    (img, pid, camid, trackid, img_filename, r_tokens, n_tokens, t_tokens)
+
+    输出格式:
+    (imgs, pids, camids, camids_batch, viewids, img_paths, text_features)
+    兼容processor.py的7元素解析逻辑
+    """
+    # 解包8元素数据
+    imgs, pids, camids, trackids, img_filenames, r_tokens, n_tokens, t_tokens = zip(*batch)
+
+    # 处理图像数据（已经是变换后的张量列表）
+    RGB_list, NI_list, TI_list = [], [], []
+    for img in imgs:
+        RGB_list.append(img[0])  # RGB图像
+        NI_list.append(img[1])   # NI图像
+        TI_list.append(img[2])   # TI图像
+
+    # 堆叠成批次张量
+    RGB = torch.stack(RGB_list, dim=0)
+    NI = torch.stack(NI_list, dim=0)
+    TI = torch.stack(TI_list, dim=0)
+    imgs = {'RGB': RGB, 'NI': NI, 'TI': TI}
+
+    # 处理标签数据
+    pids = torch.tensor(pids, dtype=torch.int64)
+    camids_batch = torch.tensor(camids, dtype=torch.int64)
+    viewids = torch.tensor(trackids, dtype=torch.int64)  # 使用trackid作为viewid
+
+    # 组织文本特征
+    text_features = {
+        'RGB': torch.stack(r_tokens, dim=0),
+        'NIR': torch.stack(n_tokens, dim=0),
+        'TIR': torch.stack(t_tokens, dim=0)
+    }
+
+    # 返回7元素格式：imgs, pids, camids, camids_batch, viewids, img_paths, text_features
+    return imgs, pids, camids_batch, camids_batch, viewids, img_filenames, text_features
+
+
 # ============ 增强版collate函数 (支持文本特征开关) ============
 
 def train_collate_fn_with_text(batch):
@@ -275,38 +319,6 @@ def train_collate_fn_idea_style(batch):
     trackids = torch.tensor(trackids, dtype=torch.int64)
 
     return imgs, pids, camids, trackids, text
-
-
-def val_collate_fn_idea_style(batch):
-    """
-    IDEA风格验证数据集的collate函数
-    """
-    imgs, pids, camids, trackids, img_paths, r_text, n_text, t_text = zip(*batch)
-
-    # 处理图像数据
-    RGB_list, NI_list, TI_list = [], [], []
-    for img in imgs:
-        RGB_list.append(img[0])
-        NI_list.append(img[1])
-        TI_list.append(img[2])
-
-    RGB = torch.stack(RGB_list, dim=0)
-    NI = torch.stack(NI_list, dim=0)
-    TI = torch.stack(TI_list, dim=0)
-    imgs = {'RGB': RGB, "NI": NI, "TI": TI}
-
-    # 处理文本特征
-    text = {'rgb_text': torch.stack(r_text),
-            'ni_text': torch.stack(n_text),
-            'ti_text': torch.stack(t_text)}
-
-    # 处理标签
-    pids = torch.tensor(pids, dtype=torch.int64)
-    camids = torch.tensor(camids, dtype=torch.int64)
-    trackids = torch.tensor(trackids, dtype=torch.int64)
-
-    return imgs, pids, camids, trackids, img_paths, text
-
 
 def val_collate_fn_with_text(batch):
     """
@@ -504,74 +516,164 @@ def make_dataloader(cfg):
         print("✅ 使用完全复制IDEA项目的collate函数（预处理文本）")
 
     elif dataset_name == 'RGBNT201':
-        # 使用AboutReid风格数据集 - 直接使用ImageDataset处理预处理文本
-        train_set = ImageDataset(dataset.train, train_transforms)
-        train_set_normal = ImageDataset(dataset.train, val_transforms)
+        # 创建自定义的数据集包装类，支持动态文本功能
+        class RGBNT201DatasetWrapper(Dataset):
+            """RGBNT201数据集包装器，支持动态文本功能"""
 
-        # 创建IDEA风格的collate函数 - 使用离线预编码特征
-        def train_collate_fn_idea_style(batch):
-            """
-            IDEA风格数据集的collate函数 - 使用离线预编码文本特征
-            batch中每个样本格式: (img, pid, camid, trackid, text_rgb, text_nir, text_tir)
-            返回: imgs, pids, camids, trackids, text_features
-            其中text_features是预编码的512维特征向量
-            """
-            imgs, pids, camids, trackids, texts_rgb, texts_nir, texts_tir = zip(*batch)
+            def __init__(self, dataset, transform=None, use_text_features=False):
+                self.dataset = dataset
+                self.transform = transform
+                self.use_text_features = use_text_features
 
-            # 处理图像数据
-            RGB_list, NI_list, TI_list = [], [], []
-            for img in imgs:
-                RGB_list.append(img[0])
-                NI_list.append(img[1])
-                TI_list.append(img[2])
+            def __len__(self):
+                return len(self.dataset)
 
-            RGB = torch.stack(RGB_list, dim=0)
-            NI = torch.stack(NI_list, dim=0)
-            TI = torch.stack(TI_list, dim=0)
-            imgs = {'RGB': RGB, "NI": NI, "TI": TI}
+            def __getitem__(self, index):
+                # RGBNT201数据集返回: (img_paths, pid, camid, trackid, text_rgb, text_nir, text_tir)
+                data = self.dataset[index]
 
-            # 处理基本数据
-            pids = torch.tensor(pids, dtype=torch.int64)
-            camids = torch.tensor(camids, dtype=torch.int64)
-            trackids = torch.tensor(trackids, dtype=torch.int64)
+                if self.use_text_features:
+                    # 返回包含文本的完整数据
+                    img_paths, pid, camid, trackid, text_rgb, text_nir, text_tir = data
 
-            # IDEA风格：使用离线预编码的文本特征
-            if idea_style_text_loader is not None:
-                # 从预编码缓存中获取特征向量
-                rgb_features = []
-                nir_features = []
-                tir_features = []
+                    # 读取和变换图像
+                    img3 = read_image(img_paths)
+                    if self.transform is not None:
+                        img = [self.transform(img) for img in img3]
 
-                for img_path in zip(*batch)[4]:  # img_path在batch的第5个位置
-                    # 注意：这里需要从batch中提取img_path，但当前batch格式不包含img_path
-                    # 临时解决方案：使用固定的测试路径
-                    rgb_feat = idea_style_text_loader.get_text_feature(img_path, 'RGB')
-                    nir_feat = idea_style_text_loader.get_text_feature(img_path, 'NIR')
-                    tir_feat = idea_style_text_loader.get_text_feature(img_path, 'TIR')
+                    return img, pid, camid, trackid, text_rgb, text_nir, text_tir
+                else:
+                    # 只返回图像数据，忽略文本
+                    img_paths, pid, camid, trackid, _, _, _ = data
 
-                    rgb_features.append(rgb_feat)
-                    nir_features.append(nir_feat)
-                    tir_features.append(tir_feat)
+                    # 读取和变换图像
+                    img3 = read_image(img_paths)
+                    if self.transform is not None:
+                        img = [self.transform(img) for img in img3]
 
-                text_features = {
-                    'RGB': torch.stack(rgb_features, dim=0),
-                    'NIR': torch.stack(nir_features, dim=0),
-                    'TIR': torch.stack(tir_features, dim=0)
-                }
-            else:
-                # 降级：返回预处理文本字符串
-                text_features = {
-                    'RGB': list(texts_rgb),
-                    'NIR': list(texts_nir),
-                    'TIR': list(texts_tir)
-                }
+                    return img, pid, camid, trackid
 
-            return imgs, pids, camids, trackids, text_features
+        if use_text_features:
+            # ✅ 启用文本功能：使用包装器 + 文本collate函数
+            train_set = RGBNT201DatasetWrapper(dataset.train, train_transforms, use_text_features=True)
+            train_set_normal = RGBNT201DatasetWrapper(dataset.train, val_transforms, use_text_features=True)
 
-        train_collate_fn = train_collate_fn_idea_style
-        val_collate_fn = train_collate_fn_idea_style
+            # 创建包含文本的collate函数
+            def train_collate_fn_with_text(batch):
+                """
+                包含文本特征的collate函数
+                batch格式: (img, pid, camid, trackid, text_rgb, text_nir, text_tir)
+                """
+                imgs, pids, camids, trackids, texts_rgb, texts_nir, texts_tir = zip(*batch)
 
-        print("✅ 使用IDEA风格数据集（预处理文本 + 动态CLIP编码）")
+                # 处理图像数据
+                RGB_list, NI_list, TI_list = [], [], []
+                for img in imgs:
+                    RGB_list.append(img[0])
+                    NI_list.append(img[1])
+                    TI_list.append(img[2])
+
+                RGB = torch.stack(RGB_list, dim=0)
+                NI = torch.stack(NI_list, dim=0)
+                TI = torch.stack(TI_list, dim=0)
+                imgs = {'RGB': RGB, "NI": NI, "TI": TI}
+
+                # 处理基本数据
+                pids = torch.tensor(pids, dtype=torch.int64)
+                camids = torch.tensor(camids, dtype=torch.int64)
+                trackids = torch.tensor(trackids, dtype=torch.int64)
+
+                # 处理文本特征 - 使用CLIP编码或预编码
+                text_features = {}
+                if idea_style_text_loader is not None:
+                    # 使用IDEA风格的文本编码
+                    rgb_features = []
+                    nir_features = []
+                    tir_features = []
+
+                    for rgb_text, nir_text, tir_text in zip(texts_rgb, texts_nir, texts_tir):
+                        # 根据加载器模式选择编码方式
+                        if hasattr(idea_style_text_loader, '_encode_text_description') and idea_style_text_loader.use_clip:
+                            # CLIP模式：实时编码文本
+                            rgb_feat = idea_style_text_loader._encode_text_description(rgb_text)
+                            nir_feat = idea_style_text_loader._encode_text_description(nir_text)
+                            tir_feat = idea_style_text_loader._encode_text_description(tir_text)
+                        else:
+                            # 预编码模式：直接返回文本（由模型处理）
+                            rgb_feat = rgb_text
+                            nir_feat = nir_text
+                            tir_feat = tir_text
+
+                        rgb_features.append(rgb_feat)
+                        nir_features.append(nir_feat)
+                        tir_features.append(tir_feat)
+
+                    # 如果是特征向量，堆叠；如果是文本，保持列表
+                    if isinstance(rgb_features[0], torch.Tensor):
+                        text_features = {
+                            'RGB': torch.stack(rgb_features, dim=0),
+                            'NIR': torch.stack(nir_features, dim=0),
+                            'TIR': torch.stack(tir_features, dim=0)
+                        }
+                    else:
+                        text_features = {
+                            'RGB': rgb_features,
+                            'NIR': nir_features,
+                            'TIR': tir_features
+                        }
+                else:
+                    # 降级：返回预处理文本字符串（用于调试）
+                    text_features = {
+                        'RGB': list(texts_rgb),
+                        'NIR': list(texts_nir),
+                        'TIR': list(texts_tir)
+                    }
+
+                return imgs, pids, camids, trackids, text_features
+
+            train_collate_fn = train_collate_fn_with_text
+            val_collate_fn = train_collate_fn_with_text
+
+            print("✅ RGBNT201数据集启用文本功能（动态包装器 + 文本编码）")
+
+        else:
+            # ❌ 禁用文本功能：使用包装器 + 普通collate函数
+            train_set = RGBNT201DatasetWrapper(dataset.train, train_transforms, use_text_features=False)
+            train_set_normal = RGBNT201DatasetWrapper(dataset.train, val_transforms, use_text_features=False)
+
+            # 创建不包含文本的collate函数
+            def train_collate_fn_no_text(batch):
+                """
+                不包含文本特征的collate函数
+                batch格式: (img, pid, camid, trackid)
+                """
+                imgs, pids, camids, trackids = zip(*batch)
+
+                # 处理图像数据
+                RGB_list, NI_list, TI_list = [], [], []
+                for img in imgs:
+                    RGB_list.append(img[0])
+                    NI_list.append(img[1])
+                    TI_list.append(img[2])
+
+                RGB = torch.stack(RGB_list, dim=0)
+                NI = torch.stack(NI_list, dim=0)
+                TI = torch.stack(TI_list, dim=0)
+                imgs = {'RGB': RGB, "NI": NI, "TI": TI}
+
+                # 处理基本数据
+                pids = torch.tensor(pids, dtype=torch.int64)
+                camids = torch.tensor(camids, dtype=torch.int64)
+                trackids = torch.tensor(trackids, dtype=torch.int64)
+
+                # 不返回文本特征
+                # 返回格式：img, vid, target_cam, target_view, _
+                return imgs, pids, camids, trackids, None
+
+            train_collate_fn = train_collate_fn_no_text
+            val_collate_fn = train_collate_fn_no_text
+
+            print("✅ RGBNT201数据集禁用文本功能（动态包装器 + 无文本）")
 
     else:
         # 对于其他数据集，使用标准方式
@@ -644,35 +746,119 @@ def make_dataloader(cfg):
     # 处理验证数据集（强制使用IDEA风格）
     if dataset_name == 'RGBNT201_IDEA':
         # IDEA风格数据集 - 使用包含文本特征的验证数据集
-        from .RGBNT201_IDEA_Text import RGBNT201_IDEA_Text
-        val_set = RGBNT201_IDEA_Text(root=os.path.dirname(dataset.dataset_dir), cfg=cfg)
-        # 使用IDEA数据集自己的query和gallery数据，而不是替换train属性
-        val_set.train = val_set.query + val_set.gallery
+        from .bases import IDEATextImageDataset
+        # 合并query和gallery数据
+        val_data = dataset.query + dataset.gallery
+        val_set = IDEATextImageDataset(val_data, val_transforms)
         print("✅ 使用IDEA风格验证数据集（包含文本特征）")
+        # 使用专门的collate函数处理8元素数据
+        val_collate_fn_to_use = val_collate_fn_idea_style
     elif dataset_name == 'RGBNT201':
-        # IDEA风格数据集 - 直接使用ImageDataset
-        val_set = ImageDataset(dataset.query + dataset.gallery, val_transforms)
-        print("✅ 使用IDEA风格验证数据集（预处理文本）")
+        # RGBNT201数据集 - 需要特殊处理，支持文本和非文本模式
+        val_data = dataset.query + dataset.gallery
+        val_set = RGBNT201DatasetWrapper(val_data, val_transforms, use_text_features=use_text_features)
+        print(f"✅ 使用RGBNT201验证数据集（{'包含' if use_text_features else '不包含'}文本特征）")
+        # 为RGBNT201创建专门的验证collate函数
+        def val_collate_fn_rgbnt201(batch):
+            """
+            RGBNT201验证数据集的collate函数
+            batch格式: (img, pid, camid, trackid) 或 (img, pid, camid, trackid, text_rgb, text_nir, text_tir)
+            返回格式: (imgs, pids, camids, camids_batch, viewids, img_paths, text_features)
+            """
+            if len(batch) == 0:
+                raise ValueError("Empty batch")
+
+            # 检查第一个样本的格式来确定是否有文本
+            sample = batch[0]
+            has_text = len(sample) == 7  # (img, pid, camid, trackid, text_rgb, text_nir, text_tir)
+
+            if has_text or use_text_features:
+                # 启用文本：(img, pid, camid, trackid, text_rgb, text_nir, text_tir)
+                try:
+                    imgs, pids, camids, trackids, text_rgbs, text_nirs, text_tirs = zip(*batch)
+                    # 处理文本特征
+                    text_features = {
+                        'RGB': list(text_rgbs),
+                        'NIR': list(text_nirs),
+                        'TIR': list(text_tirs)
+                    }
+                except ValueError:
+                    # 如果解包失败，可能是格式不匹配
+                    print(f"Batch format error. Expected 7 elements, got {len(sample)} in first sample")
+                    raise
+            else:
+                # 禁用文本：(img, pid, camid, trackid)
+                try:
+                    imgs, pids, camids, trackids = zip(*batch)
+                    text_features = None
+                except ValueError:
+                    print(f"Batch format error. Expected 4 elements, got {len(sample)} in first sample")
+                    raise
+
+            # 处理图像数据
+            RGB_list, NI_list, TI_list = [], [], []
+            for img in imgs:
+                if len(img) >= 3:
+                    RGB_list.append(img[0])
+                    NI_list.append(img[1])
+                    TI_list.append(img[2])
+                else:
+                    raise ValueError(f"Image tuple must have at least 3 elements, got {len(img)}")
+
+            RGB = torch.stack(RGB_list, dim=0)
+            NI = torch.stack(NI_list, dim=0)
+            TI = torch.stack(TI_list, dim=0)
+            imgs = {'RGB': RGB, "NI": NI, "TI": TI}
+
+            # 处理基本数据，确保都不为None
+            pids = [pid if pid is not None else 0 for pid in pids]
+            camids = [cid if cid is not None else 0 for cid in camids]
+            trackids = [tid if tid is not None else 0 for tid in trackids]
+
+            pids = torch.tensor(pids, dtype=torch.int64)
+            camids = torch.tensor(camids, dtype=torch.int64)
+            trackids = torch.tensor(trackids, dtype=torch.int64)
+
+            # 返回验证格式：(imgs, pids, camids, camids_batch, viewids, img_paths, text_features)
+            result = (imgs, pids, camids, camids, trackids, None, text_features)
+
+            # 最终检查
+            if len(result) != 7:
+                raise ValueError(f"Collate function must return 7 elements, got {len(result)}")
+            if result[4] is None:  # target_view
+                raise ValueError("target_view cannot be None")
+
+            return result
+
+        val_collate_fn_to_use = val_collate_fn_rgbnt201
     else:
         # 对于其他数据集，使用标准方式
         val_set = ImageDataset(dataset.query + dataset.gallery, val_transforms)
-        print("✅ 使用标准验证数据集（非RGBNT201）")
-    
+        print("✅ 使用标准验证数据集")
+        val_collate_fn_to_use = val_collate_fn
+
     # 如果存在验证集，打印信息但不使用（因为ReID评估需要query-gallery配对）
     if hasattr(dataset, 'val') and len(dataset.val) > 0:
         print("ℹ️  验证集存在（{} 张图像），但ReID评估使用测试集（query + gallery）".format(len(dataset.val)))
         print("   验证集可用于其他监控，但mAP评估必须使用测试集")
-    
+
     print("✅ 使用测试集（query + gallery）进行训练监控和mAP评估")
     print(f"   查询集: {len(dataset.query)} 张图像")
     print(f"   图库集: {len(dataset.gallery)} 张图像")
-    
+
+    print(f"🔧 val_loader使用collate_fn: {val_collate_fn_to_use.__name__ if hasattr(val_collate_fn_to_use, '__name__') else 'unknown'}")
     val_loader = DataLoader(
         val_set, batch_size=cfg.TEST.IMS_PER_BATCH, shuffle=False, num_workers=num_workers,
-        collate_fn=val_collate_fn
+        collate_fn=val_collate_fn_to_use
     )
+    # 根据数据集类型选择合适的collate函数
+    if dataset_name == 'RGBNT201':
+        train_loader_normal_collate = train_collate_fn_with_text if use_text_features else train_collate_fn_no_text
+    else:
+        train_loader_normal_collate = val_collate_fn
+
     train_loader_normal = DataLoader(
         train_set_normal, batch_size=cfg.TEST.IMS_PER_BATCH, shuffle=False, num_workers=num_workers,
-        collate_fn=val_collate_fn
+        collate_fn=train_loader_normal_collate
     )
     return train_loader, train_loader_normal, val_loader, len(dataset.query), num_classes, cam_num, view_num

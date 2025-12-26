@@ -123,6 +123,14 @@ _C.MODEL.TEXT_FEATURE_DIM = 512            # 文本特征维度
 _C.MODEL.CROSS_MODAL_ATTENTION_HEADS = 8   # 跨模态注意力头数
 _C.MODEL.TEXT_GUIDE_PROMPT = False         # 是否用文本引导视觉提示
 
+# ========== 新增配置：模态内引导设置 ==========
+# 用户修改：添加模态内引导配置，支持命令行开关控制
+# 功能：控制是否启用模态内文本引导增强功能
+# 基于：模态内引导创新设计
+_C.MODEL.USE_MODAL_GUIDANCE = False       # 模态内引导主开关（默认关闭）
+_C.MODEL.GUIDANCE_RESIDUAL = True         # 使用残差结构（防止特征丢失）
+_C.MODEL.GUIDANCE_SCALE = 0.1             # 引导增强幅度（可调节）
+
 # ========== 新增配置：门控融合机制设置 ==========
 # 用户修改：添加门控融合机制配置，支持命令行开关控制
 # 功能：控制是否启用门控融合机制增强MoE融合效果

@@ -331,10 +331,14 @@ def do_train(cfg,
         
         for n_iter, batch_data in enumerate(pbar):
             # 处理文本特征：检查batch中是否包含文本特征
-            if len(batch_data) == 6:  # 包含文本特征
+            if len(batch_data) == 6:  # 包含文本特征 (RGBNT201启用文本模式)
                 img, vid, target_cam, target_view, _, text_features = batch_data
-            else:  # 标准格式
-                img, vid, target_cam, target_view, _ = batch_data
+            elif len(batch_data) == 5:  # RGBNT201格式 (可能包含文本或None)
+                img, vid, target_cam, target_view, text_features = batch_data
+                if text_features is None:  # 不包含文本特征
+                    text_features = None
+            else:  # 标准格式 (4个值)
+                img, vid, target_cam, target_view = batch_data
                 text_features = None
             optimizer.zero_grad()
             optimizer_center.zero_grad()
@@ -748,13 +752,26 @@ def do_train(cfg,
                 model.eval()
                 for n_iter, batch_data in enumerate(val_loader):
                     # 处理文本特征：验证数据可能包含文本特征
+                    # IDEA风格数据集：val_collate_fn_idea_style 返回6个元素: imgs, pids, camids, trackids, img_paths, text
                     # val_collate_fn_with_text 返回7个元素: imgs, pids, camids, camids_batch, viewids, img_paths, text_features
                     # val_collate_fn 返回6个元素: imgs, pids, camids, camids_batch, viewids, img_paths
-                    if len(batch_data) == 7:  # 增强版collate函数（包含文本特征）
+                    # IDEATextImageDataset 返回8个元素: imgs, pids, camids, trackids, img_filename, r_tokens, n_tokens, t_tokens
+                    if len(batch_data) == 8:  # IDEATextImageDataset（IDEA风格文本数据集）
+                        img, vid, camid, camids, img_filename, r_tokens, n_tokens, t_tokens = batch_data
+                        target_view = camids  # 使用camera ID作为view label（兼容性考虑）
+                        text_features = {'RGB': r_tokens, 'NIR': n_tokens, 'TIR': t_tokens}
+                        img_paths = img_filename  # 兼容性：img_paths设为img_filename
+                    elif len(batch_data) == 6:
+                        # 检查是否是IDEA风格数据集（最后一个元素是字典）
+                        if isinstance(batch_data[-1], dict) and 'rgb_text' in batch_data[-1]:
+                            # IDEA风格数据集：(imgs, pids, camids, trackids, img_paths, text)
+                            img, vid, camids, target_view, img_paths, text_features = batch_data
+                        else:
+                            # 标准版collate函数：(imgs, pids, camids, camids_batch, viewids, img_paths)
+                            img, vid, camid, camids, target_view, img_paths = batch_data
+                            text_features = None  # 占位符
+                    elif len(batch_data) == 7:  # 增强版collate函数（包含文本特征）
                         img, vid, camid, camids, target_view, img_paths, text_features = batch_data
-                    elif len(batch_data) == 6:  # 标准版collate函数
-                        img, vid, camid, camids, target_view, img_paths = batch_data
-                        text_features = None  # 占位符
                     else:  # 其他情况（兼容性）
                         img, vid, camid, camids, target_view = batch_data[:5]
                         text_features = None  # 占位符

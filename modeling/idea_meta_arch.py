@@ -161,3 +161,4 @@ class build_transformer(nn.Module):
         for i in param_dict:
             self.state_dict()[i.replace('module.', '')].copy_(param_dict[i])
         print('Loading pretrained model from {}'.format(trained_path))
+

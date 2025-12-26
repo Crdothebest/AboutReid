@@ -42,3 +42,4 @@ TEST:
   MISS: "nothing"                       # Modality missing pattern (options: 'nothing', etc.)
 
 OUTPUT_DIR: './IDEA_style_RGBNT201'     # Output directory for checkpoints and logs
+
