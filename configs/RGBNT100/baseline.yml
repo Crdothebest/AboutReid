@@ -1,5 +1,5 @@
 MODEL:
-  PRETRAIN_PATH_T: '/home/zhanghaoyang/Desktop/yzy/MambaPro/pths/ViT-B-16.pt'
+  PRETRAIN_PATH_T: 'pths/ViT-B-16.pt'
   TRANSFORMER_TYPE: 'ViT-B-16'
   STRIDE_SIZE: [ 16, 16 ]
   SIE_CAMERA: True
@@ -27,7 +27,7 @@ DATALOADER:
 
 DATASETS:
   NAMES: ('RGBNT100')
-  ROOT_DIR: '/home/zhanghaoyang/Desktop/yzy/MambaPro/data/datasets'
+  ROOT_DIR: 'data/datasets'
 
 SOLVER:
   # BASE_LR: 0.00035

@@ -76,7 +76,7 @@ DATALOADER:
 
 DATASETS:
   NAMES: ('RGBNT201') # 数据集名称
-  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
+  ROOT_DIR: 'data' # 数据集根目录
 
 SOLVER:
   # 优化器设置
@@ -136,5 +136,5 @@ TEST:
 # 实验目的：为MoE实验设置专门的输出目录
 # 功能：便于对比MoE与基线方法的性能差异
 # 🔥 MoE实验：多尺度滑动窗口 + 优化MoE融合
-OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/mybest_record01'
+OUTPUT_DIR: 'outputs/mybest_record01'
 

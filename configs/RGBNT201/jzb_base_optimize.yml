@@ -28,7 +28,7 @@ DATALOADER:
 
 DATASETS:
   NAMES: ('RGBNT201')
-  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/' # 数据集根目录
+  ROOT_DIR: 'data' # 数据集根目录
 
 
 SOLVER:
@@ -47,6 +47,6 @@ TEST:
   FEAT_NORM: 'yes'
   MISS: "nothing"
 
-OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/jzb_base_optimize'
+OUTPUT_DIR: 'outputs/jzb_base_optimize'
 
 

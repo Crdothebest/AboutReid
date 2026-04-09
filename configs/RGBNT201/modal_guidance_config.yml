@@ -3,7 +3,7 @@
 
 MODEL:
   # 基础配置
-  PRETRAIN_PATH_T: '/home/zhanghaoyang/Desktop/yzy/AboutReid/pths/ViT-B-16.pt'
+  PRETRAIN_PATH_T: 'pths/ViT-B-16.pt'
   TRANSFORMER_TYPE: 'ViT-B-16'
   STRIDE_SIZE: [16, 16]
   SIE_CAMERA: True
@@ -35,7 +35,7 @@ DATALOADER:
 
 DATASETS:
   NAMES: ('RGBNT201')
-  ROOT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/data/'
+  ROOT_DIR: 'data'
 
 SOLVER:
   OPTIMIZER_NAME: 'Adam'
@@ -59,9 +59,9 @@ SOLVER:
 TEST:
   IMS_PER_BATCH: 64
   RE_RANKING: 'no'
-  WEIGHT: '/home/zubuntu/workspace/yzy/MambaPro/pths/MambaProbest.pth'
+  WEIGHT: ''
   NECK_FEAT: 'after'
   FEAT_NORM: 'yes'
   MISS: "nothing"
 
-OUTPUT_DIR: '/home/zubuntu/workspace/yzy/MambaPro/outputs/modal_guidance_test'
+OUTPUT_DIR: 'outputs/modal_guidance_test'
