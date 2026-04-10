@@ -506,8 +506,44 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                 text_dim=self.text_fusion_text_dim,       # 从配置读取
             )
             print(f"✅ MambaPro已启用文本融合: {self.text_fusion_method}模式 (embed_dim: {self.text_fusion_embed_dim})")
+            # 预创建 residual 模式所需的文本适配器，确保参数被 optimizer 注册、设备一致
+            if self.text_fusion_method == "residual":
+                _half = self.text_fusion_input_dim // 2
+                self.text_adapters = nn.ModuleDict({
+                    'RGB': nn.Sequential(
+                        nn.Linear(512, _half), nn.GELU(),
+                        nn.Linear(_half, self.text_fusion_input_dim),
+                        nn.LayerNorm(self.text_fusion_input_dim)
+                    ),
+                    'NIR': nn.Sequential(
+                        nn.Linear(512, _half), nn.GELU(),
+                        nn.Linear(_half, self.text_fusion_input_dim),
+                        nn.LayerNorm(self.text_fusion_input_dim)
+                    ),
+                    'TIR': nn.Sequential(
+                        nn.Linear(512, _half), nn.GELU(),
+                        nn.Linear(_half, self.text_fusion_input_dim),
+                        nn.LayerNorm(self.text_fusion_input_dim)
+                    ),
+                })
+            else:
+                self.text_adapters = None
+            # 预创建上采样投影层（确保参数被 optimizer 注册、设备一致）
+            # attention/concat 方法输出 embed_dim(512)，需要投影回 1536
+            if self.text_fusion_method in ("attention", "concat"):
+                if self.text_fusion_embed_dim != 1536:
+                    self.attention_upsampler = nn.Linear(self.text_fusion_embed_dim, 1536)
+                else:
+                    self.attention_upsampler = None
+                self.concat_upsampler = self.attention_upsampler  # 同一个投影层复用
+            else:
+                self.attention_upsampler = None
+                self.concat_upsampler = None
         else:
             self.text_fusion = None
+            self.text_adapters = None
+            self.attention_upsampler = None
+            self.concat_upsampler = None
 
         # 如果启用模态内引导，创建门控网络
         if self.use_modal_guidance:
@@ -705,30 +741,7 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                         # 将三个模态的文本特征分别投影到1536维，然后进行门控增强
                         original_fuse = fuse.clone()  # [B, 1536] 保存原始AAM融合结果
 
-                        # 为每个模态创建独立的文本适配器（如果不存在）
-                        if not hasattr(self, 'text_adapters'):
-                            self.text_adapters = nn.ModuleDict({
-                                'RGB': nn.Sequential(
-                                    nn.Linear(512, 1536 // 2),
-                                    nn.GELU(),
-                                    nn.Linear(1536 // 2, 1536),
-                                    nn.LayerNorm(1536)
-                                ),
-                                'NIR': nn.Sequential(
-                                    nn.Linear(512, 1536 // 2),
-                                    nn.GELU(),
-                                    nn.Linear(1536 // 2, 1536),
-                                    nn.LayerNorm(1536)
-                                ),
-                                'TIR': nn.Sequential(
-                                    nn.Linear(512, 1536 // 2),
-                                    nn.GELU(),
-                                    nn.Linear(1536 // 2, 1536),
-                                    nn.LayerNorm(1536)
-                                )
-                            })
-
-                        # 分别处理每个模态的文本引导
+                        # 分别处理每个模态的文本引导（text_adapters 在 __init__ 中预创建）
                         rgb_modulator = self.text_adapters['RGB'](text_rgb)  # [B, 512] -> [B, 1536]
                         nir_modulator = self.text_adapters['NIR'](text_nir)  # [B, 512] -> [B, 1536]
                         tir_modulator = self.text_adapters['TIR'](text_tir)  # [B, 512] -> [B, 1536]
@@ -743,25 +756,21 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                         fuse = original_fuse + self.text_fusion_weight * gated_fuse
 
                     elif self.text_fusion_method == "attention":
-                        # ============ 注意力融合：维度对齐优化 ============
-                        # 保持原有的注意力融合，但确保输出维度为1536
-                        fuse = self.text_fusion(fuse, text_rgb, text_nir, text_tir)
+                        # ============ 注意力融合：聚合三模态文本特征后再融合 ============
+                        text_combined = (text_rgb + text_nir + text_tir) / 3.0  # [B, 512]
+                        fuse = self.text_fusion(fuse, text_combined)  # [B, embed_dim]
 
-                        # 确保输出维度为1536（通过上采样投影）
-                        if fuse.size(-1) != 1536:
-                            if not hasattr(self, 'attention_upsampler'):
-                                self.attention_upsampler = nn.Linear(fuse.size(-1), 1536)
+                        # 确保输出维度为1536（通过预创建的上采样投影）
+                        if self.attention_upsampler is not None:
                             fuse = self.attention_upsampler(fuse)
 
                     else:
-                        # ============ 拼接融合：维度对齐优化 ============
-                        # 其他融合方法直接应用，但确保输出维度
-                        fuse = self.text_fusion(fuse, text_rgb, text_nir, text_tir)
+                        # ============ 拼接融合：聚合三模态文本特征后再融合 ============
+                        text_combined = (text_rgb + text_nir + text_tir) / 3.0  # [B, 512]
+                        fuse = self.text_fusion(fuse, text_combined)  # [B, embed_dim]
 
                         # 确保输出维度为1536
-                        if fuse.size(-1) != 1536:
-                            if not hasattr(self, 'concat_upsampler'):
-                                self.concat_upsampler = nn.Linear(fuse.size(-1), 1536)
+                        if self.concat_upsampler is not None:
                             fuse = self.concat_upsampler(fuse)
 
                 fuse_global = self.bottleneck_fuse(fuse)  # BNNeck 融合
@@ -794,8 +803,8 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                 if self.use_modal_guidance and text_features is not None:
                     # 应用模态内引导
                     RGB_enhanced = self.modal_guidance(RGB_cash, text_features.get('RGB'))
-                    NI_enhanced = self.modal_guidance(NI_cash, text_features.get('NI'))
-                    TI_enhanced = self.modal_guidance(TI_cash, text_features.get('TI'))
+                    NI_enhanced = self.modal_guidance(NI_cash, text_features.get('NIR'))
+                    TI_enhanced = self.modal_guidance(TI_cash, text_features.get('TIR'))
                 else:
                     # 无文本引导时直接使用原始特征
                     RGB_enhanced, NI_enhanced, TI_enhanced = RGB_cash, NI_cash, TI_cash
@@ -816,11 +825,21 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
 
                     # 应用全局文本融合 (可选增强)
                     if self.text_fusion_method == "residual":
-                        original_fuse = fuse.clone()
-                        fuse = self.text_fusion(fuse, text_combined)
-                        fuse = original_fuse + self.text_fusion_weight * fuse
+                        # residual 分支：用 text_adapters 将文本投影到 1536 维后做残差增强
+                        # (避免 TextResidualFusion 输出 embed_dim=512 与 fuse [B,1536] 不匹配)
+                        if self.text_adapters is not None:
+                            rgb_mod = self.text_adapters['RGB'](text_features['RGB'])
+                            nir_mod = self.text_adapters['NIR'](text_features['NIR'])
+                            tir_mod = self.text_adapters['TIR'](text_features['TIR'])
+                            text_modulator = (rgb_mod + nir_mod + tir_mod) / 3.0
+                            fuse = fuse + self.text_fusion_weight * fuse * torch.sigmoid(text_modulator)
+                        # 否则跳过文本融合（text_adapters 未初始化）
                     else:
-                        fuse = self.text_fusion(fuse, text_combined)
+                        # attention/concat 分支：fusion 输出 embed_dim(512)，需上采样回 1536
+                        fuse_text = self.text_fusion(fuse, text_combined)  # [B, embed_dim]
+                        if self.attention_upsampler is not None:
+                            fuse_text = self.attention_upsampler(fuse_text)  # [B, 1536]
+                        fuse = fuse + self.text_fusion_weight * fuse_text  # 残差相加保留原始信息
 
                 return fuse
             else:

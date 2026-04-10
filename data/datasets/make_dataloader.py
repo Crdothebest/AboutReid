@@ -308,10 +308,10 @@ def train_collate_fn_idea_style(batch):
     # 组织成字典格式
     imgs = {'RGB': RGB, "NI": NI, "TI": TI}
 
-    # 将文本特征组织成字典
-    text = {'rgb_text': torch.stack(r_text),
-            'ni_text': torch.stack(n_text),
-            'ti_text': torch.stack(t_text)}
+    # 将文本特征组织成字典（key与make_model.py一致：'RGB'/'NIR'/'TIR'）
+    text = {'RGB': torch.stack(r_text),
+            'NIR': torch.stack(n_text),
+            'TIR': torch.stack(t_text)}
 
     # 将标签转换为张量
     pids = torch.tensor(pids, dtype=torch.int64)

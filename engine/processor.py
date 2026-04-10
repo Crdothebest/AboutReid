@@ -185,6 +185,20 @@ def do_train(cfg,
 
     scaler = amp.GradScaler()                           # 混合精度：缩放器
 
+    best_index = {'mAP': 0, "Rank-1": 0, 'Rank-5': 0, 'Rank-10': 0, 'best_epoch': 0, 'best_expert_weights': None}
+    validation_history = {
+        'epochs': [],
+        'current_mAP': [],
+        'best_mAP': [],
+        'current_Rank1': [],
+        'best_Rank1': [],
+        'current_Rank5': [],
+        'best_Rank5': [],
+        'current_Rank10': [],
+        'best_Rank10': [],
+        'expert_weights': []
+    }
+
     # =========================
     # 🔥 恢复训练逻辑
     # =========================
@@ -297,21 +311,6 @@ def do_train(cfg,
         else:
             logger.warning(f"⚠️  检查点文件不存在: {resume}，将从头开始训练")
 
-    best_index = {'mAP': 0, "Rank-1": 0, 'Rank-5': 0, 'Rank-10': 0, 'best_epoch': 0, 'best_expert_weights': None}  # 记录最好指标和对应epoch及专家权重
-    # 🔥 新增：记录每次验证的current和best值（用于趋势分析）
-    validation_history = {
-        'epochs': [],
-        'current_mAP': [],
-        'best_mAP': [],
-        'current_Rank1': [],
-        'best_Rank1': [],
-        'current_Rank5': [],
-        'best_Rank5': [],
-        'current_Rank10': [],
-        'best_Rank10': [],
-        'expert_weights': []  # 🔥 新增：记录每次验证的专家权重分布
-    }
-
     # train
     for epoch in range(start_epoch, epochs + 1):
         start_time = time.time()
@@ -356,6 +355,8 @@ def do_train(cfg,
                 text_features = {k: v.to(device) for k, v in text_features.items()}
 
             # 前向：混合精度
+            expert_weights = None
+            moe_loss_dict = None
             with amp.autocast(enabled=True):
                 # 模型前向；部分模型会根据 label/cam/view 执行不同分支（如 BNNeck/part head）
                 if text_features is not None:
@@ -499,7 +500,7 @@ def do_train(cfg,
                             loss = loss + moe_loss
                             
             # 记录MoE损失信息（可选：仅调试模式输出，默认关闭）
-            if enable_moe_debug_log and n_iter % 100 == 0:  # 每100个iteration打印一次
+            if enable_moe_debug_log and n_iter % 100 == 0 and expert_weights is not None and moe_loss_dict is not None:  # 每100个iteration打印一次
                 # 🔧 添加调试信息：显示权重分布和梯度状态
                 with torch.no_grad():
                     avg_weights = expert_weights.mean(dim=0).cpu().numpy()
@@ -766,6 +767,7 @@ def do_train(cfg,
                         if isinstance(batch_data[-1], dict) and 'rgb_text' in batch_data[-1]:
                             # IDEA风格数据集：(imgs, pids, camids, trackids, img_paths, text)
                             img, vid, camids, target_view, img_paths, text_features = batch_data
+                            camid = camids  # camid 与 camids 同源
                         else:
                             # 标准版collate函数：(imgs, pids, camids, camids_batch, viewids, img_paths)
                             img, vid, camid, camids, target_view, img_paths = batch_data
@@ -775,6 +777,7 @@ def do_train(cfg,
                     else:  # 其他情况（兼容性）
                         img, vid, camid, camids, target_view = batch_data[:5]
                         text_features = None  # 占位符
+                        img_paths = None
                     with torch.no_grad():
                         img = {'RGB': img['RGB'].to(device),
                                'NI':  img['NI'].to(device),
@@ -784,7 +787,7 @@ def do_train(cfg,
                         target_view = target_view.to(device)
                         feat = model(img, cam_label=camids, view_label=target_view)
                         if cfg.DATASETS.NAMES == "MSVR310":
-                            evaluator.update((feat, vid, camid, scenceids, _))
+                            evaluator.update((feat, vid, camid, scenceids, img_paths))
                         else:
                             evaluator.update((feat, vid, camid))
                 cmc, mAP, _, _, _, _, _ = evaluator.compute()
@@ -909,7 +912,6 @@ def do_train(cfg,
                 torch.cuda.empty_cache()
 
     logger.info("=" * 60)
-    return best_index
     logger.info("✅ Training Finished")
     logger.info("   Total Epochs: {}".format(epochs))
     logger.info("   Best Epoch: {}".format(best_index['best_epoch']))
@@ -919,7 +921,6 @@ def do_train(cfg,
     logger.info("   Best Rank-10: {:.1%}".format(best_index['Rank-10']))
     if best_index['best_expert_weights'] is not None:
         weights = best_index['best_expert_weights']
-        # 🔥 动态输出最佳专家权重，适应任意数量的专家
         num_experts = len(weights)
         weights_str = " , ".join([f"{w:.2f}" for w in weights])
         logger.info(f"   🎯 Best Expert Weights({num_experts}个专家): [{weights_str}]")
