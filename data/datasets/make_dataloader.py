@@ -13,6 +13,18 @@ from .RGBNT100 import RGBNT100
 from .sampler_ddp import RandomIdentitySampler_DDP
 from .qwen_vl_loader import get_text_loader, QwenVLTextLoader  # 新增文本特征加载器
 import torch.distributed as dist
+def _tokenize_texts(texts, context_length=77):
+    from modeling.clip.simple_tokenizer import SimpleTokenizer
+    import torch as _torch
+    tokenizer = SimpleTokenizer()
+    result = []
+    for text in texts:
+        tokens = tokenizer.encode(text or '')[:context_length - 2]
+        tokens = [49406] + tokens + [49407]
+        tokens = tokens + [0] * (context_length - len(tokens))
+        result.append(tokens)
+    return _torch.tensor(result, dtype=_torch.long)
+
 
 # 数据集字典：存数据集的名称 需要加载新的就往这里写
 __factory = {
@@ -367,6 +379,14 @@ def val_collate_fn_with_text(batch):
 # 该函数根据配置文件 cfg 构建训练和验证数据加载器（dataloader）
 def make_dataloader(cfg):
     import os
+    # Initialize collate_fn variables with module-level defaults to avoid UnboundLocalError
+    # when dataset-specific branches don't execute (e.g., non-RGBNT201 datasets)
+    import sys as _sys
+    _m = _sys.modules[__name__]
+    _train_collate_fn_default = getattr(_m, 'train_collate_fn')
+    _val_collate_fn_default = getattr(_m, 'val_collate_fn')
+    train_collate_fn = _train_collate_fn_default
+    val_collate_fn = _val_collate_fn_default
     re_prob = getattr(cfg.INPUT, 'RE_PROB', 0.5)
 
     # ============ IDEA风格离线预编码（完全按照IDEA项目的方式） ============
@@ -518,45 +538,69 @@ def make_dataloader(cfg):
     elif dataset_name == 'RGBNT201':
         # 创建自定义的数据集包装类，支持动态文本功能
         class RGBNT201DatasetWrapper(Dataset):
-            """RGBNT201数据集包装器，支持动态文本功能"""
+            """RGBNT201数据集包装器，支持预编码文本特征"""
 
-            def __init__(self, dataset, transform=None, use_text_features=False):
+            def __init__(self, dataset, transform=None, use_text_features=False, feat_dir=None):
                 self.dataset = dataset
                 self.transform = transform
                 self.use_text_features = use_text_features
+                # 加载预编码的 512 维文本向量
+                self._feat = {}
+                if use_text_features and feat_dir and os.path.isdir(feat_dir):
+                    import glob
+                    for pt_file in glob.glob(os.path.join(feat_dir, "*_feat.pt")):
+                        name = os.path.basename(pt_file)          # e.g. train_RGB_feat.pt
+                        key = name.replace("_feat.pt", "")        # e.g. train_RGB
+                        self._feat[key] = torch.load(pt_file, map_location="cpu")
+                    print(f"✅ 已加载预编码文本特征: {list(self._feat.keys())}")
+                elif use_text_features:
+                    print("⚠️  未找到预编码文本特征目录，文本功能将降级为 token 模式")
 
             def __len__(self):
                 return len(self.dataset)
 
+            def _get_feat(self, split_modal, jpg_name):
+                """根据 split(train/test) + modal(RGB/NI/TI) + 文件名 返回 512 维向量"""
+                key = f"{split_modal}"   # e.g. "train_RGB"
+                if key in self._feat and jpg_name in self._feat[key]:
+                    return self._feat[key][jpg_name]   # tensor [512]
+                return None
+
             def __getitem__(self, index):
-                # RGBNT201数据集返回: (img_paths, pid, camid, trackid, text_rgb, text_nir, text_tir)
                 data = self.dataset[index]
 
                 if self.use_text_features:
-                    # 返回包含文本的完整数据
                     img_paths, pid, camid, trackid, text_rgb, text_nir, text_tir = data
+                    jpg_name = os.path.basename(img_paths[0])
 
-                    # 读取和变换图像
+                    # 优先用预编码向量，降级用字符串
+                    # split 由 dataset 决定（train 或 test）
+                    for split in ("train", "test"):
+                        rgb_feat = self._get_feat(f"{split}_RGB", jpg_name)
+                        if rgb_feat is not None:
+                            nir_feat = self._get_feat(f"{split}_NI", jpg_name)
+                            tir_feat = self._get_feat(f"{split}_TI", jpg_name)
+                            text_rgb = rgb_feat if rgb_feat is not None else text_rgb
+                            text_nir = nir_feat if nir_feat is not None else text_nir
+                            text_tir = tir_feat if tir_feat is not None else text_tir
+                            break
+
                     img3 = read_image(img_paths)
                     if self.transform is not None:
                         img = [self.transform(img) for img in img3]
-
                     return img, pid, camid, trackid, text_rgb, text_nir, text_tir
                 else:
-                    # 只返回图像数据，忽略文本
                     img_paths, pid, camid, trackid, _, _, _ = data
-
-                    # 读取和变换图像
                     img3 = read_image(img_paths)
                     if self.transform is not None:
                         img = [self.transform(img) for img in img3]
-
                     return img, pid, camid, trackid
 
         if use_text_features:
             # ✅ 启用文本功能：使用包装器 + 文本collate函数
-            train_set = RGBNT201DatasetWrapper(dataset.train, train_transforms, use_text_features=True)
-            train_set_normal = RGBNT201DatasetWrapper(dataset.train, val_transforms, use_text_features=True)
+            _feat_dir = os.path.join(root_dir, 'datasets', 'RGBNT201', 'text')
+            train_set = RGBNT201DatasetWrapper(dataset.train, train_transforms, use_text_features=True, feat_dir=_feat_dir)
+            train_set_normal = RGBNT201DatasetWrapper(dataset.train, val_transforms, use_text_features=True, feat_dir=_feat_dir)
 
             # 创建包含文本的collate函数
             def train_collate_fn_with_text(batch):
@@ -584,50 +628,17 @@ def make_dataloader(cfg):
                 trackids = torch.tensor(trackids, dtype=torch.int64)
 
                 # 处理文本特征 - 使用CLIP编码或预编码
-                text_features = {}
-                if idea_style_text_loader is not None:
-                    # 使用IDEA风格的文本编码
-                    rgb_features = []
-                    nir_features = []
-                    tir_features = []
+                # 文本已在 __getitem__ 中以预编码 [512] 向量返回；降级时为字符串
+                def _stack_or_tokenize(texts):
+                    if isinstance(texts[0], torch.Tensor):
+                        return torch.stack(texts, dim=0)   # [B, 512] 预编码向量
+                    return _tokenize_texts(list(texts))    # [B, 77] token 降级
 
-                    for rgb_text, nir_text, tir_text in zip(texts_rgb, texts_nir, texts_tir):
-                        # 根据加载器模式选择编码方式
-                        if hasattr(idea_style_text_loader, '_encode_text_description') and idea_style_text_loader.use_clip:
-                            # CLIP模式：实时编码文本
-                            rgb_feat = idea_style_text_loader._encode_text_description(rgb_text)
-                            nir_feat = idea_style_text_loader._encode_text_description(nir_text)
-                            tir_feat = idea_style_text_loader._encode_text_description(tir_text)
-                        else:
-                            # 预编码模式：直接返回文本（由模型处理）
-                            rgb_feat = rgb_text
-                            nir_feat = nir_text
-                            tir_feat = tir_text
-
-                        rgb_features.append(rgb_feat)
-                        nir_features.append(nir_feat)
-                        tir_features.append(tir_feat)
-
-                    # 如果是特征向量，堆叠；如果是文本，保持列表
-                    if isinstance(rgb_features[0], torch.Tensor):
-                        text_features = {
-                            'RGB': torch.stack(rgb_features, dim=0),
-                            'NIR': torch.stack(nir_features, dim=0),
-                            'TIR': torch.stack(tir_features, dim=0)
-                        }
-                    else:
-                        text_features = {
-                            'RGB': rgb_features,
-                            'NIR': nir_features,
-                            'TIR': tir_features
-                        }
-                else:
-                    # 降级：返回预处理文本字符串（用于调试）
-                    text_features = {
-                        'RGB': list(texts_rgb),
-                        'NIR': list(texts_nir),
-                        'TIR': list(texts_tir)
-                    }
+                text_features = {
+                    'RGB': _stack_or_tokenize(texts_rgb),
+                    'NIR': _stack_or_tokenize(texts_nir),
+                    'TIR': _stack_or_tokenize(texts_tir),
+                }
 
                 return imgs, pids, camids, trackids, text_features
 
@@ -694,6 +705,7 @@ def make_dataloader(cfg):
         print("✅ 使用增强版collate函数（支持文本特征）")
     else:
         # 使用原始collate函数
+        pass  # uses defaults set at function start
         print("✅ 使用原始collate函数（无文本特征）")
 
     if 'triplet' in cfg.DATALOADER.SAMPLER:
@@ -756,7 +768,8 @@ def make_dataloader(cfg):
     elif dataset_name == 'RGBNT201':
         # RGBNT201数据集 - 需要特殊处理，支持文本和非文本模式
         val_data = dataset.query + dataset.gallery
-        val_set = RGBNT201DatasetWrapper(val_data, val_transforms, use_text_features=use_text_features)
+        _val_feat_dir = os.path.join(root_dir, 'datasets', 'RGBNT201', 'text') if use_text_features else None
+        val_set = RGBNT201DatasetWrapper(val_data, val_transforms, use_text_features=use_text_features, feat_dir=_val_feat_dir)
         print(f"✅ 使用RGBNT201验证数据集（{'包含' if use_text_features else '不包含'}文本特征）")
         # 为RGBNT201创建专门的验证collate函数
         def val_collate_fn_rgbnt201(batch):
@@ -777,10 +790,14 @@ def make_dataloader(cfg):
                 try:
                     imgs, pids, camids, trackids, text_rgbs, text_nirs, text_tirs = zip(*batch)
                     # 处理文本特征
+                    def _stack_val(items):
+                        if items and isinstance(items[0], __import__('torch').Tensor):
+                            return __import__('torch').stack(list(items), dim=0)
+                        return list(items)
                     text_features = {
-                        'RGB': list(text_rgbs),
-                        'NIR': list(text_nirs),
-                        'TIR': list(text_tirs)
+                        'RGB': _stack_val(text_rgbs),
+                        'NIR': _stack_val(text_nirs),
+                        'TIR': _stack_val(text_tirs)
                     }
                 except ValueError:
                     # 如果解包失败，可能是格式不匹配

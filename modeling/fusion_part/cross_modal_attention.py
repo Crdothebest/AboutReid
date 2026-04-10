@@ -205,7 +205,8 @@ def create_text_fusion_module(method: str = "attention", **kwargs) -> nn.Module:
     elif method == "concat":
         return TextConcatFusion(**kwargs)
     elif method == "residual":
-        return TextResidualFusion(**kwargs)
+        residual_kwargs = {k: v for k, v in kwargs.items() if k != 'input_dim'}
+        return TextResidualFusion(**residual_kwargs)
     else:
         raise ValueError(f"Unknown text fusion method: {method}")
 

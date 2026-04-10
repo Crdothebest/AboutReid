@@ -128,6 +128,7 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
                                           cfg.MODEL.STRIDE_SIZE)  # 加载 CLIP 模型
             clip_model.to("cuda")  # 将 CLIP 模型移至 GPU
             self.base = clip_model.visual  # 使用视觉编码器作为骨干
+            self._clip_model = clip_model  # 保留 CLIP 模型引用，供 IDEA02 文本编码使用（encode_text 用 no_grad 调用，无需冻结）
 
             # 获取CLIP模型的实际vision_width（通常是768而不是512）
             # VisionTransformer没有直接的width属性，需要从transformer中获取
@@ -675,14 +676,25 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                 if text_feat is None:
                     return visual_feat
 
-                # 分布对齐
-                visual_normed = self.visual_norm(visual_feat)
+                # 支持 [B, seq, D] 和 [B, D] 两种输入：取 CLS token（第0个）做引导
+                is_seq = visual_feat.dim() == 3
+                if is_seq:
+                    cls_feat = visual_feat[:, 0]  # [B, D]
+                else:
+                    cls_feat = visual_feat
+
+                # 分布对齐（均基于 [B, D]）
+                visual_normed = self.visual_norm(cls_feat)
                 text_normed = self.text_norm(text_feat)
                 text_aligned = self.text_adapter(text_normed)
 
-                # 生成门控信号
+                # 生成门控信号 [B, D]
                 combined = torch.cat([visual_normed, text_aligned], dim=-1)
                 guidance = self.gate_network(combined)
+
+                if is_seq:
+                    # 把 guidance 广播到整个序列
+                    guidance = guidance.unsqueeze(1)  # [B, 1, D]
 
                 if self.use_residual:
                     # 安全的残差增强：原始 + 增强
@@ -731,7 +743,7 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                 # ============ 文本融合 ============
                 if self.use_text_fusion and self.text_fusion is not None and text_features is not None:
                     # 准备文本特征：分模态处理，避免语义稀释
-                    text_rgb = text_features['RGB']  # [B, 512]
+                    text_rgb = text_features['RGB']  # [B, 512] 预编码向量
                     text_nir = text_features['NIR']  # [B, 512]
                     text_tir = text_features['TIR']  # [B, 512]
 
@@ -810,8 +822,10 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                     RGB_enhanced, NI_enhanced, TI_enhanced = RGB_cash, NI_cash, TI_cash
 
                 # ============ 阶段2：维度守恒拼接 (Dimension-Invariant Concatenation) ============
-                # 将三个增强后的模态特征拼接，保持1536维输出
-                fuse = torch.cat([RGB_enhanced, NI_enhanced, TI_enhanced], dim=-1)  # [B, 1536]
+                # IMSG 可能返回 [B, seq, D]，拼接前统一取 CLS token (index 0)
+                def _get_global(feat):
+                    return feat[:, 0] if feat.dim() == 3 else feat
+                fuse = torch.cat([_get_global(RGB_enhanced), _get_global(NI_enhanced), _get_global(TI_enhanced)], dim=-1)  # [B, 1536]
 
                 # ============ 兼容性：保留原有文本融合逻辑 (可选) ============
                 if self.use_text_fusion and self.text_fusion is not None and text_features is not None:

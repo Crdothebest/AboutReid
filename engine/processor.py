@@ -334,7 +334,7 @@ def do_train(cfg,
                 img, vid, target_cam, target_view, _, text_features = batch_data
             elif len(batch_data) == 5:  # RGBNT201格式 (可能包含文本或None)
                 img, vid, target_cam, target_view, text_features = batch_data
-                if text_features is None:  # 不包含文本特征
+                if not isinstance(text_features, dict):  # 不是文本特征dict（可能是图像路径tuple等）
                     text_features = None
             else:  # 标准格式 (4个值)
                 img, vid, target_cam, target_view = batch_data
@@ -352,7 +352,14 @@ def do_train(cfg,
 
             # 处理文本特征（如果存在）
             if text_features is not None:
-                text_features = {k: v.to(device) for k, v in text_features.items()}
+                text_features = {
+                    k: v.to(device) if isinstance(v, __import__('torch').Tensor) else v
+                    for k, v in text_features.items()
+                }
+                # 过滤掉非Tensor的值（如文本字符串）
+                text_features = {k: v for k, v in text_features.items() if isinstance(v, __import__('torch').Tensor)}
+                if not text_features:
+                    text_features = None
 
             # 前向：混合精度
             expert_weights = None
@@ -785,7 +792,9 @@ def do_train(cfg,
                         camids = camids.to(device)
                         scenceids = target_view                    # 保留原始 scene id（变量名有拼写：scenceids）
                         target_view = target_view.to(device)
-                        feat = model(img, cam_label=camids, view_label=target_view)
+                        if text_features is not None and isinstance(text_features, dict):
+                            text_features = {k: v.to(device) if isinstance(v, __import__('torch').Tensor) else v for k, v in text_features.items()}
+                        feat = model(img, cam_label=camids, view_label=target_view, text_features=text_features if text_features is not None else None)
                         if cfg.DATASETS.NAMES == "MSVR310":
                             evaluator.update((feat, vid, camid, scenceids, img_paths))
                         else:
