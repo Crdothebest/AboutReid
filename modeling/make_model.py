@@ -458,7 +458,6 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
         print(f"✅ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
 
 
-
 class MambaPro(nn.Module):  # 三模态组装与融合 head
     def __init__(self, num_classes, cfg, camera_num, view_num, factory):
         super(MambaPro, self).__init__()
@@ -732,31 +731,6 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             RGB_cash = RGB_tokens
             NI_cash = NI_tokens
             TI_cash = TI_tokens
-
-            # ============ 文本-视觉对齐 Loss (InfoNCE) ============
-            # 批内对比损失：同一行人的(视觉, 文本)为正样本，批内其他行人为负样本
-            # 比逐样本cosine距离更强：利用批内所有负样本，强迫不同身份特征分开
-            self.text_align_loss = None
-            if text_features is not None and self.use_text_fusion:
-                import torch.nn.functional as F
-
-                def _info_nce(v, t, temperature=0.07):
-                    B = v.size(0)
-                    v = F.normalize(v, dim=-1)
-                    t = F.normalize(t, dim=-1)
-                    logits = v @ t.T / temperature          # [B, B]
-                    labels = torch.arange(B, device=v.device)
-                    return (F.cross_entropy(logits, labels) + F.cross_entropy(logits.T, labels)) / 2.0
-
-                temperature = getattr(self.cfg.MODEL, 'TEXT_ALIGN_TEMPERATURE', 0.07)
-                align_loss = 0.0
-                count = 0
-                for feat, key in [(RGB_global, 'RGB'), (NI_global, 'NIR'), (TI_global, 'TIR')]:
-                    if key in text_features:
-                        align_loss = align_loss + _info_nce(feat, text_features[key], temperature)
-                        count += 1
-                if count > 0:
-                    self.text_align_loss = align_loss / count
 
             # 🔥 固定三模态拼接（与MambaPro完全一致，移除智能检测）
             ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 三模态拼接 [B, 1536]
