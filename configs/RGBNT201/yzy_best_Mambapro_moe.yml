@@ -91,18 +91,13 @@ SOLVER:
   CENTER_LOSS_WEIGHT: 0.0005 # 中心损失权重
   CENTER_LR: 0.5 # 中心学习率
   
-  # ========== MoE损失权重：复刻80.5%最佳实验配置 ==========
-  # 关键：启用动态权重调度，平衡损失从0.001逐渐增大到0.1
-  # 效果：前期专家自由探索（初始权重趋近均匀36/34/31），后期约束均衡
-  # 对比：固定权重0.01会导致epoch10即崩塌至91/4/4%
-  MOE_USE_DYNAMIC_LOSS_WEIGHT: true  # 启用动态调度（80.5%实验的关键配置）
-  MOE_BALANCE_LOSS_WEIGHT: 0.001     # 初始平衡损失权重（动态调度起点）
-  MOE_BALANCE_LOSS_WEIGHT_START: 0.001
-  MOE_BALANCE_LOSS_WEIGHT_END: 0.1
-  MOE_SPARSITY_LOSS_WEIGHT: 0.001    # 稀疏性损失（与80.5%一致，原来0.0005减半）
-  MOE_DIVERSITY_LOSS_WEIGHT: 0.001   # 初始多样性损失权重（动态调度起点）
-  MOE_DIVERSITY_LOSS_WEIGHT_START: 0.001
-  MOE_DIVERSITY_LOSS_WEIGHT_END: 0.1
+  # ========== MoE损失权重：完全复刻80.5%最佳实验配置 ==========
+  # 证据：outputs/RGBNT201/80.5mAP_scales-4+8+16_MoE3/goodConfig-01.yml
+  # 80.5%那次：固定权重，无动态调度，balance=0.001，sparsity=0.0001，diversity=0.001
+  MOE_USE_DYNAMIC_LOSS_WEIGHT: false  # 关闭动态调度（80.5%实验未使用此功能）
+  MOE_BALANCE_LOSS_WEIGHT: 0.001      # 固定平衡损失权重（与80.5%一致）
+  MOE_SPARSITY_LOSS_WEIGHT: 0.0001    # 稀疏性损失（与80.5%一致：0.0001）
+  MOE_DIVERSITY_LOSS_WEIGHT: 0.001    # 多样性损失权重（与80.5%一致）
 
   # ========================================================================
   # 【门控网络独立学习率设置：解决模式坍塌问题】
