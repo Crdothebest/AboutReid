@@ -505,7 +505,9 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                 dropout=post_moe_dropout, batch_first=True
             )
             self.post_moe_norm = nn.LayerNorm(1536)
-            print(f"✅ MambaPro已启用 Post-MoE 文本注意力融合 (heads={post_moe_heads})")
+            # 初始化为0：训练初期文本贡献为零，和纯视觉一致起步，随训练自然增长
+            self.post_moe_scale = nn.Parameter(torch.zeros(1))
+            print(f"✅ MambaPro已启用 Post-MoE 文本注意力融合 (heads={post_moe_heads}, scale_init=0)")
 
         # ============ 模态内引导配置 ============
         self.use_modal_guidance = getattr(cfg.MODEL, 'USE_MODAL_GUIDANCE', True)  # 默认启用模态内引导
@@ -809,7 +811,7 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                     text_kv = self.post_moe_text_proj(text_cat).unsqueeze(1)      # [B, 1, 1536]
                     fuse_q = fuse.unsqueeze(1)                                     # [B, 1, 1536]
                     attn_out, _ = self.post_moe_attn(fuse_q, text_kv, text_kv)    # [B, 1, 1536]
-                    fuse = self.post_moe_norm(fuse + attn_out.squeeze(1))          # 残差 + LN
+                    fuse = self.post_moe_norm(fuse + self.post_moe_scale * attn_out.squeeze(1))  # 残差 + LN，scale从0开始
 
                 fuse_global = self.bottleneck_fuse(fuse)  # BNNeck 融合
                 fuse_score = self.classifier_fuse(fuse_global)  # 融合分类
