@@ -131,6 +131,14 @@ _C.MODEL.USE_MODAL_GUIDANCE = False       # 模态内引导主开关（默认关
 _C.MODEL.GUIDANCE_RESIDUAL = True         # 使用残差结构（防止特征丢失）
 _C.MODEL.GUIDANCE_SCALE = 0.1             # 引导增强幅度（可调节）
 
+# ========== 替代方案：Post-MoE 跨模态注意力 ==========
+# 文本融合发生在 MoE 之后、分类头之前，不干扰 MoE 路由
+# 开关：MODEL.USE_POST_MOE_TEXT_FUSION True/False
+_C.MODEL.USE_POST_MOE_TEXT_FUSION = False  # Post-MoE 文本注意力主开关（默认关闭）
+_C.MODEL.POST_MOE_ATTN_HEADS = 8           # 跨模态注意力头数
+_C.MODEL.POST_MOE_ATTN_DROPOUT = 0.1       # 注意力 dropout
+_C.MODEL.TEXT_ALIGN_LOSS_WEIGHT = 0.0      # 文本对齐损失权重（0=禁用）
+
 # ========== 新增配置：门控融合机制设置 ==========
 # 用户修改：添加门控融合机制配置，支持命令行开关控制
 # 功能：控制是否启用门控融合机制增强MoE融合效果

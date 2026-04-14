@@ -26,6 +26,16 @@ MODEL:
   # 注意：门控融合使用MLP门控网络，不需要GATE_NUM_HEADS参数
   USE_GATE_FUSION: False
   GATE_DROPOUT: 0.1
+
+  # ========== 替代方案：Post-MoE 跨模态注意力 ==========
+  # 文本融合位置：MoE 之后、分类头之前（不干扰 MoE 路由）
+  # 开启方式：命令行加 MODEL.USE_POST_MOE_TEXT_FUSION True
+  # 当前方案（IMSG+CMTF）：MODEL.USE_TEXT_FUSION True MODEL.USE_MODAL_GUIDANCE True
+  # 替代方案（Post-MoE）：MODEL.USE_POST_MOE_TEXT_FUSION True（同时关闭上面两个）
+  USE_POST_MOE_TEXT_FUSION: False  # 默认关闭，按需开启
+  POST_MOE_ATTN_HEADS: 8           # 注意力头数
+  POST_MOE_ATTN_DROPOUT: 0.1       # dropout
+  TEXT_ALIGN_LOSS_WEIGHT: 0.0      # 对齐损失权重（0=禁用InfoNCE）
   
   # ========== 优化MoE参数：提升专家网络性能 ==========
   MOE_EXPERT_HIDDEN_DIM: 1280   # 🔧 优化：从1024增加到1280，增强专家网络表达能力

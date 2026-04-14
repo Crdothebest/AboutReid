@@ -492,6 +492,21 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
         self.text_fusion_input_dim = getattr(cfg.MODEL, 'TEXT_FUSION_INPUT_DIM', self.feat_dim * 3)
         self.text_fusion_text_dim = getattr(cfg.MODEL, 'TEXT_FUSION_TEXT_DIM', self.feat_dim)
 
+        # ============ Post-MoE 跨模态注意力配置（替代方案） ============
+        self.use_post_moe_text_fusion = getattr(cfg.MODEL, 'USE_POST_MOE_TEXT_FUSION', False)
+        if self.use_post_moe_text_fusion:
+            post_moe_heads = getattr(cfg.MODEL, 'POST_MOE_ATTN_HEADS', 8)
+            post_moe_dropout = getattr(cfg.MODEL, 'POST_MOE_ATTN_DROPOUT', 0.1)
+            # Q=视觉(1536维), K/V=文本(512维*3模态拼接后投影)
+            # 用 MultiheadAttention：Q dim=1536, K/V 先投影到1536
+            self.post_moe_text_proj = nn.Linear(512 * 3, 1536)   # 三模态文本拼接→1536
+            self.post_moe_attn = nn.MultiheadAttention(
+                embed_dim=1536, num_heads=post_moe_heads,
+                dropout=post_moe_dropout, batch_first=True
+            )
+            self.post_moe_norm = nn.LayerNorm(1536)
+            print(f"✅ MambaPro已启用 Post-MoE 文本注意力融合 (heads={post_moe_heads})")
+
         # ============ 模态内引导配置 ============
         self.use_modal_guidance = getattr(cfg.MODEL, 'USE_MODAL_GUIDANCE', True)  # 默认启用模态内引导
         self.guidance_residual = getattr(cfg.MODEL, 'GUIDANCE_RESIDUAL', True)   # 使用残差结构避免特征丢失
@@ -785,6 +800,17 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                         if self.concat_upsampler is not None:
                             fuse = self.concat_upsampler(fuse)
 
+                # ============ Post-MoE 跨模态注意力（替代方案） ============
+                if self.use_post_moe_text_fusion and text_features is not None:
+                    text_rgb = text_features['RGB']   # [B, 512]
+                    text_nir = text_features['NIR']   # [B, 512]
+                    text_tir = text_features['TIR']   # [B, 512]
+                    text_cat = torch.cat([text_rgb, text_nir, text_tir], dim=-1)  # [B, 1536]
+                    text_kv = self.post_moe_text_proj(text_cat).unsqueeze(1)      # [B, 1, 1536]
+                    fuse_q = fuse.unsqueeze(1)                                     # [B, 1, 1536]
+                    attn_out, _ = self.post_moe_attn(fuse_q, text_kv, text_kv)    # [B, 1, 1536]
+                    fuse = self.post_moe_norm(fuse + attn_out.squeeze(1))          # 残差 + LN
+
                 fuse_global = self.bottleneck_fuse(fuse)  # BNNeck 融合
                 fuse_score = self.classifier_fuse(fuse_global)  # 融合分类
 
@@ -854,6 +880,17 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                         if self.attention_upsampler is not None:
                             fuse_text = self.attention_upsampler(fuse_text)  # [B, 1536]
                         fuse = fuse + self.text_fusion_weight * fuse_text  # 残差相加保留原始信息
+
+                # ============ Post-MoE 跨模态注意力（替代方案，推理阶段） ============
+                if self.use_post_moe_text_fusion and text_features is not None:
+                    text_rgb = text_features['RGB']
+                    text_nir = text_features['NIR']
+                    text_tir = text_features['TIR']
+                    text_cat = torch.cat([text_rgb, text_nir, text_tir], dim=-1)
+                    text_kv = self.post_moe_text_proj(text_cat).unsqueeze(1)
+                    fuse_q = fuse.unsqueeze(1)
+                    attn_out, _ = self.post_moe_attn(fuse_q, text_kv, text_kv)
+                    fuse = self.post_moe_norm(fuse + attn_out.squeeze(1))
 
                 return fuse
             else:
