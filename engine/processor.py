@@ -379,7 +379,14 @@ def do_train(cfg,
                     loss_tmp = loss_fn(score=output[i], feat=output[i + 1],
                                        target=target, target_cam=target_cam)
                     loss = loss + loss_tmp
-                
+
+                # 文本-视觉对齐 Loss：约束文本和视觉在同一语义空间
+                text_align_loss_weight = getattr(cfg.MODEL, 'TEXT_ALIGN_LOSS_WEIGHT', 0.1)
+                if (text_features is not None
+                        and hasattr(model, 'text_align_loss')
+                        and model.text_align_loss is not None):
+                    loss = loss + text_align_loss_weight * model.text_align_loss
+
                 # 🔥 新增：MoE损失计算
                 # 功能：为MoE模块添加专门的损失函数
                 # 包含：平衡损失、稀疏性损失、多样性损失

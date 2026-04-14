@@ -458,6 +458,32 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
         print(f"✅ 参数加载完成: 成功加载 {loaded_params} 个参数, 跳过 {skipped_params} 个参数")
 
 
+class ModalTextFilter(nn.Module):
+    """模态自适应文本过滤器
+
+    用 sigmoid 门控学习当前模态对哪些文本维度敏感：
+    - RGB 模态保留颜色 + 形状维度
+    - NIR/TIR 模态自动压制颜色维度，保留形状维度
+    接口与 nn.Sequential(text_feat) 完全兼容，无需修改调用方。
+    """
+    def __init__(self, text_dim, out_dim, dropout=0.1):
+        super().__init__()
+        self.gate = nn.Sequential(
+            nn.Linear(text_dim, text_dim),
+            nn.Sigmoid()
+        )
+        self.transform = nn.Sequential(
+            nn.Linear(text_dim, out_dim),
+            nn.LayerNorm(out_dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, text_feat):
+        gate_weights = self.gate(text_feat)      # [B, text_dim] ∈ [0,1]
+        filtered = text_feat * gate_weights      # 维度级别选择性保留
+        return self.transform(filtered)          # [B, out_dim]
+
+
 class MambaPro(nn.Module):  # 三模态组装与融合 head
     def __init__(self, num_classes, cfg, camera_num, view_num, factory):
         super(MambaPro, self).__init__()
@@ -509,23 +535,10 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             print(f"✅ MambaPro已启用文本融合: {self.text_fusion_method}模式 (embed_dim: {self.text_fusion_embed_dim})")
             # 预创建 residual 模式所需的文本适配器，确保参数被 optimizer 注册、设备一致
             if self.text_fusion_method == "residual":
-                _half = self.text_fusion_input_dim // 2
                 self.text_adapters = nn.ModuleDict({
-                    'RGB': nn.Sequential(
-                        nn.Linear(512, _half), nn.GELU(),
-                        nn.Linear(_half, self.text_fusion_input_dim),
-                        nn.LayerNorm(self.text_fusion_input_dim)
-                    ),
-                    'NIR': nn.Sequential(
-                        nn.Linear(512, _half), nn.GELU(),
-                        nn.Linear(_half, self.text_fusion_input_dim),
-                        nn.LayerNorm(self.text_fusion_input_dim)
-                    ),
-                    'TIR': nn.Sequential(
-                        nn.Linear(512, _half), nn.GELU(),
-                        nn.Linear(_half, self.text_fusion_input_dim),
-                        nn.LayerNorm(self.text_fusion_input_dim)
-                    ),
+                    'RGB': ModalTextFilter(512, self.text_fusion_input_dim),
+                    'NIR': ModalTextFilter(512, self.text_fusion_input_dim),
+                    'TIR': ModalTextFilter(512, self.text_fusion_input_dim),
                 })
             else:
                 self.text_adapters = None
@@ -645,74 +658,42 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
                 print(f"   ... 还有 {len(size_mismatch_params) - 10} 个参数未显示")
 
     def _create_modal_guidance(self):
-        """创建安全的模态内引导网络"""
+        """创建模态内引导网络：加法注入，直接改变视觉特征的语义方向"""
         class SafeModalGuidance(nn.Module):
-            """安全的模态内引导：残差结构避免特征丢失"""
+            """模态内引导：将文本向量投影后加法注入到视觉特征，改变语义方向"""
 
-            def __init__(self, feat_dim=512, text_dim=512, use_residual=True, scale_init=0.1):
+            def __init__(self, feat_dim=512, text_dim=512, scale_init=0.1):
                 super().__init__()
                 self.feat_dim = feat_dim
-                self.use_residual = use_residual
 
-                # 分布对齐层
-                self.visual_norm = nn.LayerNorm(feat_dim)
+                # 文本对齐：LayerNorm + Linear，将文本投影到视觉空间
                 self.text_norm = nn.LayerNorm(text_dim)
                 self.text_adapter = nn.Linear(text_dim, feat_dim)
 
-                # 安全的门控网络
-                self.gate_network = nn.Sequential(
-                    nn.Linear(feat_dim * 2, feat_dim),
-                    nn.LayerNorm(feat_dim),
-                    nn.GELU(),
-                    nn.Linear(feat_dim, feat_dim),
-                    nn.Sigmoid()  # 输出[0,1]门控信号
-                )
-
-                # 增强幅度控制器 (可配置初始值)
+                # 可学习的注入幅度，初始值小以保证训练稳定
                 self.enhancement_scale = nn.Parameter(torch.tensor(scale_init))
 
             def forward(self, visual_feat, text_feat=None):
-                """安全的模态内引导"""
                 if text_feat is None:
                     return visual_feat
 
-                # 支持 [B, seq, D] 和 [B, D] 两种输入：取 CLS token（第0个）做引导
                 is_seq = visual_feat.dim() == 3
-                if is_seq:
-                    cls_feat = visual_feat[:, 0]  # [B, D]
-                else:
-                    cls_feat = visual_feat
 
-                # 分布对齐（均基于 [B, D]）
-                visual_normed = self.visual_norm(cls_feat)
-                text_normed = self.text_norm(text_feat)
-                text_aligned = self.text_adapter(text_normed)
-
-                # 生成门控信号 [B, D]
-                combined = torch.cat([visual_normed, text_aligned], dim=-1)
-                guidance = self.gate_network(combined)
+                # 文本投影到视觉空间 [B, D]
+                text_projected = self.text_adapter(self.text_norm(text_feat))
 
                 if is_seq:
-                    # 把 guidance 广播到整个序列
-                    guidance = guidance.unsqueeze(1)  # [B, 1, D]
+                    # 广播加到整个序列 [B, 1, D] -> [B, seq, D]
+                    text_projected = text_projected.unsqueeze(1)
 
-                if self.use_residual:
-                    # 安全的残差增强：原始 + 增强
-                    enhancement = visual_feat * guidance * self.enhancement_scale
-                    enhanced_visual = visual_feat + enhancement
-                else:
-                    # 传统方式（有风险）
-                    enhanced_visual = visual_feat * guidance
-
-                # 数值稳定性保护
-                enhanced_visual = torch.clamp(enhanced_visual, -10, 10)
+                # 加法注入：直接叠加文本语义方向
+                enhanced_visual = visual_feat + self.enhancement_scale * text_projected
 
                 return enhanced_visual
 
         return SafeModalGuidance(
             feat_dim=self.feat_dim,
-            text_dim=self.feat_dim,  # 假设文本维度与视觉一致
-            use_residual=self.guidance_residual,
+            text_dim=self.feat_dim,
             scale_init=self.guidance_scale
         )
 
@@ -732,6 +713,31 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             NI_cash = NI_tokens
             TI_cash = TI_tokens
 
+            # ============ 文本-视觉对齐 Loss (InfoNCE) ============
+            # 批内对比损失：同一行人的(视觉, 文本)为正样本，批内其他行人为负样本
+            # 比逐样本cosine距离更强：利用批内所有负样本，强迫不同身份特征分开
+            self.text_align_loss = None
+            if text_features is not None and self.use_text_fusion:
+                import torch.nn.functional as F
+
+                def _info_nce(v, t, temperature=0.07):
+                    B = v.size(0)
+                    v = F.normalize(v, dim=-1)
+                    t = F.normalize(t, dim=-1)
+                    logits = v @ t.T / temperature          # [B, B]
+                    labels = torch.arange(B, device=v.device)
+                    return (F.cross_entropy(logits, labels) + F.cross_entropy(logits.T, labels)) / 2.0
+
+                temperature = getattr(self.cfg.MODEL, 'TEXT_ALIGN_TEMPERATURE', 0.07)
+                align_loss = 0.0
+                count = 0
+                for feat, key in [(RGB_global, 'RGB'), (NI_global, 'NIR'), (TI_global, 'TIR')]:
+                    if key in text_features:
+                        align_loss = align_loss + _info_nce(feat, text_features[key], temperature)
+                        count += 1
+                if count > 0:
+                    self.text_align_loss = align_loss / count
+
             # 🔥 固定三模态拼接（与MambaPro完全一致，移除智能检测）
             ori = torch.cat([RGB_global, NI_global, TI_global], dim=-1)  # 三模态拼接 [B, 1536]
             ori_global = self.bottleneck(ori)  # BNNeck
@@ -749,23 +755,15 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
 
                     # 应用文本融合 - 分模态引导策略
                     if self.text_fusion_method == "residual":
-                        # ============ 残差融合：文本投影到视觉维度 ============
-                        # 将三个模态的文本特征分别投影到1536维，然后进行门控增强
-                        original_fuse = fuse.clone()  # [B, 1536] 保存原始AAM融合结果
+                        # ============ 加法注入：文本向量直接叠加到视觉特征 ============
+                        # 文本投影到1536维后直接相加，改变特征的语义方向
+                        rgb_proj = self.text_adapters['RGB'](text_rgb)  # [B, 512] -> [B, 1536]
+                        nir_proj = self.text_adapters['NIR'](text_nir)  # [B, 512] -> [B, 1536]
+                        tir_proj = self.text_adapters['TIR'](text_tir)  # [B, 512] -> [B, 1536]
 
-                        # 分别处理每个模态的文本引导（text_adapters 在 __init__ 中预创建）
-                        rgb_modulator = self.text_adapters['RGB'](text_rgb)  # [B, 512] -> [B, 1536]
-                        nir_modulator = self.text_adapters['NIR'](text_nir)  # [B, 512] -> [B, 1536]
-                        tir_modulator = self.text_adapters['TIR'](text_tir)  # [B, 512] -> [B, 1536]
-
-                        # 组合三个模态的文本调制器（加权平均）
-                        text_modulator = (rgb_modulator + nir_modulator + tir_modulator) / 3.0
-
-                        # 门控相乘：使用sigmoid确保数值稳定性
-                        gated_fuse = original_fuse * torch.sigmoid(text_modulator)
-
-                        # 残差相加：保留原始视觉信息 + 文本引导增强
-                        fuse = original_fuse + self.text_fusion_weight * gated_fuse
+                        # 三模态文本向量平均后直接加法注入
+                        text_injection = (rgb_proj + nir_proj + tir_proj) / 3.0
+                        fuse = fuse + self.text_fusion_weight * text_injection
 
                     elif self.text_fusion_method == "attention":
                         # ============ 注意力融合：聚合三模态文本特征后再融合 ============
@@ -839,15 +837,13 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
 
                     # 应用全局文本融合 (可选增强)
                     if self.text_fusion_method == "residual":
-                        # residual 分支：用 text_adapters 将文本投影到 1536 维后做残差增强
-                        # (避免 TextResidualFusion 输出 embed_dim=512 与 fuse [B,1536] 不匹配)
+                        # residual 分支：加法注入，直接将文本投影向量叠加到视觉特征
                         if self.text_adapters is not None:
-                            rgb_mod = self.text_adapters['RGB'](text_features['RGB'])
-                            nir_mod = self.text_adapters['NIR'](text_features['NIR'])
-                            tir_mod = self.text_adapters['TIR'](text_features['TIR'])
-                            text_modulator = (rgb_mod + nir_mod + tir_mod) / 3.0
-                            fuse = fuse + self.text_fusion_weight * fuse * torch.sigmoid(text_modulator)
-                        # 否则跳过文本融合（text_adapters 未初始化）
+                            rgb_proj = self.text_adapters['RGB'](text_features['RGB'])
+                            nir_proj = self.text_adapters['NIR'](text_features['NIR'])
+                            tir_proj = self.text_adapters['TIR'](text_features['TIR'])
+                            text_injection = (rgb_proj + nir_proj + tir_proj) / 3.0
+                            fuse = fuse + self.text_fusion_weight * text_injection
                     else:
                         # attention/concat 分支：fusion 输出 embed_dim(512)，需上采样回 1536
                         fuse_text = self.text_fusion(fuse, text_combined)  # [B, embed_dim]
