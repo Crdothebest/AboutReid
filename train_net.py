@@ -326,11 +326,6 @@ if __name__ == '__main__':
         torch.distributed.init_process_group(backend='nccl', init_method='env://') # 初始化分布式训练
 
     os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID
-    # 临时禁用多进程数据加载，防止多进程问题
-    cfg.defrost()
-    cfg.DATALOADER.NUM_WORKERS = 0
-    cfg.freeze()
-    print("🔧 [WORKERS_FIX] 临时禁用多进程数据加载 (NUM_WORKERS=0)")
 
     train_loader, train_loader_normal, val_loader, num_query, num_classes, camera_num, view_num = make_dataloader(cfg)
     model = make_model(cfg, num_class=num_classes, camera_num=camera_num, view_num=view_num)
