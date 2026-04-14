@@ -381,7 +381,7 @@ def do_train(cfg,
                     loss = loss + loss_tmp
 
                 # 文本-视觉对齐 Loss：约束文本和视觉在同一语义空间
-                text_align_loss_weight = getattr(cfg.MODEL, 'TEXT_ALIGN_LOSS_WEIGHT', 0.1)
+                text_align_loss_weight = getattr(cfg.MODEL, 'TEXT_ALIGN_LOSS_WEIGHT', 0.01)
                 if (text_features is not None
                         and hasattr(model, 'text_align_loss')
                         and model.text_align_loss is not None):

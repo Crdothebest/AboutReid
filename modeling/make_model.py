@@ -461,21 +461,24 @@ class build_transformer(nn.Module):  # 视觉骨干封装（兼容 ViT/CLIP/T2T 
 class ModalTextFilter(nn.Module):
     """模态自适应文本过滤器
 
-    用 sigmoid 门控学习当前模态对哪些文本维度敏感：
-    - RGB 模态保留颜色 + 形状维度
-    - NIR/TIR 模态自动压制颜色维度，保留形状维度
-    接口与 nn.Sequential(text_feat) 完全兼容，无需修改调用方。
+    在原 IDEA02 两层 MLP（512→256→1536）基础上，前置一个 sigmoid 门控层，
+    学习当前模态对哪些文本维度敏感（NIR/TIR 自动压制颜色维度）。
+    门控层零初始化偏置，确保训练初期门控接近 0.5，不破坏预训练特征。
+    接口与原 nn.Sequential(text_feat) 完全兼容，无需修改调用方。
     """
-    def __init__(self, text_dim, out_dim, dropout=0.1):
+    def __init__(self, text_dim, out_dim):
         super().__init__()
+        _half = out_dim // 2
+        # 门控：学习哪些文本维度对当前模态有用，sigmoid 输出 [0,1]
         self.gate = nn.Sequential(
             nn.Linear(text_dim, text_dim),
             nn.Sigmoid()
         )
+        # 变换：与 IDEA02 原始 text_adapters 结构完全一致（两层 + GELU + LayerNorm）
         self.transform = nn.Sequential(
-            nn.Linear(text_dim, out_dim),
-            nn.LayerNorm(out_dim),
-            nn.Dropout(dropout)
+            nn.Linear(text_dim, _half), nn.GELU(),
+            nn.Linear(_half, out_dim),
+            nn.LayerNorm(out_dim)
         )
 
     def forward(self, text_feat):
