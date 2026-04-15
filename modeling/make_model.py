@@ -749,9 +749,9 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
             TI_tokens, TI_score, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
             ti_ew = getattr(self.BACKBONE, 'current_expert_weights', None)
 
-            # 三模态 expert_weights 取平均，让 balance loss 约束所有模态而非仅最后一个
+            # 三模态 expert_weights 沿 batch 维拼接后存回，让 moe_loss_fn 约束全部三模态
             if rgb_ew is not None and ni_ew is not None and ti_ew is not None:
-                self.BACKBONE.current_expert_weights = (rgb_ew + ni_ew + ti_ew) / 3.0
+                self.BACKBONE.current_expert_weights = torch.cat([rgb_ew, ni_ew, ti_ew], dim=0)
 
             # 为了保持兼容性，将tokens作为cash使用
             RGB_cash = RGB_tokens
