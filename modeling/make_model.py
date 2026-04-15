@@ -741,8 +741,17 @@ class MambaPro(nn.Module):  # 三模态组装与融合 head
 
             RGB_tokens, RGB_score, RGB_global = self.BACKBONE(RGB, cam_label=cam_label, view_label=view_label,
                                                             modality='rgb')
+            rgb_ew = getattr(self.BACKBONE, 'current_expert_weights', None)
+
             NI_tokens, NI_score, NI_global = self.BACKBONE(NI, cam_label=cam_label, view_label=view_label, modality='nir')
+            ni_ew = getattr(self.BACKBONE, 'current_expert_weights', None)
+
             TI_tokens, TI_score, TI_global = self.BACKBONE(TI, cam_label=cam_label, view_label=view_label, modality='tir')
+            ti_ew = getattr(self.BACKBONE, 'current_expert_weights', None)
+
+            # 三模态 expert_weights 取平均，让 balance loss 约束所有模态而非仅最后一个
+            if rgb_ew is not None and ni_ew is not None and ti_ew is not None:
+                self.BACKBONE.current_expert_weights = (rgb_ew + ni_ew + ti_ew) / 3.0
 
             # 为了保持兼容性，将tokens作为cash使用
             RGB_cash = RGB_tokens
